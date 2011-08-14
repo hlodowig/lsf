@@ -1,0 +1,94 @@
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+
+# Libreria contenente definizioni e funzioni booleane.
+
+
+# Variabile booleana positiva (valore 1).
+TRUE=1
+# Variabile booleana negativa (valore 0).
+FALSE=0
+
+
+# Funzione che restituisce un exitcode positivo (valore 0).
+True() { return 0; }
+# Funzione che restituisce un exitcode negativo (valore 1).
+False() { return 1; }
+
+
+# Alias per la funzione True (T).
+alias T=True
+# Alias per la funzione False (F).
+alias F=False
+
+
+# Funzione per la valutazione di stringhe booleane.
+# 
+# Parsa una stringa e valuta il valore booleano
+# Se la stringa è uguale a:
+# 1, T, t, Y, y, S, s, [On][Nn], [Ss][Ii], [Tt][Rr][Uu][Ee], [Yy][Ee][Ss]
+# ritorna 0 e stampa 1.
+# Altrimenti:
+# ritorna 1 e stampa 0.
+# Se la modalità "quiet mode" è abilitata, non stampa nulla.
+#
+# ES.
+# > bool_valuation "Yes"
+#   1
+#
+# > bool_valuation --quiet "True"
+#
+bool_valuation() 
+{
+	[ $# -eq 0 ] && return 2
+	
+	local quiet_mode=0
+	
+	if [ "$1" = "-h" -o "$1" = "--help" ]; then
+		echo "$FUNCNAME [-q|--quiet] <bool_string>"
+		return 3
+	elif [ "$1" = "-q" -o "$1" = "--quiet" ]; then
+		quiet_mode=1
+		shift
+	fi
+	
+	EXIT_CODE=$(echo $* | awk '/1|[Tt]([Rr][Uu][Ee])?|[Yy]([Ee][Ss])?|[Ss][Ii]?|[Oo][Nn]/ {print 1}')
+	
+	if [ "$EXIT_CODE" == 1 ]; then
+		[ $quiet_mode -eq 1 ] || echo 1
+		return 0
+	fi
+	
+	[ $quiet_mode -eq 1 ] || echo 0
+	
+	return 1
+}
+
+# Funzione che stampa la stringa passata come parametro e parsa la stringa 
+# passata sullo standard input
+# La stringa viene parsata dalla funzione bool_valuation in quiete mode.
+#
+# ES.
+# > bool_read "Do you understand? "
+#   Do you understand? (insert bool string)
+#
+bool_read() 
+{
+	local quiet_mode=""
+	
+	if [ "$1" = "-h" -o "$1" = "--help" ]; then
+		echo "$FUNCNAME [-q|--quiet] [question string] <bool_string>"
+		return 3
+	elif [ "$1" = "-q" -o "$1" = "--quiet" ]; then
+		quiet_mode="--quiet"
+		shift
+	fi
+
+	echo -ne "$*"
+	
+	read R
+	
+	bool_valuation $quiet_mode "$R"
+	
+	return $?
+}
+
