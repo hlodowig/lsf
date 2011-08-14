@@ -1,0 +1,50 @@
+#-------------------
+# Personnal Aliases
+#-------------------
+ 
+alias rm='rm -r'
+alias cp='cp -rv'
+alias rcp='rsync -avu'
+alias mv='mv'			# -> Evita un clobbering accidentale dei file.
+alias mkdir='mkdir -p'
+ 
+alias h='history'
+alias j='jobs -l'
+alias r='rlogin'
+#alias background='xv -root -quit -max -rmode 5'    # Put a picture in the background
+alias du='du -kh'
+alias df='df -kTh'
+alias clean="rm *~"
+
+alias ..='cd ..'
+alias cd..='cd ..'
+alias edit='cat >'
+
+
+#alias print='/usr/bin/lp -o nobanner -d $LPDEST'   # Assumes LPDEST is defined
+#alias pjet='enscript -h -G -fCourier9 -d $LPDEST'  # Pretty-print using enscript
+ 
+# The 'ls' family (this assumes you use the GNU ls)
+alias ls='ls --color=auto'
+alias ll='ls -lh'
+alias la='ls -ah'
+alias l1='ls -1'
+alias la1='ls -A1'
+alias lla='ll -a'
+
+#alias la='ls -Al'              # show hidden files
+#alias ls='ls -hF --color'		# add colors for filetype recognition
+alias lx='ls -lXB'              # sort by extension
+alias lk='ls -lSr'              # sort by size
+alias lc='ls -lcr'				# sort by change time  
+alias lu='ls -lur'				# sort by access time   
+alias lr='ls -lR'               # recursive ls
+alias lt='ls -ltr'              # sort by date
+alias lm='ls -al |more'         # pipe through 'more'
+
+alias tree='tree -Csu'		    # nice alternative to 'ls'
+
+alias exit="clear; exit"
+
+alias x="startx"
+
