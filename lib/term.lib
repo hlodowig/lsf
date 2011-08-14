@@ -1,0 +1,236 @@
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+
+# Libreria contenente funzione per la stampa avanzata su terminale.
+
+# Restituisce il numero di colonne del terminale corrente.
+term_get_colums()
+{
+	tput cols
+}
+
+# Imposta la posizione del cursore nel terminale corrente.
+term_cursor_set()
+{
+	echo -en "\033[$1;$2H"
+}
+
+# Sposta verso l'alto la posizione del cursore nel terminale corrente.
+#
+# ES.
+# > term_move_down [1] (sposta il cursore un caratteri in alto)
+# > term_move_down <n> (sposta il cursore <n> caratteri in alto)
+term_move_up()
+{
+	local POS=1
+	
+	[ $# -eq 1 ] && POS=$1
+	
+	echo -en "\033[${POS}A"
+}
+
+# Sposta verso il basso la posizione del cursore nel terminale corrente.
+#
+# ES.
+# > term_move_down [1] (sposta il cursore un caratteri in basso)
+# > term_move_down <n> (sposta il cursore <n> caratteri in basso)
+term_move_down()
+{
+	local POS=1
+	
+	[ $# -eq 1 ] && POS=$1
+	
+	echo -en "\033[${POS}B"
+}
+
+# Sposta verso destra la posizione del cursore nel terminale corrente.
+#
+# ES.
+# > term_move_right [1] (sposta il cursore un caratteri a destra)
+# > term_move_right <n> (sposta il cursore <n> caratteri a destra)
+term_move_right()
+{
+	local POS=1
+	
+	[ $# -eq 1 ] && POS=$1
+
+	echo -en "\033[${POS}C"
+}
+
+# Sposta verso sinistra la posizione del cursore nel terminale corrente.
+#
+# ES.
+# > term_move_left [1] (sposta il cursore un caratteri a sinistra)
+# > term_move_left <n> (sposta il cursore <n> caratteri a sinistra)
+term_move_left()
+{
+	local POS=1
+	
+	[ $# -eq 1 ] && POS=$1
+
+	echo -en "\033[${POS}D"
+}
+
+# Sposta il cursore nel terminale con coordinate relative alla posizione corrente.
+term_move()
+{
+	[ $# -eq 0 -o $# -gt 2 ] && return 1
+	
+	case $1 in
+	0|+[1-9]*) term_move_right ${1/+/};;
+	-[1-9]*) term_move_left ${1/-/};;
+	*) return 2;;
+	esac
+
+	if [ $# -eq 2 ]; then
+		case $2 in
+		0|+[1-9]*) term_move_down ${2/+/};;
+		-[1-9]*) term_move_up ${2/-/};;
+		*) return 3;;
+		esac
+	fi
+	
+	return 0
+}
+
+# Salva la posizione corrente del cursore.
+term_cursor_save()
+{
+	echo -en "\033[s"
+}
+
+# Sposta il cursone nella posizione precedentemente salvata.
+term_cursor_restore()
+{
+	echo -en "\033[u"
+}
+
+# Pulisce il terminale.
+alias term_clear=clear
+
+# Restituisce la stringa di escape corrispondente al fg color indicato.
+term_get_color()
+{
+	local COLOR="0"
+	
+	case $1 in
+	0|gray) COLOR="0;30";;
+	0b|GRAY) COLOR="1;30";;
+	1|red) COLOR="0;31";;
+	1b|RED) COLOR="1;31";;
+	2|green) COLOR="0;32";;
+	2b|GREEN) COLOR="1;32";;
+	3|yellow) COLOR="0;33";;
+	3b|YELLOW) COLOR="1;33";;
+	4|blue) COLOR="0;34";;
+	4b|BLUE) COLOR="1;34";;
+	5|violet) COLOR="0;35";;
+	5b|VIOLET) COLOR="1;35";;
+	6|cyan) COLOR="0;36";;
+	6b|CYAN) COLOR="1;36";;
+	7|white) COLOR="0;37";;
+	7b|WHITE) COLOR="1;37";;
+	*) COLOR="0";;
+	esac
+		
+	echo "\033[${COLOR}m"
+}
+
+# Restituisce la stringa di escape corrispondente al bg color indicato.
+term_get_bg_color()
+{
+	local COLOR="0"
+	
+	case $1 in
+	0|gray|GRAY) COLOR="40";;
+	1|red|RED) COLOR="41";;
+	2|green|GREEN) COLOR="42";;
+	3|yellow|YELLOW) COLOR="43";;
+	4|blue|BLUE) COLOR="44";;
+	5|violet|VIOLET) COLOR="45";;
+	6|cyan|CYAN) COLOR="46";;
+	7|white|WHITE) COLOR="47";;
+	*) COLOR="0";;
+	esac
+		
+	echo "\033[${COLOR}m"
+}
+
+# Definizione di alcuni alias relativi ai colori
+#
+# ES.
+# echo -e "${RED}Titolo${DEFAULT}"
+#
+
+# Reset color
+NC=$(term_get_color)
+DEFAULT=$(term_get_color)
+default=$(term_get_color)
+NORMAL=$(term_get_color)
+normal=$(term_get_color)
+RESET=$(term_get_color)
+reset=$(term_get_color)
+
+# Gray color
+gray=$(term_get_color 0)
+GRAY=$(term_get_color 0b)
+
+# Red color
+red=$(term_get_color 1)
+RED=$(term_get_color 1b)
+
+# Green color
+green=$(term_get_color 2)
+GREEN=$(term_get_color 2b)
+
+# Yellow color
+yellow=$(term_get_color 3)
+YELLOW=$(term_get_color 3b)
+
+# Blue color
+blue=$(term_get_color 4)
+BLUE=$(term_get_color 4b)
+
+# Violet color
+violet=$(term_get_color 5)
+VIOLET=$(term_get_color 5b)
+
+# Cyan color
+cyan=$(term_get_color 6)
+CYAN=$(term_get_color 6b)
+
+# White color
+white=$(term_get_color 7)
+WHITE=$(term_get_color 7b)
+
+# Imposta il colore di fg e stampa sul terminale l'eventuale stringa.
+#
+# ES.
+# term_set_color RED "messaggio da stampare con colore rosso"
+#
+term_set_color() 
+{		
+	echo -en "$(term_get_color $1)"
+	
+	shift
+
+	if [ -n "$*" ]; then
+		echo $*
+	fi
+}
+
+# Imposta il colore di bg e stampa sul terminale l'eventuale stringa.
+#
+# ES.
+# term_set_bg_color RED "messaggio da stampare con colore di fondo rosso"
+#
+term_set_bg_color() 
+{		
+	echo -en "$(term_get_bg_color $1)"
+	
+	shift
+
+	if [ -n "$*" ]; then
+		echo $*
+	fi
+}
+
