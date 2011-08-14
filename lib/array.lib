@@ -1,0 +1,227 @@
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+
+
+# Imposta un array.
+#
+# ES.
+# > ARRAY_NAME=()
+# > array_set ARRAY_NAME item1 item2 item3
+#
+array_set()
+{
+	[ $# -gt 0 ] || return 1
+	
+	local VAR_NAME=$1
+	shift
+	
+	eval "$VAR_NAME=( $@ )"
+	
+	return 0
+}
+
+# Restituisce i valori di un array.
+#
+# ES.
+# > ARRAY_NAME=( item1 item2 item3 )
+# > array_get ARRAY_NAME
+#   item1 item2 item3
+#
+array_get()
+{
+	[ $# -gt 0 ] || return 1
+	
+	local VAR_NAME=$1
+	
+	eval "echo \"\${${VAR_NAME}[@]}\""
+	
+	return 0
+}
+
+# Restituisce i valori di un array con quoting.
+#
+# ES.
+# > ARRAY_NAME=( 'item 1' 'item 2' 'item 3' )
+# > array_get ARRAY_NAME
+#   'item 1' 'item 2' 'item 3'
+#
+array_get_items()
+{
+	[ $# -gt 0 ] || return 1
+	
+	local VAR_NAME=$1
+
+	eval "for val in \"\${${VAR_NAME}[@]}\"; do echo \'\$val\'; done"
+}
+
+# Restituisce il valore di un array nella posizione specificata.
+#
+# ES.
+# > ARRAY_NAME=( item1 item2 item3 item4 item5 )
+# > array_get_item ARRAY_NAME 5
+#   item5
+#
+array_get_item()
+{
+	[ $# -gt 1 ] || return 1
+	
+	local VAR_NAME=$1
+	local i=$2
+	
+	eval "echo \${${VAR_NAME}[$i]}"
+	
+	return 0
+}
+
+# Imposta il valore di un array nella posizione specificata.
+#
+# ES.
+# > ARRAY_NAME=( )
+# > array_set_item ARRAY_NAME 5 "item5"
+# > array_get_item ARRAY_NAME 5
+#	item5
+#
+array_set_item()
+{
+	[ $# -gt 2 ] || return 1
+	
+	local VAR_NAME=$1
+	local i=$2
+	local new_val="$3"
+	
+	eval "$VAR_NAME[$i]=\"$new_val\""
+	
+	return 0
+}
+
+# Rimuove il valore di un array nella posizione specificata.
+#
+# ES.
+# > ARRAY_NAME=( item1 item2 item3 )
+# > array_remove_item ARRAY_NAME 2
+# > array_get ARRAY_NAME
+#   item1 item3
+# > array_get_item ARRAY_NAME 2
+#   (empty string)
+#
+array_remove_item()
+{
+	[ $# -gt 1 ] || return 1
+	
+	local VAR_NAME=$1
+	local i=$2
+	
+	eval "unset $VAR_NAME[$i]"
+	
+	return 0
+}
+
+# Rimuove tutti i valore di un array.
+#
+# ES.
+# > ARRAY_NAME=( item1 item2 item3 )
+# > array_remove_all ARRAY_NAME
+# > array_get ARRAY_NAME
+#   (empty string)
+#
+array_remove_all()
+{
+	[ $# -gt 0 ] || return 1
+	
+	local VAR_NAME=$1
+
+	eval "$VAR_NAME=( )"
+	
+	return 0
+}
+
+# Restituisce la dimensione di un array.
+#
+# ES.
+# > ARRAY_NAME=( item1 item2 item3 )
+# > array_length ARRAY_NAME
+#   3
+#
+array_length()
+{
+	[ $# -gt 0 ] || return 1
+
+	eval "echo \${#$1[@]}"
+	
+	return 0
+}
+
+# Restituisce la dimensione di un array.
+#
+# ES.
+# > ARRAY_NAME=( )
+# > array_is_empty ARRAY_NAME
+# > echo $?
+#   0
+#
+# > ARRAY_NAME=( item1 )
+# > array_is_empty ARRAY_NAME
+# > echo $?
+#   1
+#
+array_is_empty()
+{
+	[ $# -gt 0 ] || return 2
+
+	[ $(array_length $1) -eq 0 ] && return 0
+	
+	return 1
+}
+
+# Restituisce 0 se l'array contiene l'elemento specificato, altrimenti 1.
+#
+# > ARRAY_NAME=( item1 item2 item3 )
+# > array_contains ARRAY_NAME item3
+# > echo $?
+#   0
+#
+# > array_contains ARRAY_NAME item5
+# > echo $?
+#   1
+#
+array_contains()
+{
+	[ $# -gt 1 ] || return 1
+	
+	array_get_items $1 | grep "'$2'" > /dev/null
+	
+	return $?
+}
+
+# Se l'array ha elementi in posizioni sparse tali da lasciare posizioni vuoti,
+# allora compatta l'array.
+#
+# > ARRAY_NAME=( [1]=item1 [3]=item3 )
+# > array_get_item ARRAY_NAME 0
+#   (empty string)
+# > array_get_item ARRAY_NAME 1
+#   item0 
+# > array_get_item ARRAY_NAME 2
+#   (empty string)
+# > array_get_item ARRAY_NAME 3
+#   item3
+#
+# > array_compact ARRAY_NAME 
+#
+# > array_get_item ARRAY_NAME 0
+#   item1
+# > array_get_item ARRAY_NAME 1
+#   item3 
+# > array_get_item ARRAY_NAME 2
+#   (empty string)
+# > array_get_item ARRAY_NAME 3
+#   (empty string)
+# 
+array_compact()
+{
+	[ $# -gt 0 ] || return 1
+	
+	local VAR_NAME=$1
+
+	eval "${VAR_NAME}=( $(array_get_items ${VAR_NAME} ) )"
+}
+
