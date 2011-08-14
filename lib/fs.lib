@@ -1,0 +1,135 @@
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+
+lib_include array
+lib_include string
+lib_include math
+
+# Costruisce una cartella.
+fs_mkdir()
+{
+	mkdir -p "$*"	
+}
+
+# Converte un path in un array.
+fs_path2array()
+{
+	local array_var=$1
+	local path="$2"
+
+	array_set $array_var ${path//\// }
+}
+
+# Converte un path relativo in un path assoluto, se necessario.
+fs_get_absolute_path()
+{
+	local FILEPATH=$(
+		if [ $# -eq 0 ]; then
+			cat
+		else
+			echo "$1"
+		fi | awk '{gsub("^ *| *$",""); print}'
+	)
+	
+	if ! string_contains "$FILEPATH" "^/"; then
+	  # This is a relative path
+	  FILEPATH="${PWD}/$FILEPATH"
+	fi
+
+	FILEPATH=$(echo "$FILEPATH" | 
+	awk '{
+		 #print
+		 gsub("\\.(/|$)","#/");
+		 #print
+		 gsub("/\\.#","/##");
+		 #print
+		 gsub("/\\.$","/");
+		 #print
+	     gsub("/#/","/");
+		 #print
+		 while ($0~"//+|/#|/[^/]+/##") {
+	         gsub("//+|/[^/]+/##(/|$)?","/");
+			 #print
+		 }
+		 gsub("/$","")
+		 print
+		}')
+	if [ -z "$FILEPATH" ]; then
+		FILEPATH="/"
+	fi
+	
+	echo $FILEPATH
+}
+
+# Converte un path assoluto in un path relativo, se necessario.
+fs_get_relative_path()
+{
+	local dir_path=$(fs_get_absolute_path "$*")
+
+	local D=()
+	local C=()
+	
+	fs_path2array D "$dir_path"
+	fs_path2array C "$PWD"
+	
+	
+	local lD=$(array_length D)
+	local lC=$(array_length C)
+	
+	local l=$(math_min $lD $lC)
+	
+	local i=1
+	
+	for (( i=0; $i<$l; i++ )); do
+		if [ "$(array_get_item D $i)" == "$(array_get_item C $i)" ]; then
+			array_remove_item D $i
+			array_remove_item C $i			 
+		else
+			break
+		fi
+	done
+
+	lD=$(array_length D)
+	lC=$(array_length C)
+
+	if [ $lD -eq 0 -a $lC -eq 0 ]; then
+		echo .
+	else	
+		dir_path=$(array_get D)
+		dir_path=${dir_path// //}
+
+		C=$(array_get C)
+		C=${C// //}
+
+		C=$(echo "/$C" | awk '{gsub("/[^/]+","../"); print}')
+
+		dir_path=${C}${dir_path#/}
+		
+		echo ${dir_path%/}
+	fi		
+}
+
+
+fs_chext() 
+{
+	string_sub "$1" "$2"
+}
+
+# This function creates a directory and sets global permissions for it.
+# If the directory already exists, an error is issued.
+fs_ensure_dir()
+{
+   if [ ! -e "$1" ]; then
+      mkdir -p "$1"
+      chmod 777 "$1"
+   elif [ ! -d "$1" ]; then
+      echo 1>&2 "File $1 exists: unable to create directory $1. Sorry..."
+      exit 1
+   fi
+}
+
+# Alias definitions
+alias pad=fs_get_absolute_path
+alias prd=fs_get_relative_path
+
+
+
