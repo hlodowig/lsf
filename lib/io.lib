@@ -1,0 +1,22 @@
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+
+# Libreria contenente funzione di I/O.
+
+# Stampa un messaggio sullo standard output, senza andare a capo.
+alias print="echo -en"
+
+# Stampa un messaggio sullo standard output.
+alias println="echo -e"
+
+# Stampa un messaggio sullo standard error, senza andare a capo.
+print_error()
+{
+	/bin/echo -en "$*" 2> /dev/null
+}
+
+# Stampa un messaggio sullo standard error.
+println_error()
+{
+	/bin/echo -e "$*" 2> /dev/null
+}
+
