@@ -1,0 +1,146 @@
+################################################################################
+# Math Library                                                                 #
+################################################################################
+#
+# Libreria contenente funzione matematiche per il calcolo numerico decimale e
+# intero.
+#
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+
+# Restituisce la somma tra il primo ed il secondo parametro.
+#
+# ES.
+# > math_sum 3.5 5
+#   8.5
+#
+math_sum()
+{
+	[ $# -ne 2 ] && return 1
+	
+	echo $* | awk '{print $1+$2}'
+}
+
+# Restituisce la differenza tra il primo ed il secondo parametro.
+#
+# ES.
+# > math_sum 5.5 5
+#   0.5
+#
+math_sub()
+{
+	[ $# -ne 2 ] && return 1
+	
+	echo $* | awk '{print $1-$2}'
+}
+
+# Restituisce il risultato della moltiplicazione del primo parametro per il
+# secondo parametro.
+#
+# ES.
+# > math_mul 3 5
+#   15
+#
+math_mul()
+{
+	[ $# -ne 2 ] && return 1
+	
+	echo $* | awk '{print $1*$2}'
+}
+
+# Restituisce il risultato della divisione tra il primo parametro ed il secondo
+# parametro.
+#
+# ES.
+# > math_div 5 2
+#   2.5
+#
+math_div()
+{
+	[ $# -ne 2 ] && return 1
+	
+	echo $* | awk '{print $1/$2}'
+}
+
+# Restituisce il risultato della divisione intera tra il primo parametro ed il 
+# secondo parametro, arrotondata per difetto.
+#
+# ES.
+# > math_div_int 5 2
+#   2
+#
+math_div_int()
+{
+	[ $# -ne 2 ] && return 1
+	
+	echo $* | awk '{print int($1/$2)}'
+}
+
+# Restituisce un numero intero, ottenuto arrotondando per eccesso o per difetto
+# un numero decimale passato come parametro.
+#
+# ES.
+# > math_int_round 2.4 
+#   2
+# > math_int_round 2.5 
+#   3
+#
+math_int_round()
+{
+	[ $# -ne 1 ] && return 1
+	
+	echo $* | awk '{inum=int($1); 
+	                if(($1-inum)<0.5) {
+	                	print inum;
+	                } else {
+	                	print inum+1;
+	                }
+	               }'
+}
+
+# Restituisce il resto della divisione intera tra il primo parametro ed il secondo
+# parametro.
+#
+# ES.
+# > math_mod 5 2
+#   1
+#
+math_mod()
+{
+	[ $# -ne 2 ] && return 1
+	
+	echo $* | awk '{print $1%$2}'
+}
+
+# Resituisce l'opposto del valore passato come primo parametro.
+math_neg()
+{
+	[ $# -ne 1 ] && return 1
+	
+	echo $* | awk '{print -$1}'
+}
+
+# Resituisce il valore massimo tra i valori passati come parametri.
+math_max()
+{
+	[ $# -ne 2 ] && return 1
+	
+	if (( $1 >= $2 )); then
+		echo $1
+	else
+		echo $2
+	fi
+}
+
+# Resituisce il valore minimo tra i valori passati come parametri.
+math_min()
+{
+	[ $# -ne 2 ] && return 1
+	
+	if (( $1 < $2 )); then
+		echo $1
+	else
+		echo $2
+	fi
+}
+
