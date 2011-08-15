@@ -1,0 +1,596 @@
+################################################################################
+# Crypt - ECryptFS Library                                                     #
+################################################################################
+#
+# Libreria contenente definizioni di funzioni relativa a ecryptfs, per il
+# montaggio e lo smontaggio di directory criptate.
+#
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+
+lib_include bool
+lib_include string
+lib_include io
+lib_include fs
+lib_include crypt:common
+lib_include cui:tabulator
+
+ECRYPTFS_TAB="$HOME/.ecryptfstab"
+ECRYPTFS_AUTOMOUNT="$HOME/.ecryptfs-automount"
+
+
+ecryptfs_ls()
+{
+	cat "$ECRYPTFS_TAB"	| awk '{print $1}' | grep -v -E -e "^$"
+	return 0
+}
+
+ecryptfs_find()
+{
+	[ $# -lt 1  ] && return 1
+
+	local src_dir="$(fs_get_absolute_path "$1")"
+	
+	string_get_line "$(cat $ECRYPTFS_TAB)" "^$src_dir *" 
+	
+	return $?
+}
+
+ecryptfs_is_mounted()
+{
+	[ $# -lt 1  ] && return 1
+
+	local src_dir="$(fs_get_absolute_path "$1")"
+	
+	string_contains "$(mount -t ecryptfs)" "^$src_dir *" 
+}
+
+ecryptfs_can_create_crypt_dir()
+{
+	[ $# -lt 1 ] && return 2
+	
+	local src_dir="$1"
+	
+	for cdir in $(mount -t ecryptfs | awk '{print $3}'); do
+		string_contains "$src_dir" "^$cdir/" && return 1
+	done
+	 
+	return 0
+}
+
+# Monta la directory criptata. Se non esiste viene creata
+ecryptfs_mount()
+{
+	[ $# -eq 0 -o -z "$*" ] && return 1
+	
+	local CMD="ecryptfs_mount"
+	
+		__ecryptfs_mount_usage()
+	{
+cat << END
+NAME
+       $CMD - Monta directory criptate
+
+SYNOPSIS
+       $CMD [OPTIONS] <crypt_dir> <mnt_dir>
+
+       $CMD -A
+       $CMD [-j|--add-auto] <crypt_dir>
+       $CMD [-J|--remove-auto] <crypt_dir>
+
+       $CMD -l
+       $CMD -L
+       $CMD -K
+	   
+
+DESCRIPTION
+       Monta directory criptate. Utility di ecryptfs
+
+OPTIONS
+    Generic Program Information:
+       -h, --help                      Print this message
+    
+    Main options:
+       -a, --key-auto                  generate auto key
+       -R, --key-random                generate random key
+       -k, --key                       imposta la password
+       -f, --key-file                  file contenente la password
+       -r, --cipher                    imposta l'algoritmo di criptazione
+       -b, --key-bytes                 bytes dell'algoritmo di criptazione
+       -s, --sig                       imposta l'identificativo della cartella
+       -i, --interactive               abilita la modalità interattiva
+       -I, --no-interactive            disabilita la modalità interattiva
+       -c, --crypt-filename            abilita la criptazione dei nomi dei file
+       -C, --no-crypt-filename         disabilita la criptazione dei nomi dei file
+       -t, --plaintext                 abilita la modalità plaintext
+       -T, --no-plaintext              disabilita la modalità plaintext
+       -S, --save                      salva le optioni di montaggio
+       -x, --gui                       abilita la modalità grafica
+       -X, --cui                       abilita la modalità terminale (default)
+       -D, --dummy                     abilita la modalità debug (non esegue nulla)
+       -v, --verbose                   abilita la modalità verbose
+
+    Automount options:
+       -A, --all                       monta automaticamente tutti le cartelle specificate
+       -j, --add-auto                  aggiunge la cartella criptata nella lista automount
+       -J, --remove-auto               rimuove la cartella criptata nella lista automount
+
+    List options:
+       -l, --list                      stampa la lista delle cartelle criptate montate
+       -L, --tab                       stampa la lista delle cartelle criptata salvate       
+       -k, --list-auto                 stampa la lista delle cartelle criptate in automount
+
+AUTHOR
+       Written by Luigi Capraro (luigi.capraro@gmail.com)
+
+EXAMPLES
+
+	$CMD -i ~/private
+	$CMD -i ~/.private ~/private
+
+END
+	}
+
+	local SUDO_CMD="sudo"
+	local MOUNT_CMD="mount -t ecryptfs"
+	
+	local CRYPT_FILENAME_DEFAULT="yes"
+	local PLAINTEXT_DEFAULT="no"
+	local KEY_BYTES_DEFAULT=16
+	local CIPHER_DEFAULT="aes"
+	
+	local src_dir=
+	local mnt_dir=
+	local pass=
+	local crypt_filename=
+	local key_bytes=
+	local plaintext=
+	local sig=""
+	local sig_opts=""
+	local cipher=
+	local options=""
+	local out=" > /dev/null"
+	
+	local all=0
+	local auto_op=0
+	local save=0
+	local key_auto=1
+	local key_random=0
+	local interactive=0
+	local verbose=0
+	local dummy=0
+	local exit_code=0
+	local input=
+	
+	local ARGS=$(getopt -o hiIjJlKLaAcCRtTxXvDSs:k:f:b:r: -l help,interactive,list,tab,no-interactive,key-auto,no-key-auto,key-random,crypt-filename,no-crypt-filename,plaintext,no-plaintext,add-auto,remove-auto,list-auto,key:,key-file:,save,sig:,key-bytes:,cipher:,gui,cui,verbose,dummy -- "$@")
+		
+	
+	eval set -- $ARGS
+	
+	while true ; do
+		case "$1" in
+		-a|--key-auto)          key_auto=1; key_random=0;pass="auto" ; shift  ;;
+		-R|--key-random)        key_random=1; key_auto=0             ; shift  ;;
+		-k|--key)               key_auto=0; 
+		                        pass=":passphrase_passwd=$2"         ; shift 2;;
+		-f|--key-file)          key_auto=0; 
+		                        pass=":passphrase_passwd_file=$(fs_get_absolute_path $2)"; 
+		                                                               shift 2;;		
+		-b|--key-bytes)         key_bytes=$2                         ; shift 2;;		
+		-s|--sig)               sig="$2"                             ; shift 2;;		
+		-r|--cipher)            cipher="$2"                          ; shift 2;;
+		-i|--interactive)       interactive=1                        ; shift  ;;
+		-I|--no-interactive)    interactive=0                        ; shift  ;;
+		-c|--crypt-filename)    crypt_filename="yes"                 ; shift  ;;
+		-C|--no-crypt-filename) crypt_filename="no"                  ; shift  ;;
+		-t|--plaintext)         plaintext="yes"                      ; shift  ;;
+		-T|--no-plaintext)      plaintext="no"                       ; shift  ;;
+		-x|--gui)               SUDO_CMD="gksudo"                    ; shift  ;;
+		-X|--cui)               SUDO_CMD="sudo"                      ; shift  ;;
+		-v|--verbose)           verbose=1; out=""                    ; shift  ;;
+		-S|--save)           	save=1                               ; shift  ;;
+		-D|--dummy)             dummy=1                              ; shift  ;;
+		-l|--list)              $MOUNT_CMD; return $?                         ;;		
+		-L|--tab)   [ -f "$ECRYPTFS_TAB" ] || touch "$ECRYPTFS_TAB"  ;            
+					cat $ECRYPTFS_TAB; return $?                              ;;
+		-K|--list-auto) [ -f "$ECRYPTFS_AUTOMOUNT" ] || touch "$ECRYPTFS_AUTOMOUNT";            
+					cat "$ECRYPTFS_AUTOMOUNT"; return $?                      ;;
+		-A|--all)               all=1                                ; shift  ;;
+		-j|--add-auto)          all=1; auto_op=1                     ; shift  ;;
+		-J|--remove-auto)       all=1; auto_op=2                     ; shift  ;;
+		-h|--help) __ecryptfs_mount_usage | less; return 0                    ;;
+		--) shift;;
+		*) break;;
+		esac
+	done
+
+	src_dir="$(fs_get_absolute_path "$1")"
+	
+		
+	if [ $all -eq 1 ]; then
+		if [ $auto_op -eq 1 -a -n "$(ecryptfs_find "$src_dir")" ]; then
+			echo "$src_dir" >> "$ECRYPTFS_AUTOMOUNT"
+		elif [ $auto_op -eq 2 -a -n "$(ecryptfs_find "$src_dir")" ]; then
+			string_remove_line "$(cat "$ECRYPTFS_AUTOMOUNT")" "^$src_dir *" > "$ECRYPTFS_AUTOMOUNT"
+		elif [ -f "$ECRYPTFS_AUTOMOUNT" ]; then
+			for dir in $(cat "$ECRYPTFS_AUTOMOUNT"); do
+				$FUNCNAME $dir
+			done
+		fi
+		return 0
+	fi
+	
+	if ! ecryptfs_can_create_crypt_dir "$src_dir"; then
+		if [ $verbose -eq 1 ]; then
+			println_error "Can create cripto dir: $src_dir"
+		fi
+		
+		return 5
+	fi
+	
+	if [ $# -eq 2 ]; then
+		mnt_dir="$(fs_get_absolute_path "$2")"
+	fi
+
+	__print_options()
+	{
+		echo "SRC_DIR='$src_dir'"
+		echo "MNT_DIR='$mnt_dir'"
+
+		echo "cipher=$cipher"		
+		echo "key_bytes=$key_bytes"		
+		echo "plaintext=$plaintext"		
+		echo "pass=$pass"		
+		echo "sig=$sig"		
+
+		echo "save=$save"
+		echo "key_auto=$key_auto"
+		echo "interactive=$interactive"
+		echo "verbose=$verbose"
+		echo "dummy=$dummy"
+		echo "input=$input"
+	}
+
+	__load_options()
+	{
+		
+		if [ -f "$ECRYPTFS_TAB" ]; then	
+			local mnt_line="$(string_get_line "$(cat "$ECRYPTFS_TAB")" "^$src_dir *")"
+		
+			#	echo "MNT_LINE=$mnt_line"
+			#	echo "----------------------------------"			
+			
+			if [ -n "$mnt_line" ]; then
+			
+				if [ -z "$mnt_dir" ]; then
+					mnt_dir="$(echo "$mnt_line" | awk '{ print $2 }')"		
+				fi
+
+
+				if [ -z "$pass" ]; then
+					pass="$(echo "$mnt_line" | awk '{ print $3 }')"
+					if [ "$pass" != "auto" ]; then
+						key_auto=0
+					fi	
+				fi
+
+				if [ -z "$cipher" ]; then
+					cipher="$(echo "$mnt_line" | awk '{print $4}')"		
+				fi
+
+				if [ -z "$key_bytes" ]; then	
+					key_bytes="$(echo "$mnt_line" | awk '{print $5}')"				
+				fi
+						
+				if [ -z "$crypt_filename" ]; then			
+					if [ $(echo "$mnt_line" | awk '{print $6}')	-eq 1 ]; then
+						crypt_filename="yes"
+					else
+						crypt_filename="no"
+					fi
+				fi
+
+				if [ -z "$plaintext" ]; then								
+					if [ $(echo "$mnt_line" | awk '{print $7}')	-eq 1 ]; then
+						plaintext="yes"
+					else
+						plaintext="no"
+					fi
+				fi
+			
+				if [ -z "$sig" ]; then
+					sig="$(echo "$mnt_line" | awk '{print $8}')"
+					
+					[ -z "$sig" ] && return 3;
+				fi
+			fi
+		else
+			touch "$ECRYPTFS_TAB"
+		fi
+			
+		[ -z "$mnt_dir"        ] && mnt_dir="$src_dir"		
+		[ -z "$cipher"         ] && cipher="$CIPHER_DEFAULT"		
+		[ -z "$key_bytes"      ] && key_bytes="$KEY_BYTES_DEFAULT"				
+		[ -z "$crypt_filename" ] && crypt_filename="$CRYPT_FILENAME_DEFAULT"
+		[ -z "$plaintext"      ] && plaintext="$PLAINTEXT_DEFAULT"
+		[ -z "$pass"           ] && pass="auto"
+			
+		if [ $key_random -eq 1 ]; then
+			local seed="$(crypt_generate_random_key_string)"
+			pass=":passphrase_passwd=$(crypt_md5_string \"$seed\")"
+		elif [ "$pass" == "auto" ]; then
+		
+			pass=":passphrase_passwd=$(crypt_md5_string "$src_dir")"
+		elif ! string_contains_regexp "$pass" "^:"; then
+			
+			local pass_type=$(echo "$pass" | awk -F: '{print $1}')
+			local pass=$(echo "$pass" | awk -F: '{print $2}')
+			
+			if   [ "$pass_type" == "pass" ]; then
+				pass=":passphrase_passwd=$pass"
+			elif [ "$pass_type" == "file" ]; then
+				pass=":passphrase_passwd_file=$pass"			
+			fi
+		fi
+
+		if [ -n "$sig" ]; then
+			sig_opts="ecryptfs_fnek_sig=${sig},ecryptfs_sigs=${sig},"
+		else
+			save=1
+		fi
+
+		
+		options="-o ecryptfs_cipher=${cipher},ecryptfs_key_bytes=${key_bytes},key=passphrase${pass},ecryptfs_unlink_sigs,${sig_opts}ecryptfs_passthrough=${plaintext},ecryptfs_enable_filename_crypto=${crypt_filename}"
+		
+		input="echo -e \"\nyes\nno\n\" | "
+	}
+
+	__save_options()
+	{		
+		if [ -z "$sig" ]; then
+			local mnt_tab="$(mount)"
+			sig=$(string_get_line "$mnt_tab" "^$src_dir *")
+			sig=$(string_remove "$sig" ".*_sig=")
+			sig=$(string_remove "$sig" ",.*")
+		fi
+		
+		if [ -z "$sig" -a $dummy -eq 0 -a $interactive -eq 0 ]; then
+
+			save=1
+			
+			if [ $verbose -eq 1 ]; then
+				println_error "ERROR: sig=$sig nullo."
+			fi
+			return 1
+		fi
+
+		[ $save -eq 0 ] && return 0
+		
+		if [ $dummy -eq 0 ]; then
+			string_remove_line "$(cat "$ECRYPTFS_TAB")" "^$src_dir *" > "$ECRYPTFS_TAB"
+		fi
+				
+		if [ $key_auto -eq 1 ]; then
+			pass="auto"
+		elif string_contains "$pass" "_file"; then
+			pass="file:$(string_remove "$pass" ".*=" )"
+		else
+			pass="pass:$(string_remove "$pass" ".*=" )"
+		fi
+		
+		local mnt_line="${src_dir}\t${mnt_dir}\t${pass}\t${cipher}\t${key_bytes}\t$(bool_valuation "$crypt_filename")\t$(bool_valuation "$plaintext")\t${sig}"
+		
+		if [ $verbose -eq 1 ]; then
+			echo -e $mnt_line
+		fi
+		
+		if [ $dummy -eq 0 ]; then
+			echo -e "$mnt_line" >> "$ECRYPTFS_TAB"
+		fi
+	}
+	
+	
+
+	if [ $interactive -eq 0 ]; then
+		#__print_options
+		__load_options
+		#__print_options
+	fi	
+
+	
+	if [ ! -d "$src_dir" ]; then
+		if [ $verbose -eq 1 ]; then
+			echo "Directory '$src_dir' not found: create!"
+		fi
+
+		if [ $dummy -eq 0 ]; then
+			fs_mkdir "$src_dir" || return 3
+			chmod 700 "$src_dir"
+		fi
+	fi
+		
+	if [ ! -d "$mnt_dir" ]; then
+		if [ $verbose -eq 1 ]; then
+			echo "Directory '$mnt_dir' not found: create!"
+		fi
+
+		if [ $dummy -eq 0 ]; then
+			fs_mkdir "$mnt_dir" || return 4
+			chmod 700 "$src_dir"
+		fi
+	fi
+
+	if [ $verbose -eq 1 ]; then
+		echo $SUDO_CMD $MOUNT_CMD $src_dir $mnt_dir $options $out
+	fi
+
+	if [ $dummy -eq 0 ]; then
+		eval "$input $SUDO_CMD $MOUNT_CMD $src_dir $mnt_dir $options $out"
+		exit_code=$?
+	fi		
+		
+	if [ $exit_code -eq 0 ]; then
+		__save_options		
+	fi
+
+	
+	unset __ecryptfs_mount_usage
+	unset __load_options	
+	unset __save_options
+	unset __print_options
+	
+	return $exit_code
+}
+
+
+# Smonta la directory criptata
+ecryptfs_umount()
+{
+	local SUDO_CMD="sudo"
+	local UMOUNT_CMD="umount"
+	local all=0
+	
+	local ARGS=$(getopt -o AxX -l all,gui,cui -- "$@")
+	
+	eval set -- $ARGS
+	
+	while true ; do
+		case "$1" in
+		-A|--all) all=1            ; shift  ;;
+		-x|--gui) SUDO_CMD="gksudo"; shift  ;;
+		-X|--cui) SUDO_CMD="sudo"  ; shift  ;;
+		--) shift;;
+		*) break;;
+		esac
+	done
+	
+	if [ $all -eq 1 ]; then
+		if [ -f "$ECRYPTFS_AUTOMOUNT" ]; then
+			for dir in $(cat "$ECRYPTFS_AUTOMOUNT"); do
+				$FUNCNAME $dir
+			done
+		fi
+		return 0
+	fi
+
+	$SUDO_CMD $UMOUNT_CMD "$(fs_get_absolute_path "$1")"
+}
+
+
+ecryptfs_mv()
+{
+	[ $# -lt 2  ] && return 1
+
+	local src_dir="$(fs_get_absolute_path "$1")"
+	local dest_dir="$(fs_get_absolute_path "$2")"
+	
+	[ "$src_dir" == "$dest_dir" ] && return 0
+	
+	if [ ! -e "$src_dir" ]; then
+		println_error "Directory '$src_dir': don't exist"
+
+		return 2
+	fi
+
+	if ecryptfs_is_mounted "$src_dir"; then
+		println_error "Crypt Directory '$src_dir': already mounted!"
+		
+		return 3
+	fi
+	
+	if [ -e "$dest_dir" ]; then
+		println_error "Directory '$dest_dir': already exist!"
+
+		return 4
+	fi
+	
+	for cdir in $(ecryptfs_ls); do
+		
+		if [ "$cdir" == "$src_dir" ]; then
+			
+			local mnt_line="$(string_get_line "$(cat "$ECRYPTFS_TAB")" "^$src_dir *")"
+
+			local pass="$(echo "$mnt_line" | awk '{ print $3 }')"
+
+			local new_pass="pass:$(crypt_md5_string "$dest_dir")"
+			
+
+			if [ "$pass" == "auto" ]; then
+				mnt_line=$(string_sub "$mnt_line" "auto" "$new_pass")
+			elif [ "$pass" == "$new_pass" ]; then 
+				mnt_line=$(string_sub "$mnt_line" "$pass" "auto")
+			fi
+			
+			mnt_line=$(string_sub "$mnt_line" "^$src_dir" "$dest_dir")
+
+			mv "$src_dir" "$dest_dir"
+			
+			if [ $? -eq 0 ]; then
+				string_remove_line "$(cat "$ECRYPTFS_TAB")" "^$src_dir *" > "$ECRYPTFS_TAB"
+				echo -e "$mnt_line" >> "$ECRYPTFS_TAB"
+			fi	
+						
+			break
+		fi
+
+	done
+	
+	return 0
+}
+
+ecryptfs_rm()
+{
+	[ $# -lt 1 ] && return 1
+
+	local src_dir="$(fs_get_absolute_path "$1")"
+	
+	if ecryptfs_is_mounted "$src_dir"; then
+		
+		println_error "Crypt Directory '$src_dir': mounted!"
+		
+		return 3
+	fi
+		
+	for cdir in $(ecryptfs_ls); do
+		
+		if [ "$cdir" = "$src_dir" ]; then
+
+			if [ -f "$ECRYPTFS_TAB" ]; then
+				string_remove_line "$(cat "$ECRYPTFS_TAB")" "^$src_dir *" > "$ECRYPTFS_TAB"
+			fi
+			
+			if [ ! -e "$src_dir" ]; then
+				println_error "Directory '$src_dir': don't exist!"
+
+				return 2
+			else
+				rm -r "$src_dir"				
+			fi
+
+			break
+		fi	
+	done
+	
+	return 0
+}
+
+ecryptfs_tab()
+{
+	ecryptfs_mount -L | tabulator -B --headers="SOURCE,MOUNT,PASSWD,CHIPER,BYTES,CFS,PLAINTEXT,SIG" -M 30
+}
+
+ecryptfs_mtab()
+{
+	ecryptfs_mount -l | awk '{print $1, $3}' | tabulator -B --headers="SOURCE,MOUNT"
+}
+
+alias cmount=ecryptfs_mount
+alias cumount=ecryptfs_umount
+alias cls=ecryptfs_ls
+alias cmv=ecryptfs_mv
+alias crm=ecryptfs_rm
+alias ctab=ecryptfs_tab
+alias cmtab=ecryptfs_mtab
+alias cfind=ecryptfs_find
+
+
