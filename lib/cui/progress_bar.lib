@@ -1,0 +1,569 @@
+################################################################################
+# Progress Bar Library                                                         #
+################################################################################
+#
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+# progress_bar is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# progress_bar is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with progress_bar; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, 
+# Boston, MA  02110-1301  USA
+#
+
+
+lib_include io
+lib_include term
+lib_include math
+lib_include string
+
+
+progress_bar_builder()
+{
+	local CMD="progress_bar_builder"
+
+	__progress_bar_builder_usage()
+	{
+cat << END
+NAME
+       $CMD - Stampa una progress bar sul terminale
+
+SYNOPSIS
+       $CMD [OPTIONS] [-v] <integer>
+
+DESCRIPTION
+       Funzione di base per la stampa una progress bar personalizzabile
+
+OPTIONS
+    Generic Program Information:
+       -h, --help                      Print this message
+    
+    Main options:     
+       -l, --length      <integer>     Lunghezza massima della barra (default 50 caratteri)
+       -v, --value       <integer>     Valore corrente della barra
+       -t, --fill-length <integer>     Lunghezza massima del riempimento (default 0 [infinito])
+       -c, --fg-char     <char>        Carattere utilizzato per mostrare l'avanzamento (default '=')
+       -C, --bg-char     <char>        Carattere utilizzato per mostrare la barra      (default ' ')
+       -b, --fg-color    <color>       Colore utilizzato per mostrare l'avanzamento         (default NULL)
+       -B, --bg-color    <color>       Colore utilizzato per mostrare lo sfondo della barra (default NULL)	   
+       -j, --loop                      Barra di riempimento in loop
+       -J, --no-loop                   Disattiva la modalita' di riempimento in loop
+       -r, --check-range               Controlla se il valore appartiene al range indicato (default)
+       -R, --no-check-range            Disattiva il controllo del range per il valore indicato       
+       -n, --no-newline                Non stampa il carattere di newline a fine barra
+       -z, --border                    Stampa i bordi laterali della barra (default)
+       -Z, --no-border                 Non stampa i bordi laterali della barra (default)
+
+AUTHOR
+       Written by Luigi Capraro (luigi.capraro@gmail.com)
+
+EXAMPLES
+
+	$CMD [--length=50] --value=20 [--no-newline|-n]
+	$CMD --length=100 --value=78
+	$CMD --length=100 --value=78 --fg-char='#' --bg-char='-'
+	$CMD -l 100 -v 78 --fg-char=' ' --bg-char=' ' --fg-color=[RED|2] --bg-color=[WHITE|7] [--no-border|-Z]
+	$CMD -l 100 -v 60 --fill-length 20 -c# -C_
+	$CMD -l 100 -v 90 -f 20 --loop -b GREEN -B GRAY
+
+	echo 55 | $CMD -l 100
+
+END
+	}
+
+	local ARGS=$(getopt -o v:l:t:c:C:b:B:nhrRjJzZ -l value:,length:,fill-length:,fg-char:,bg-char:,fg-color:,bg-color:,loop,no-loop,help,border,no-border,no-newline,check-range,no-check-range -- "$@")
+	
+	eval set -- $ARGS
+	
+	local MAX_LENGTH=50
+	local MAX_FILL=0
+	local LENGTH=
+
+	local BAR_FILL_CHAR='='
+	local BAR_EMPTY_CHAR=' '
+	local BAR_FILL_COLOR=
+	local BAR_EMPTY_COLOR=
+
+	local LOOP=0
+	local BORDER=1
+
+	local NEWLINE=1
+	local CHECK_RANGE=1
+	
+	while true ; do
+		case "$1" in
+		    -v|--value)          LENGTH=$2            ; shift 2;;
+		    -l|--length)         MAX_LENGTH=$2        ; shift 2;;
+		    -t|--fill-length)    MAX_FILL=$2          ; shift 2;;
+		    -c|--fg-char)        BAR_FILL_CHAR="$2"   ; shift 2;;
+		    -C|--bg-char)        BAR_EMPTY_CHAR="$2"  ; shift 2;;
+		    -b|--fg-color)       BAR_FILL_COLOR="$2"  ; shift 2;;
+		    -B|--bg-color)       BAR_EMPTY_COLOR="$2" ; shift 2;;
+		    -n|--no-newline)     NEWLINE=0            ; shift  ;;
+		    -z|--border)         BORDER=1             ; shift  ;;
+		    -Z|--no-border)      BORDER=0             ; shift  ;;
+		    -j|--loop)           LOOP=1               ; shift  ;;
+			-J|--no-loop)        LOOP=0               ; shift  ;;
+		    -r|--check-range)    CHECK_RANGE=1        ; shift  ;;
+		    -R|--no-check-range) CHECK_RANGE=0        ; shift  ;;
+		    -h|--help) __progress_bar_builder_usage | less; return 0 ;;
+		    --) shift; break;;
+		    *) 	echo "Error: unknown option \"$1\"" > /dev/stderr; return 1;;
+		esac
+	done
+	
+	if [ -z "$LENGTH" ]; then
+		if [ -n "$1" ]; then
+			LENGTH="$1"
+		else
+			LENGTH=$(cat)
+			# oppure
+			# return 1
+		fi
+	fi
+	
+	if [ $LOOP -eq 1 ]; then
+		CHECK_RANGE=0
+	fi
+
+	if [ $CHECK_RANGE -eq 1 ] && (( $LENGTH < 0 || $LENGTH > $MAX_LENGTH )); then
+		echo "Error: value $LENGTH is out of range [0,$MAX_LENGTH]" > /dev/stderr
+		return 2	
+	fi
+	
+	local i=0
+	local A=0
+	local B=$LENGTH
+	local R=0
+	
+	if [ $MAX_FILL -eq 0 ] || (( $LOOP==1 && $MAX_FILL >= $MAX_LENGTH )); then
+		A=0
+		B=$LENGTH
+	else
+		A=$(($LENGTH - $MAX_FILL))
+		
+		if [ $LOOP -eq 1 ]; then 
+			A=$(math_mod $A      $MAX_LENGTH) 
+			B=$(math_mod $LENGTH $MAX_LENGTH)
+			
+			[ $A -gt $B ] && R=1
+		fi
+	fi
+	
+	term_set_bg_color
+	[ $BORDER -eq 1 ] && echo -n "|"
+	for (( i=1; i <= $MAX_LENGTH; i++ )) 
+	do
+		if [ $R -eq 0 ] 
+		then
+			if [ $i -gt $A -a $i -le $B ]
+			then
+				term_set_bg_color ${BAR_FILL_COLOR}
+				echo -ne "${BAR_FILL_CHAR}"
+			else
+				term_set_bg_color ${BAR_EMPTY_COLOR}
+				echo -ne "$BAR_EMPTY_CHAR"
+			fi
+		else
+			if [ $i -gt $A -o $i -le $B ]
+			then
+				term_set_bg_color ${BAR_FILL_COLOR}
+				echo -ne "$BAR_FILL_CHAR"
+			else
+				term_set_bg_color ${BAR_EMPTY_COLOR}
+				echo -ne "${BAR_EMPTY_CHAR}"
+			fi
+		fi
+	done
+	term_set_bg_color
+	[ $BORDER  -eq 1 ] && echo -n "|"
+	[ $NEWLINE -eq 1 ] && echo
+
+	local EXIT_CODE=$?
+	
+	unset __progress_bar_builder_usage
+	
+	return $EXIT_CODE
+}
+
+
+
+
+progress_bar()
+{
+
+	local CMD="progress_bar"
+	local LEN=50
+	
+	local VAL=
+	local MIN=0
+	local MAX=100
+	local UNIT=""
+	local AUTO=1
+	local UPDATE=0
+	
+	local DEFAULT_FORMAT="%{.1f}m%{P}B%{.1f}M %V %U"
+	local FORMAT="$DEFAULT_FORMAT"
+
+	local BORDER=1
+	local LOOP=0
+	local NEWLINE=1
+	local CHECK_RANGE=0
+
+	local BAR_FILL_CHAR="_"
+	local BAR_EMPTY_CHAR="_"
+	local BAR_FILL_COLOR="GREEN"
+	local BAR_EMPTY_COLOR="NULL"
+	local PRINT_OPT="--no-check-range --no-newline \
+	                 --fg-char=$BAR_FILL_CHAR --bg-char=$BAR_EMPTY_CHAR \
+	                 --fg-color=$BAR_FILL_COLOR --bg-color=$BAR_EMPTY_COLOR"
+	local PVAL=
+	local PER_POS=
+	
+	__progress_bar_usage() {
+
+cat << END
+NAME
+	   $CMD - Stampa una progress bar sul terminale
+
+SYNOPSIS
+	   $CMD [OPTIONS] [-v] <number>
+
+DESCRIPTION
+	   Stampa una progress bar personalizzabile
+
+OPTIONS
+	Generic Program Information:
+	   -h, --help                      Print this message
+	
+	Main options:     
+	   -v, --value       <number>      Valore da rappresentare (default 0)
+	   -m, --min         <number>      Valore minimo del range di valori (default 0)
+	   -M, --max         <number>      Valore massimo del range di valori (default as length)
+	   -u, --unit        <string>      Unita' di misura
+
+	   -a, --auto                      Adatta automaticamente la larghezza della barra
+	                                   se supera il numero di colonne del terminale
+	   -A, --no-auto                   Disattiava la modalita' di adattamento automatico
+	                                   della lunghezza della barra
+	   -U, --update                    Attiva la modalita' di aggiornamento
+	                                 
+	   -l, --length      <integer>     Lunghezza massima della barra (default 50 caratteri)
+	   -t, --fill-length <integer>     Lunghezza massima del riempimento (default 0 [infinito])
+	   -c, --fg-char     <char>        Carattere utilizzato per mostrare l'avanzamento (default '$BAR_FILL_CHAR')
+	   -C, --bg-char     <char>        Carattere utilizzato per mostrare la barra      (default '$BAR_EMPTY_CHAR')
+	   -b, --fg-color    <color>       Colore utilizzato per mostrare l'avanzamento         (default $BAR_FILL_COLOR)
+	   -B, --bg-color    <color>       Colore utilizzato per mostrare lo sfondo della barra (default $BAR_EMPTY_COLOR)	   
+	   -j, --loop                      Barra di riempimento in loop
+	   -J, --no-loop                   Disattiva la modalita' di riempimento in loop
+	   -r, --check-range               Controlla se il valore appartiene al range indicato (default)
+	   -R, --no-check-range            Disattiva il controllo del range per il valore indicato
+	   -n, --no-newline                Non stampa il carattere di newline a fine barra
+	   -z, --border                    Stampa i bordi laterali della barra (default)
+	   -Z, --no-border                 Non stampa i bordi laterali della barra (default)
+	   
+	 Format options:
+	   -f, --format      <string>      Stringa di formattazione per la stampa delle informazioni
+	   
+	             %B                    Stampa della barra
+	             %V                    Stampa del valore corrente
+	             %m                    Stampa del valore minimo del range
+	             %M                    Stampa del valore massimo del range
+	             %P                    Stampa del valore percentuale della barra
+	             %U                    Stampa dell'unita' di misura
+	             %F                    Stampa del valore di riempimento della barra
+	             %D                    Formato di default: "%{.1f}m%{P}B%{.1f}M %V %U"
+	             
+AUTHOR
+       Written by Luigi Capraro (luigi.capraro@gmail.com)
+	  	
+EXAMPLES
+
+	$CMD [--length=50] [--min=0] [--max=100] [--unit="Mbyte"] --value=20 [--no-newline|-n]
+	$CMD -l 100 -m 20 -M 50 -v 45 [-n]
+	$CMD -l 100 -m 20 -M 50 -v 45 --fg-char='#' --bg-char='-' [-n]
+	$CMD -l 100 -m 20 -M 50 -v 45 -c'#' -C'-' --fg-color=[RED|2] --bg-color=[WHITE|7] [--no-border|-Z] 
+	$CMD -l 100 -m 20 -M 50 -v 45 --loop -b GREEN -B GRAY
+	$CMD -l 100 -m 20 -M 50 -v 65 --fill-length=20 [--loop] [-n]
+	$CMD -l 100 -m 20 -M 50 -v 65 -t 20 [--loop] [-n]
+
+	$CMD -l 100 -m 20 -M 50 -v 35 -u Kbytes --format="BAR: min %m %B %M max (%P) %V %U"
+	$CMD -l 100 -m 20 -M 50 -v 35 -u Kbytes --format="BAR: min %{3d}m %B %{3d}M max (%P) %{3d}V %U"
+	$CMD -l 100 -m 20 -M 50 -v 35 -u Kbytes --format="BAR: min %{3.1f}m %B %{3.1f}M max (%P) %{3.1f}V %U"
+	$CMD -l 100 -m 20 -M 50 -v 35 -f '>> (%P)'
+	$CMD -l 100 -m 20 -M 50 -v 35 -f 'Loading... %D'
+
+	echo 55 | $CMD -M 100
+
+SEE ALSO
+
+	progress_bar_builder, term
+
+END
+	}
+	
+
+	__progress_bar_init_params() {
+	
+		local ARGS=$(getopt -o v:m:M:aAl:f:t:c:C:b:B:u:nhrRjJUzZ -l value:,length:,min:,max:,format:,unit:,fill-length:,fg-char:,bg-char:,fg-color:,bg-color:,loop,no-loop,help,auto,no-auto,border,no-border,no-newline,check-range,no-check-range,update -- "$@")
+	
+		eval set -- $ARGS
+
+		while true ; do
+			case "$1" in
+				-v|--value)               VAL=$(echo $2|tr . ,)          ; shift 2 ;;
+				-m|--min)                 MIN=$(echo $2|tr . ,)          ; shift 2 ;;
+				-M|--max)                 MAX=$(echo $2|tr . ,)          ; shift 2 ;;
+				-u|--unit)                UNIT="$2"                      ; shift 2 ;;
+				-a|--auto)                AUTO=1                         ; shift   ;;
+				-A|--no-auto)             AUTO=0                         ; shift   ;;
+				-U|--update)              UPDATE=1                       ; shift   ;;
+				-f|--format)              FORMAT="$2"                    ; shift 2 ;;
+				-l|--length)              LEN=$2                         ; shift 2 ;;
+				-t|--fill-length)         PRINT_OPT="$PRINT_OPT $1 $2"   ; shift 2 ;;
+				-c|--fg-char)             PRINT_OPT="$PRINT_OPT $1 '$2'" ; shift 2 ;;
+				-C|--bg-char)             PRINT_OPT="$PRINT_OPT $1 '$2'" ; shift 2 ;;
+				-b|--fg-color)            PRINT_OPT="$PRINT_OPT $1 $2"   ; shift 2 ;;
+				-B|--bg-color)            PRINT_OPT="$PRINT_OPT $1 $2"   ; shift 2 ;;
+			    -z|--border)    BORDER=1; PRINT_OPT="$PRINT_OPT $1"      ; shift   ;;
+				-Z|--no-border) BORDER=0; PRINT_OPT="$PRINT_OPT $1"      ; shift   ;;
+				-j|--loop)      LOOP=1;   PRINT_OPT="$PRINT_OPT $1"      ; shift   ;; 
+				-J|--no-loop)   LOOP=0;   PRINT_OPT="$PRINT_OPT $1"      ; shift   ;;
+				-r|--check-range)         CHECK_RANGE=1                  ; shift   ;;
+				-R|--no-check-range)      CHECK_RANGE=0                  ; shift   ;;
+				-n|--no-newline)          NEWLINE=0                      ; shift   ;;
+				-h|--help) return 15;;
+				--) shift; break;;
+				*) 	echo "Error: unknown option \"$1\"">/dev/stderr; return 1;;
+			esac
+		done
+
+		#echo "PRINT_OPT=$PRINT_OPT"
+		#return
+		
+		if [ -z "$VAL" ]; then
+			if [ -n "$1" ]; then
+				VAL=$(echo $1 | tr . ,)
+			else
+				VAL=$(cat | tr . , | awk '/^$/ {print "EOF"} /[\+\-]?[0-9]+(\.[0-9]*)?/ {gsub("+",""); print}')
+
+				if [ "$VAL" = "EOF" ]; then
+					[ $NEWLINE -eq 1 ] && echo
+					return 0
+				fi
+			fi
+		fi
+	
+		if [ $LEN -le 0 ]; then
+			return 2
+		fi
+
+		if [ $LOOP -eq 1 ]; then
+			CHECK_RANGE=0
+		fi
+		
+		if [ $CHECK_RANGE -eq 1 ] && (( "$VAL" < "$MIN" || "$VAL" > "$MAX" )); then
+			echo "Error: value $VAL is out of range [$MIN;$MAX]" > /dev/stderr
+			return 2	
+		fi
+		
+		VAL=$(echo $VAL | tr , .)
+		MIN=$(echo $MIN | tr , .)
+		MAX=$(echo $MAX | tr , .)
+	}
+	
+	
+	__progress_bar_build() {
+	
+		if string_contains_regexp "$FORMAT" "%D"; then
+			FORMAT="$(string_sub "$FORMAT" '%D' "$DEFAULT_FORMAT")"	
+		fi
+
+		local ml=$(string_remove "$MIN" "\.[0-9]+$" | wc -m)
+		local Ml=$(string_remove "$MAX" "\.[0-9]+$" | wc -m)
+
+		local MAX_NUM_LEN=$Ml
+	
+		if (( $ml > $Ml )); then
+			MAX_NUM_LEN=$ml
+		fi
+	
+		local NUM_PATTERN='([\+-]?[0-9]*(\.[0-9]+)?)?[idufFgG]'
+		local FNUM_PATTERN="%(\{${NUM_PATTERN}\})?"
+		
+		local FP=
+		local VF=
+		local V=
+
+		FORMAT="$(string_sub "$FORMAT" %U "$UNIT")"
+	
+		if string_contains_regexp "$FORMAT" "${FNUM_PATTERN}m"; then
+		
+			FP=$(string_get_regexp "$FORMAT" "${FNUM_PATTERN}m")
+			VF="$(string_get_regexp "$FP" "${NUM_PATTERN}")"
+		
+			if [ -z "$VF" ]; then
+				VF="$MAX_NUM_LEN.1f"
+			fi
+		
+			VF="%$VF"
+		
+			V="$(eval "echo \"$MIN\" | awk '{ printf \"$VF\", \$0}'" )"
+
+			FORMAT="$(string_sub "$FORMAT" "${FNUM_PATTERN}m" "$V")"
+		fi
+	
+		if string_contains_regexp "$FORMAT" "${FNUM_PATTERN}M"; then
+		
+			FP=$(string_get_regexp "$FORMAT" "${FNUM_PATTERN}M")
+			VF="$(string_get_regexp "$FP" "${NUM_PATTERN}")"
+		
+			if [ -z "$VF" ]; then
+				VF="$MAX_NUM_LEN.1f"
+			fi
+		
+			VF="%$VF"
+		
+			V="$(eval "echo \"$MAX\" | awk '{ printf \"$VF\", \$0}'" )"
+
+			FORMAT="$(string_sub "$FORMAT" "${FNUM_PATTERN}M" "$V")"
+		fi
+
+		if string_contains_regexp "$FORMAT" "${FNUM_PATTERN}V"; then
+		
+			FP=$(string_get_regexp "$FORMAT" "${FNUM_PATTERN}V")
+			VF="$(string_get_regexp "$FP" "${NUM_PATTERN}")"
+		
+			if [ -z "$VF" ]; then
+				VF="$MAX_NUM_LEN.1f"
+			fi
+		
+			VF="%$VF"
+			
+			V="$(eval "echo \"$VAL\" | awk '{ printf \"$VF\", \$0}'" )"
+
+			FORMAT="$(string_sub "$FORMAT" "${FNUM_PATTERN}V" "$V")"
+		fi
+		
+		if [ $AUTO -eq 1 ]; then
+			local SLEN=$(string_length "$FORMAT")
+			local TERM_COLS=$(term_get_colums)
+		
+			local ALEN=$(math_sub $TERM_COLS $SLEN)
+			ALEN=$(math_sub $ALEN 5)
+		
+			if [ $LEN -gt $ALEN ]; then
+				LEN=$ALEN
+			fi
+		fi
+	
+		local NMAX=$(math_sub $MAX $MIN)
+		local NVAL=$(math_sub $VAL $MIN)
+
+		
+		if string_contains_regexp "$FORMAT" "%F"; then
+			FORMAT="$(string_sub "$FORMAT" '%F' "$MAX_FILL")"	
+		fi
+	
+		if string_contains_regexp "$FORMAT" "%(P|\{P\}B)"
+		then
+			PVAL=$(math_mul $NVAL 100)
+			PVAL=$(math_div $PVAL $NMAX)
+
+			PVAL=$(echo $PVAL | tr . ,)	
+			PVAL="$(printf "%5.1f%%" $PVAL)"
+			PVAL="$(echo "$PVAL" | tr , .)"
+
+			if string_contains_regexp "$FORMAT" "%P"; then
+				FORMAT="$(string_sub "$FORMAT" '%P' "$PVAL")"
+			fi
+		fi
+
+		if string_contains_regexp "$FORMAT" "%(\{P\})?B"; then
+
+			local BVAL=$(math_mul $NVAL $LEN)
+			BVAL=$(math_div $BVAL $NMAX)
+			BVAL=$(math_int_round $BVAL)
+				
+			local BAR=$(eval $(echo "progress_bar_builder $PRINT_OPT -l $LEN -v $BVAL") )
+
+			if string_contains_regexp "$FORMAT" "%\{P\}B"; then
+					
+				local BB=$(string_remove "$FORMAT" "%({P})?B.*$")
+				local BA=$(string_remove "$FORMAT" "^.*%({P})?B")			
+				local PL=$(string_length "$PVAL")
+				PER_POS=$(( $(string_length "$BA") + $(math_div_int $(($LEN+2)) 2) + $PL -3))
+			
+				if [ $BORDER -eq 0 ]; then
+					PER_POS=$(($PER_POS-1))
+				fi
+
+			fi
+		
+			FORMAT="$(string_sub "$FORMAT" '%(\{P\})?B' "$BAR")"
+		fi
+	}
+	
+	__progress_bar_print() {
+		
+		[ $UPDATE -eq 1 ] && term_cursor_save
+		
+		echo -en "$FORMAT"
+	
+		if [ -n "$PER_POS" ]; then
+			local PL=$(string_length "$PVAL")
+
+			term_move_left $PER_POS
+			echo -en "$PVAL"
+			term_move_right $(($PER_POS - $PL)) 
+		fi
+	
+		if [ $UPDATE -eq 1 ]; then
+			term_cursor_restore
+		elif [ $NEWLINE -eq 1 ]; then
+			echo
+		fi
+	}
+	
+	__progress_bar_main() {
+	
+		__progress_bar_init_params "$@"
+		
+		local INIT_EXIT_CODE=$?
+		
+		if [ $INIT_EXIT_CODE -eq 0 ]; then
+			__progress_bar_build
+			__progress_bar_print
+			
+			return $?
+		elif [ $INIT_EXIT_CODE -eq 15 ]; then
+			__progress_bar_usage | less
+			
+			return 0
+		else
+			return $INIT_EXIT_CODE;
+		fi
+	}
+	
+	__progress_bar_main "$@"
+	
+	local EXIT_CODE=$?	
+	
+	unset __progress_bar_usage
+	unset __progress_bar_init_params
+	unset __progress_bar_build
+	unset __progress_bar_print
+	unset __progress_bar_main
+	
+	return $EXIT_CODE
+}
+
