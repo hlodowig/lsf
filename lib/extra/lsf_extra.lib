@@ -1,0 +1,44 @@
+################################################################################
+# Library System Framework - Extra Library                                     #
+################################################################################
+#
+# Libreria contenente definizioni di funzioni che estendono quelle basi del
+# framework LSF.
+#
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+
+lib_include cui:tabulator
+
+# Restituisce la lista delle librerie in formato tabulare.
+lib_list_tab()
+{
+	lib_list | 
+	awk '{gsub("\\[(\\+|\\*)\\]","Yes"); gsub("\\[(-| )\\]","No"); gsub("\\[=\\]","--"); print}' | 
+	tabulator --headers="Type,Name,Enabled?,Loaded?,Path" --fields="2,4,1,3,5" --title="Libraries" $*
+}
+
+# Restituisce la lista delle definizioni di alias, funzioni e variabili della 
+# libreria passata come primo paramentro in formato tabulare
+lib_list_def_tab()
+{
+	local lib=$1; shift
+	
+	lib_list_def $lib | 
+	awk '{gsub("\\[VAR\\]","Variable"); gsub("\\[FUN\\]","Function"); gsub("\\[ALS\\]","Alias"); print}' | 
+	tabulator --headers="Name,Type" --fields="2,1" --title="Library: [ $lib ] - Definitions" $*
+}
+
+# Restituisce la lista delle librerie tramite interfaccia grafica.
+lib_list_x()
+{
+	lib_list_tab -x --width 600 
+}
+
+# Restituisce la lista delle definizioni di alias, funzioni e variabili della 
+# libreria passata come primo paramentro tramite interfaccia grafica.
+lib_list_def_x()
+{
+	lib_list_def_tab $1 -x --width 500
+}
+
