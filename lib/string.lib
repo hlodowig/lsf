@@ -1,0 +1,99 @@
+################################################################################
+# String Library                                                               #
+################################################################################
+#
+# Libreria contenente definizioni e funzioni per la manipolazione di stringhe.
+#
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+
+# Restituisce la sottostringa ottunuta dalla stringa passata come primo parametro,
+# a partire dall'indice indicato nel secondo paramentro fino all'indice indcato
+# nel terzo.
+substring() 
+{
+	echo ${1:2:3}
+}
+
+# Restituisce la lunghezza di una stringa.
+string_length()
+{
+	if [ -z "$1" ]; then
+		echo 0
+	else
+		echo -ne "$*" | awk '{print length()}'
+	fi
+}
+
+# Restituisce 0 se l'espressione regolare passata come secondo parametro è
+# contenuta all'interno della stringa passata come primo parametro, 1 altrimenti.
+string_contains()
+{
+	local STRING="$1"
+	local REGEXP="$2"
+
+	echo "$STRING" | grep -q -E -e "$REGEXP"
+	return $?
+}
+
+# Restituisce la stringa identificata l'espressione regolare passata come secondo 
+# parametro se è contenuta all'interno della stringa passata come primo parametro,
+# altrimenti la stringa vuota.
+string_get()
+{
+	local STRING="$1"
+	local REGEXP="$2"
+
+	echo "$STRING" | grep -E -o -e "$REGEXP" 2>/dev/null
+	return $?
+}
+
+# Restituisce la riga contenente la stringa identificata dall'espressione regolare 
+# passata come secondo parametro se è contenuta all'interno della stringa passata 
+# come primo parametro,
+# altrimenti la stringa vuota.
+string_get_line()
+{
+	local STRING="$1"
+	local REGEXP="$2"
+
+	echo "$STRING" | grep -E -e "$REGEXP" 2>/dev/null
+	return $?
+}
+
+# Restituisce la stringa ottenuta sostituendo alla stringa passata come primo
+# parametro, le sottostringhe identificate dall'espressione regolare 
+# passata come secondo con la stringa passata come terzo parametro.
+#
+string_sub()
+{
+	[ $# -lt 1 ] && return 1
+	
+	echo "$1" | awk -v S="$2" -v R="$3" '{gsub(S,R); print}' 2>/dev/null
+	#echo "$1" | sed "s/$2/$3/g"
+}
+
+# Restituisce la stringa ottenuta rimuovedo dalla stringa passata come primo
+# parametro, le sottostringhe identificate dall'espressione regolare 
+# passata come secondo con la stringa passata come terzo parametro.
+#
+string_remove()
+{
+	string_sub "$1" "$2" ""
+}
+
+# Restituisce la stringa ottenuta rimuovedo dalla stringa passata come primo 
+# parametro, la riga contenente le sottostringhe identificate dall'espressione 
+# regolare passata come secondo parametro.
+#
+string_remove_line()
+{
+	echo "$1" | grep -E -v -e "$2"
+}
+
+
+# Definizione di alias per retro-compatibilità 
+alias string_contains_regexp=string_contains
+alias string_get_regexp=string_get
+alias string_get_line_regexp=string_get_line
+
