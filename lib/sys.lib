@@ -1,0 +1,231 @@
+################################################################################
+# System Library                                                               #
+################################################################################
+#
+# Libreria contenente definizioni e funzioni per la gestine di funzioni di
+# sistema.
+#
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+
+# Restituisce il path del comando, se installato nel sistema.
+sys_cmd_path()
+{
+	which $1
+}
+
+# Restituisce un exit-code pari a 0 se il comando è installato nel sistema,
+# altrimenti 1.
+sys_is_installed()
+{
+	which $1 > /dev/null
+	
+	return $?
+}
+
+# Restituisce il valore della variabile d'ambiente PATH.
+sys_get_path()
+{
+	echo $PATH
+}
+
+# Restituisce la lista delle directory contenute nella variabile d'ambiente PATH.
+sys_get_path_list()
+{
+	echo -e ${PATH//:/\\n}
+}
+
+# Imposta il valore della variabile d'ambiente PATH.
+sys_set_path()
+{
+	PATH="$*"
+}
+
+# Assegna alla variabile d'ambiente PATH la stringa nulla.
+sys_unset_path()
+{
+	PATH=""
+}
+
+# Aggiunge alla variabile d'ambiente PATH una nuova directory.
+sys_add_path()
+{
+	PATH="$*:$PATH"
+}
+
+# Imposta il valore del primo prompt (PS1).
+sys_set_prompt1()
+{
+	PS1="$*"
+}
+
+# Imposta il valore del secondo prompt (PS2).
+sys_set_prompt2()
+{
+	PS2="$*"
+}
+
+# Imposta il valore del terzo prompt (PS3).
+sys_set_prompt3()
+{
+	PS3="$*"
+}
+
+# See: sys_set_prompt1
+alias sys_set_prompt=sys_set_prompt1
+
+
+# Esegue un comando per ogni file processato.
+sys_exec_cmd_forall()
+{
+
+	__sys_exec_cmd_forall_usage()
+	{
+		local CMD="sys_exec_cmd_forall"
+cat << END
+NAME
+       $CMD - Esegue un comando per tutti i file
+
+SYNOPSIS
+       $CMD -c <COMMAND> [-v <VARNAME>] [-a <CMD_ARG_PATTERN>] [-f <FILTER_PATTERN>] [directory ...]
+
+DESCRIPTION
+       Esegue un comando per tutti i file identificati dal pattern
+
+OPTIONS
+    Generic Program Information:
+       -h, --help                   Print this message
+    
+    Main options:     
+       -v, --var      <string>      Nome della variabile che identifica il file corrente  (default "FILE")
+       -c, --command  <string>      Comando
+       -a, --args     <string>      Pattern degli argomenti del comando specificato (default @FILE)
+       -f, --filter   <string>      Pattern che identifica i file da processare (attenzione % al posto di *)
+       
+     Extra options:
+       --dump                       Stampa il comando, ma non verrà eseguito
+
+AUTHOR
+       Written by Luigi Capraro (luigi.capraro@gmail.com)
+
+EXAMPLES
+	$CMD -c echo [.]
+	$CMD -c echo -a "@FILE" [.]
+	$CMD -c mv -a "@FILE @{FILE/%.txt/.doc}" -f %.txt dir
+	$CMD -c mv -v DOC -a "@DOC @{DOC/%.txt/.doc}" -f %.txt dir
+	$CMD dir -c "ls -s" 
+
+END
+
+}
+
+	local ARGS=$(getopt -o v:f:c:a:h -l var:,command:,args:,filter:,dump,help -- "$@")
+		
+	eval set -- $ARGS
+	
+	local VAR="FILE"
+	local FILTER_PATTERN=
+	local CMD=
+	local ARGS_PATTERN="\$$VAR"
+	local DIR="."
+	
+	local DUMP_MODE=0
+		
+	while true ; do
+
+		case "$1" in
+		    -h|--help)
+		        __sys_exec_cmd_forall_usage
+		        return 0
+		        ;;
+		    -v|--var)
+		        VAR="$2"
+		        shift 2
+		        ;;
+		    -c|--command)
+		        CMD="$2"
+		        shift 2
+		        ;;
+		    -a|--args)
+		        ARGS_PATTERN="$2"
+		        shift 2
+		        ;;
+		    -f|--filter)
+		        FILTER_PATTERN="$2"
+		        shift 2
+		        ;;
+		    -y|--year)
+		        OPTIONS="$OPTIONS --ty '$2'"
+		        shift 2
+		        ;;
+		    --dump)
+		    	DUMP_MODE=1
+		    	shift
+		    	;;
+		    --) shift
+		        break
+		        ;;
+		    *) 	echo "Error: unknown option \"$1\""
+				return 1
+		        ;;
+		    esac
+	done
+
+	if [ -z "$CMD" ]; then
+		echo "ERROR: you must define -c option " > /dev/stderr
+		return 2
+	fi
+	
+	if [ $# -eq 0 ]; then
+		set -- "."
+	fi
+	
+	
+	for DIR in "$@"; do
+		if [ ! -d "$DIR" ]; then
+			echo "Directory \"$DIR\" not found!" > /dev/stderr
+			return 3
+		fi
+	done
+	
+		
+	FILTER_PATTERN="$(echo $FILTER_PATTERN | tr '%' '*')"
+	ARGS_PATTERN="$(echo "$ARGS_PATTERN" | tr "\n" " " | awk 'BEGIN {RS=" "} { print "\"" $0 "\"" }' | tr '@' '\$')"
+
+	#debug
+	#echo "DIR=$DIR"
+	#echo "FILTER_PATTERN=$FILTER_PATTERN"
+	#echo "ARGS_PATTERN=$ARGS_PATTERN"
+
+	local FILES=
+	local COMMAND=
+	
+	for DIR in "$@"; do
+	
+		FILES=`(cd $DIR; ls -Q $FILTER_PATTERN 2> /dev/null)`
+		test -z "$FILES" && continue
+
+		#debug
+		#echo "FILES=$FILES"
+				
+		COMMAND="( cd $DIR; for $VAR in ${FILES}; do $CMD $ARGS_PATTERN; done)"
+			
+		if [ $DUMP_MODE -eq 1 ]; then
+			# stampo il comando
+			echo $COMMAND
+		else
+			# eseguo il comando
+			eval $COMMAND
+		fi
+	done
+		
+	unset $VAR
+	unset __sys_exec_cmd_forall_usage
+	
+	return $?	
+
+}
+
+# Alias 
+alias forall="sys_exec_cmd_forall"
+
