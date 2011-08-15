@@ -1,4 +1,12 @@
+################################################################################
+# Filesystem Library                                                           #
+################################################################################
+#
+# Libreria contenente definizioni e funzioni per la gestine del filesystem e per
+# la manipolazione di path di file e directory.
+#
 # Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
 
 lib_include array
 lib_include string

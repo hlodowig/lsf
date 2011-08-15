@@ -1,6 +1,12 @@
-#-------------------
-# Personnal Aliases
-#-------------------
+################################################################################
+# Alias Library                                                                #
+################################################################################
+#
+# Libreria contenente definizioni di alias di utilità generale.
+#
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+
  
 alias rm='rm -r'
 alias cp='cp -rv'

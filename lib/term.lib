@@ -1,6 +1,12 @@
-# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
-
+################################################################################
+# Terminal Library                                                             #
+################################################################################
+#
 # Libreria contenente funzione per la stampa avanzata su terminale.
+#
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+
 
 # Restituisce il numero di colonne del terminale corrente.
 term_get_colums()

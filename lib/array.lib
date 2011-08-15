@@ -1,5 +1,11 @@
+################################################################################
+# Array Library                                                                #
+################################################################################
+#
+# Libreria contenente definizioni e funzioni per la manipolazione di array.
+#
 # Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
-
+#
 
 # Imposta un array.
 #

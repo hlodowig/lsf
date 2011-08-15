@@ -1,7 +1,11 @@
-# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
-
+################################################################################
+# Boolean Library                                                              #
+################################################################################
+#
 # Libreria contenente definizioni e funzioni booleane.
-
+#
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
 
 # Variabile booleana positiva (valore 1).
 TRUE=1

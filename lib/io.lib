@@ -1,4 +1,11 @@
+################################################################################
+# I/O Library                                                                  #
+################################################################################
+#
+# Libreria contenente funzione per operazioni di I/O su terminale.
+#
 # Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
 
 # Libreria contenente funzione di I/O.
 
