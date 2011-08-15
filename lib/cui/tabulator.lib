@@ -1,0 +1,676 @@
+################################################################################
+# Tabulator Library                                                            #
+################################################################################
+#
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+# Tabulator is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# Tabulator is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
+# See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with ; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, 
+# Boston, MA  02110-1301  USA
+#
+
+
+tabulator()
+{
+	local CMD=$(basename $FUNCNAME)
+	local VERSION="0.8.3"
+	local AUTHOR="Luigi Capraro"
+
+	local SETFS=""
+	local SETRS=""
+
+	local FS=""
+	local FILE=""
+	local OUTFILE=""
+	local OUTPUT='/dev/stdout'
+	local NAME=""
+
+	local HEADER=0
+	local FOOTER=1
+	local TABLE=1
+	local COLSIZE_MIN=0
+	local COLSIZE_MAX=0
+	local ALL_LINE=0
+
+	local HORIZONTAL_PADDING=1
+	local VERTICAL_PADDING=0
+
+	local HORIZONTAL_DELIMITER='|'
+	local VERTICAL_DELIMITER='-'
+
+	local HEADERS=""
+
+	# Pipeline
+	local FUN_SELECT=1
+	local FUN_HEADERS=1
+	local FUN_INIT=1
+	local FUN_PRINT=1
+	local FORCE=0
+
+	local GUI_CMD="zenity"
+	local GUI=0
+	local CLEAR=0
+
+	local TABLE_WIDTH=500
+	local TABLE_HEIGHT=400
+
+	############################# Help function #################################### 
+	__tabulator_usage() {
+
+cat << END
+NAME
+	   $CMD - Table Builder
+
+SYNOPSIS
+	   $CMD [OPTIONS] [FILE]
+
+DESCRIPTION
+	   Costruttore di tabelle
+
+OPTIONS
+	Generic Program Information:
+	   -h, --help                                 Print this message
+	   -V, --version                              Print version program
+	
+	Main options:     
+	   -F, --FS, --field-separator  <string>      Separatore di campo  (default FS=" ")
+	   -R, --RS, --record-separator <string>      Separatore di record (default RS="\n")
+	   -n, --name, --title, -t      <string>      Imposta il titolo della tabella/nome del record
+	   -f, --fields                 <f1,...,fn>   Seleziona i campi da visualizzare nell'ordine desiderato (ES. "2,5,1")
+	   --headers                    <h1,...,hn>   Imposta le intestazioni della tabella (ES. "Campo1,Campo2,...,CampoN").
+	   -H, --enable-headers                       Considera la prima riga come intestazione della tabella
+
+	   -o, --output                 <file>        File di output 
+	
+	Formatting options:
+	   -a                                         Abilita  la stampa del separatore per ogni riga
+	   -A                                         Disilita la stampa del separatore per ogni riga (default)
+	   
+	   -b, --enable-border                        Abilita  la stampa dei bordi della tabella (default)
+	   -B, --disable-border                       Disilita la stampa dei bordi della tabella
+	   
+	   -m, --min-column-size        <num>         Imposta la larghezza minima  delle colonne della tabella (default AUTO=0)
+	   -M, --max-column-size        <num>         Imposta la larghezza massima delle colonne della tabella (default AUTO=0)
+	   
+	   -p, --horizontal-padding     <num>         Imposta il padding orizzontale delle colonne della tabella (default 1)
+	   -w, --vertical-padding       <num>         Imposta il padding verticale   delle colonne della tabella (default 0)
+	   
+	   -d, --delimiter              <string>      Imposta la stringa da utilizzare come delimitatore sia orizzontale che verticale
+	   -i, --horizontal-delimiter   <string>      Imposta la stringa da utilizzare come delimitatore orizzontale (default "-")
+	   -j, --vertical-delimiter     <string>      Imposta la stringa da utilizzare come delimitatore vertiacale  (default "|")
+	   
+	 GUI Options:
+	   -x, --gui                                  Abilita graphic user interface (zenity)
+	   --width                      <num>         Imposta la larghezza della tabella
+	   --height                     <num>         Imposta    l'altezza della tabella
+	   
+	 Extra options:
+	   --clear                                    Pulisce lo schermo prima di stampare la tabella a video
+	   --test                                     Esegue routine di test
+
+VERSION $VERSION
+
+AUTHOR
+       Written by Luigi Capraro (luigi.capraro@gmail.com)
+
+EXAMPLES
+	$CMD file.in [ > file.out | -o file.out | --output=file.out ]
+
+	Using standard input:
+	 echo -e "1 2 3\n4 5 6\n7 8 9" | $CMD 
+	 echo -n "1,2,3; 4,5,6; 7,8,9" | $CMD -F"," -R";"
+	 cat /etc/passwd | $CMD -F: --headers="USER,PASSWORD,UID,GID,INFO,HOME,SHELL" -p2 -w0 -m4 -M20 
+	 cat /etc/passwd | $CMD -F: --title="Users" --fields="1,6,7" --headers="USER,HOME,SHELL" [-x]
+	 cat /etc/passwd | $CMD -F: -f7 -B | sort | uniq -c | sort -rn | $CMD -f2,1 --headers="SHELL,USERS"
+
+END
+
+	}
+
+	__tabulator_error() {
+		local message=$1 
+		local exit_code=$2
+	
+		if [ $GUI -eq 1 ]; then
+			zenity --title="Tabulator: Error" --error --text="$message"
+		else
+			echo -e "ERROR: $message"
+		fi
+	
+		return $exit_code
+	}
+
+	############################# Init parameters ##################################
+	__tabulator_init_params() {
+	
+		if [ $# -ne 0 ]; then
+
+			# Si raccoglie la stringa generata da getopt.
+			ARGS=$(getopt -o aAhHbBNVn:t:p:m:M:d:f:F:R:i:j:w:o:x -l enable-headers,headers:,help,enable-border,disable-border,min-column-size:,max-column-size:,horizontal-padding:,vertical-padding:,delimiter:,horizontal-delimiter:,vertical-delimiter:,FS:,field-separator:,RS:,record-separator:,output:,fields:,version,test,gui,clear,name:,title:,width:,height: -- "$@")
+
+			# debug
+			#echo "Prima: "$@""
+			#echo "OPT  : $ARGS"
+
+			# Si trasferisce nei parametri $1, $2,...
+			eval set -- $ARGS
+
+			# debug
+			#echo "Dopo: "$@""
+
+			while true ; do
+				#debug
+				#echo "Parse string: $1"
+
+				case "$1" in
+					-n|--name|--title|-t)       NAME="$2"               ; shift 2 ;;
+					-F|--FS|--field-separator)  FS=$2                   ; shift 2 ;;
+					-R|--RS|--record-separator) RS=$2                   ; shift 2 ;;
+					-H|--enable-headers) 	    HEADER=1                ; shift   ;;
+					-o|--output)                OUTFILE=$2              ; shift 2 ;;
+					-a) 				        ALL_LINE=1              ; shift   ;;
+					-A)                         ALL_LINE=0              ; shift   ;;
+					-b|--enable-border)         TABLE=1                 ; shift   ;;
+					-B|--disable-border)        TABLE=0                 ; shift   ;;
+					-m|--min-column-size)       COLSIZE_MIN=$2          ; shift 2 ;;
+					-M|--max-column-size)       COLSIZE_MAX=$2          ; shift 2 ;;
+					-p|--horizontal-padding)    HORIZONTAL_PADDING=$2   ; shift 2 ;;
+					-w|--vertical-padding)      VERTICAL_PADDING=$2     ; shift 2 ;;
+					-i|--horizontal-delimiter)  HORIZONTAL_DELIMITER=$2 ; shift 2 ;;
+					-j|--vertical-delimiter)    VERTICAL_DELIMITER=$2   ; shift 2 ;;
+					-d|--delimiter) 			HORIZONTAL_DELIMITER=$2 ;
+												VERTICAL_DELIMITER=$2   ; shift 2 ;;
+					--headers)
+						if [ $FUN_HEADERS -eq 0 ]; then
+							[ $FORCE -eq 1 ] && error "Headers not available" 5
+						else
+							HEADER=1
+							HEADERS="$(echo $2 | tr '_' ' ')"   
+						fi
+						shift 2;;
+					-f|--fields)
+						if [ $FUN_SELECT -eq 0 ]; then
+							[ $FORCE -eq 1 ] && error "Field selection not available" 6
+						else
+							FIELDS="-v cols=$(echo $2 | tr '[:space:]' "_" | tr -d '_')"
+						fi
+						shift 2;;
+					-x|--gui)
+						if [ -z "`which $GUI_CMD`" ]; then
+							[ $FORCE -eq 1 ] && error "$GUI_CMD not available" 7
+							GUI=0
+						else
+							GUI=1
+						fi
+						shift ;;
+					--width)                    TABLE_WIDTH=$2          ; shift 2 ;;
+					--height)                   TABLE_HEIGHT=$2         ; shift 2 ;;
+					--clear)                    CLEAR=1                 ; shift   ;;
+					-h|--help)    return 10 ;;
+					-V|--version) return 11 ;;
+					--test)       return 12 ;;
+					--) shift; break;;
+					*) 	echo "Error: unknown option \"$1\"";
+						#__tabulator_usage; 
+						return 1;;
+				esac
+			done
+
+			FILE="$1"
+		fi
+
+		# Controllo delle variabili
+
+		if [ ! -f $FILE ]; then
+			__tabulator_error "File \"$FILE\" non valido"
+			return 2
+		fi
+
+		if [ $GUI -eq 1 ] && [ -z "`which $GUI_CMD`" ]; then
+			[ $FORCE ] && __tabulator_error "$GUI_CMD not available" 7
+			GUI=0
+		fi
+
+		if [ ! -z "$FS" ]; then
+			SETFS="-v FS=$FS"
+		else
+			FS=' '
+		fi
+
+		if [ ! -z "$RS" ]; then
+			SETRS="-v RS=$RS"
+		else
+			RS='\n'
+		fi
+
+		if [ ! -z "$HEADERS" ]; then
+			HEADERS="`echo "$HEADERS" | tr ',' "${FS}"`"
+		fi
+
+		if [ ! -z $OUTFILE ]; then
+			OUTPUT=$OUTFILE
+		fi
+
+		#[ $CLEAR -eq 1 ] && clear
+	}
+	
+	__tabulator_print_status() {
+	
+		echo "CMD='$CMD'"
+		echo "VERSION='$VERSION'"
+		echo "AUTHOR='$AUTHOR'"
+
+		echo "SETFS='$SETFS'"
+		echo "SETRS='$SETRS'"
+
+		echo "FS='$FS'"
+		echo "FILE='$FILE'"
+		echo "OUTFILE='$OUTFILE'"
+		echo "OUTPUT='$OUTPUT'"
+		echo "NAME='$NAME'"
+
+		echo "HEADER='$HEADER'"
+		echo "FOOTER='$FOOTER'"
+		echo "TABLE='$TABLE'"
+		echo "COLSIZE_MIN='$COLSIZE_MIN'"
+		echo "COLSIZE_MAX='$COLSIZE_MAX'"
+		echo "ALL_LINE='$ALL_LINE'"
+
+		echo "HORIZONTAL_PADDING='$HORIZONTAL_PADDING'"
+		echo "VERTICAL_PADDING='$VERTICAL_PADDING'"
+
+		echo "HORIZONTAL_DELIMITER='$HORIZONTAL_DELIMITER'"
+		echo "VERTICAL_DELIMITER='$VERTICAL_DELIMITER'"
+
+		echo "HEADERS='$HEADERS'"
+
+		# Pipeline
+		echo "FUN_SELECT='$FUN_SELECT'"
+		echo "FUN_HEADERS='$FUN_HEADERS'"
+		echo "FUN_INIT='$FUN_INIT'"
+		echo "FUN_PRINT='$FUN_PRINT'"
+		echo "FORCE=$FORCE"
+
+		echo "GUI_CMD='$GUI_CMD'"
+		echo "GUI=$GUI"
+		echo "CLEAR=$CLEAR"
+
+		echo "TABLE_WIDTH=$TABLE_WIDTH"
+		echo "TABLE_HEIGHT=$TABLE_HEIGHT"
+	}
+	############################## Program version #################################
+	__tabulator_version() {
+		echo -e "GNU $CMD $VERSION"
+		return 0
+	}
+
+	###################### Seleziona i campi di interesse ##########################
+	__tabulator_select_fields() {
+		if [ $FUN_SELECT -eq 0 ]; then
+			awk $SETRS $SETFS '
+				NR==1 { TEXT=$0 }
+				NR!=1 { TEXT= TEXT "\n" $0 }
+				END   { printf TEXT }
+			'
+		else
+			awk $SETRS $SETFS $FIELDS '
+				BEGIN { if(cols!="") split(cols, FIELDS, ",")}
+
+				{
+					if(length(FIELDS)==0) {
+						TEXT=TEXT $0 "\n"
+					} else {
+	  			  		for(j=1; j<=length(FIELDS); j++) {
+							TEXT=TEXT $(FIELDS[j])
+							if(j!=length(FIELDS))
+								TEXT=TEXT FS
+						}
+						TEXT=TEXT "\n"
+					}
+				}
+				END   { printf TEXT }
+			'
+		fi
+	}
+
+	############# Aggiunge, se necessario, l'header della tabella ##################
+	__tabulator_add_headers() {
+		if [ $FUN_HEADERS -eq 0 ]; then
+			cat
+		else
+			awk $SETFS -v HEADERS="$HEADERS" '
+				BEGIN {
+					if(HEADERS!="")
+						print HEADERS
+				}
+
+				{
+					print $0
+				}
+			'
+		fi
+	}
+
+	####### Fornisce in output i record e informazioni sulla formattazione #########
+	__tabulator_init_table() {
+		if [ $FUN_INIT -eq 0 ]; then
+			cat
+		else
+			awk $SETFS -v COLSIZE_MIN=$COLSIZE_MIN -v COLSIZE_MAX=$COLSIZE_MAX -v HEADER=$HEADER '
+				function min(a,b) {
+					return (a<b)?a:b;
+				}
+
+				function max(a,b) {
+					return (a>b)?a:b;
+				}
+
+				{
+				  TEXT= TEXT "\n" $0;
+
+				  for (i=1; i<=NF; i++) {
+					cols[i] = max(cols[i], length($i))
+					#printf "Colonna n.%d size=%d\n",i, cols[i]
+				  }
+				  COLS=max(COLS, NF);
+				}
+
+				END {
+					RECORDS=NR
+					if(HEADER==1) RECORDS-=1
+					print RECORDS FS COLS
+					for (i=1; i<=COLS; i++) {
+						if (COLSIZE_MIN>0 && COLSIZE_MAX>0 && COLSIZE_MAX<COLSIZE_MIN) COLSIZE_MIN = COLSIZE_MAX;
+
+						col = max(cols[i], COLSIZE_MIN-(2*PADDING))
+						if (COLSIZE_MAX!=0)
+							col = min(col, COLSIZE_MAX-(2*PADDING)) 
+						printf "%d", col
+
+					  	if(i<COLS) printf FS
+					}
+					print TEXT
+				}
+			'
+		fi
+	}
+
+	##################### Stampa la tabella formattata #############################
+	__tabulator_build_table() {
+		if [ $FUN_PRINT -eq 0 ]; then
+			if [ $FUN_INIT -eq 0 ]; then
+				awk $SETFS '
+					{
+						printf "[ "
+
+						for (i=1; i<=NF; i++) {
+							if(i==NF)
+								printf "%s", $i
+							else
+								printf "%s ; ", $i
+						}
+						print " ] (",NF,")"
+
+					}
+					END {
+						print "--------------"
+						print "Records: ", NR
+					}
+				'
+			else
+				cat
+			fi
+		else
+			awk $SETFS  -v TABLE=$TABLE -v NAME="$NAME" -v HEADER=$HEADER \
+					 -v HDEL=$HORIZONTAL_DELIMITER -v VDEL=$VERTICAL_DELIMITER \
+					 -v ALINE=$ALL_LINE -v HPADDING=$HORIZONTAL_PADDING -v VPADDING=$VERTICAL_PADDING '
+					function isNum(n) {
+						return n ~ "^[0-9]+(.[0-9]+)?$"
+					}
+
+					function separator() {
+					 	if (TABLE==1) {
+					 		VDEL = (VDEL=="")?" ":VDEL
+					 		TABLE_WIDTH = WIDTH + (COLS+1)*length(HDEL) + (COLS*2*HPADDING)
+					 		for (i=0; i < TABLE_WIDTH/length(VDEL); i++)
+					 			printf VDEL
+					 		printf "\n"
+					 	}
+					}
+
+					function delimiter() {
+					 	 HDEL = (HDEL=="")?" ":HDEL
+
+					 	if (TABLE==1) return HDEL
+					 	else return ""
+					}
+
+					function print_field(field, size) {
+
+						padding(HPADDING);
+						if (size>0) {
+
+							if (length(field) > size)
+								field = substr(field, 0, (size-1)) "~"
+
+							if (isNum(field))
+								printf "%" size "s", field
+							else printf "%-" size "s", field
+						}
+					 	padding(HPADDING);
+					}
+
+					function print_title(title, size) {__tabulator_
+						padding(HPADDING);
+						if (size>0) {
+							if (length(title) > size)
+								title = substr(field, 0, (size-1)) "~"
+
+							space=size-length(title)
+							left_pad=space/2;
+							right_pad= left_pad+(space%2)
+							padding(left_pad);
+							printf title
+						 	padding(right_pad);
+					 	}
+						padding(HPADDING);
+					}
+
+					function padding(size) {
+						for(p=1; p<=size; p++) printf " "
+					}
+
+					function vpadding(size) {
+						for(j=1; j<=size; j++) {
+
+							for (i=1; i<=COLS; i++) {
+								printf delimiter();
+								print_field(" ",cols[i]);
+								if(i==COLS) printf delimiter() "\n";
+							}
+						}
+					}
+					NR==2 { for (i=1; i<=NF; i++) {
+								cols[i] = $i
+								WIDTH += $i
+							}
+
+							COLS = NF
+							if(NAME!="") {
+								SPACES=((COLS-1)*length(HDEL))+(COLS-1)*2*HPADDING;
+								TITLE_WIDTH=WIDTH+SPACES;
+
+								tdiff=length(NAME)-TITLE_WIDTH
+								while(tdiff>0) {
+									for (i=1; i<=NF && tdiff>0; i++) {
+										cols[i]+=1
+										WIDTH+=1
+										tdiff-=1
+									}
+								}
+								TITLE_WIDTH=WIDTH+SPACES;
+
+								separator()
+								printf delimiter()
+								print_title(NAME,TITLE_WIDTH)
+								print delimiter()
+							}
+							separator()
+						  }
+					NR>2 {
+
+							vpadding(VPADDING);
+							for (i=1; i<=COLS; i++) {
+								printf delimiter()
+								print_field($i,cols[i])
+								if(i==COLS) printf delimiter() "\n"
+							}
+						 	vpadding(VPADDING);
+
+							if (ALINE==1) separator()
+							if (NR==3 && HEADER==1) separator()
+						  }
+					END { if(ALINE==0) separator() }
+				'
+		fi
+	}
+
+	__tabulator_make_zenity_cmd() {
+		if [ $FUN_INIT -eq 0 ]; then
+			cat
+		else
+			awk $SETFS -v NAME="$NAME" -v HEADER=$HEADER -v TABLE_WIDTH=$TABLE_WIDTH -v TABLE_HEIGHT=$TABLE_HEIGHT '
+
+				BEGIN { printf "zenity --text="" --title=\"%s\" --width=%d --height=%d --list ", NAME, TABLE_WIDTH, TABLE_HEIGHT }
+				NR==1 { FIELDS=$2 }
+				NR==3 {
+				  for (i=1; i<=FIELDS; i++) {
+			  	  	printf " --column=\"%s\" ", (HEADER==1)?$i:" "
+				  }
+
+				  if(HEADER==0) {
+				  	for (i=1; i<=FIELDS; i++) {
+				  		printf "\"%s\" ", $i
+				  	}
+				  }
+				}
+				NR>3 {
+				  for (i=1; i<=FIELDS; i++) {
+				  		printf "\"%s\" ", $i
+				  }
+				}
+			'
+		fi
+	}
+
+	__tabulator_print_cui_table() {
+		cat $FILE | __tabulator_select_fields | __tabulator_add_headers | __tabulator_init_table | __tabulator_build_table
+	}
+
+	__tabulator_print_gui_table() {
+		eval $(cat $FILE | __tabulator_select_fields | __tabulator_add_headers | __tabulator_init_table | __tabulator_make_zenity_cmd)
+	}
+
+	__tabulator_print_table() {
+		if [ $GUI -eq 0 ]
+		then
+			__tabulator_print_cui_table
+		else
+			__tabulator_print_gui_table
+		fi
+	}
+
+	__tabulator_make_table() {
+		__tabulator_init_params "$@"
+		
+		local INIT_EXIT_CODE=$?
+		
+		if [ $INIT_EXIT_CODE -eq 0 ]; then
+			__tabulator_print_table > $OUTPUT
+			return $?
+		elif [ $INIT_EXIT_CODE -eq 10 ]; then
+			__tabulator_usage | less
+			return 0
+		elif [ $INIT_EXIT_CODE -eq 11 ]; then
+			__tabulator_version
+			return 0
+		elif [ $INIT_EXIT_CODE -eq 12 ]; then
+			__tabulator_execute_test
+			return $?
+		else
+			return $INIT_EXIT_CODE;
+		fi
+	}
+
+	############################# Test Functions ###################################
+
+	__tabulator_test0() {
+		local TEST='echo -e "1 2 3\n4 5 6\n7 8 9" | $CMD -a -p3 -w1'
+		echo "Test program 2: '$TEST'"
+		eval $TEST
+	}
+
+	__tabulator_test1() {
+		local TEST='echo -n "1,2,3;4,5,6;7,8,9" | $CMD -F"," -R";" --headers="F1,F2,F3"'
+		echo "Test program 2: '$TEST'"
+		eval $TEST
+	}
+
+	__tabulator_test2() {
+		local TEST='echo -n "1,2,3;4,5,6;7,8,9" | $CMD -F"," -R";" -f"3,2" --headers="F3,F2"'
+		echo "Test program 2: '$TEST'"
+		eval $TEST
+	}
+
+	__tabulator_test3() {
+	
+		local TEST='echo -n "1,,3;4;7,,9" | $CMD -F"," -R";" --title="Table Name" --headers="F1,F2,F3"'
+		echo "Test program 3: '$TEST'"
+		eval $TEST
+	}
+
+	__tabulator_execute_test() {
+		(__tabulator_test0; __tabulator_test1; __tabulator_test2; __tabulator_test3) > $OUTPUT
+	}
+
+	############################### MAIN PROGRAM ###################################
+	__tabulator_make_table "$@"
+
+	local EXIT_CODE=$?
+	
+	unset __tabulator_usage
+	unset __tabulator_error
+	unset __tabulator_version
+	unset __tabulator_test0
+	unset __tabulator_test1
+	unset __tabulator_test2
+	unset __tabulator_test3
+	unset __tabulator_execute_test
+
+	unset __tabulator_select_fields 
+	unset __tabulator_add_headers 
+	unset __tabulator_init_table 
+	unset __tabulator_build_table
+	unset __tabulator_make_zenity_cmd
+
+	unset __tabulator_print_cui_table
+	unset __tabulator_print_gui_table
+
+	unset __tabulator_print_table
+	unset __tabulator_make_table
+
+	return $EXIT_CODE
+	################################################################################
+
+}
