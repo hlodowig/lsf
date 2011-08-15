@@ -22,26 +22,28 @@ sys_is_installed()
 	return $?
 }
 
+
+
 # Restituisce il valore della variabile d'ambiente PATH.
-sys_get_path()
+sys_path_get()
 {
 	echo $PATH
 }
 
 # Restituisce la lista delle directory contenute nella variabile d'ambiente PATH.
-sys_get_path_list()
+sys_path_get_list()
 {
 	echo -e ${PATH//:/\\n}
 }
 
 # Imposta il valore della variabile d'ambiente PATH.
-sys_set_path()
+sys_path_set()
 {
 	PATH="$*"
 }
 
 # Assegna alla variabile d'ambiente PATH la stringa nulla.
-sys_unset_path()
+sys_path_unset()
 {
 	PATH=""
 }
@@ -65,14 +67,18 @@ sys_path_remove()
 {
 	for lib in $*; do
 
+		lib="${lib%\/}"
+
 		PATH=$(echo $PATH | 
-				   awk -v LIB="$lib" '{gsub(LIB, ""); print}' | 
+				   awk -v LIB="$lib/?" '{gsub(LIB, ""); print}' | 
 			       awk '{gsub(":+",":"); print}' | 
 			       awk '{gsub("^:|:$",""); print}')
 	done
 
 	export PATH
 }
+
+
 
 # Imposta il valore del primo prompt (PS1).
 sys_set_prompt1()

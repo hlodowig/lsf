@@ -119,9 +119,11 @@ lib_path_add()
 lib_path_remove()
 {
 	for lib in $*; do
-
+		
+		lib="${lib%\/}"
+		
 		LIB_PATH=$(echo $LIB_PATH | 
-				   awk -v LIB="$lib" '{gsub(LIB, ""); print}' | 
+				   awk -v LIB="$lib/?" '{gsub(LIB, ""); print}' | 
 			       awk '{gsub(":+",":"); print}' | 
 			       awk '{gsub("^:|:$",""); print}')
 	done
