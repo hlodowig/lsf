@@ -2,8 +2,7 @@
 # System Library                                                               #
 ################################################################################
 #
-# Libreria contenente definizioni e funzioni per la gestine di funzioni di
-# sistema.
+# Libreria contenente definizioni e funzioni di utilità di sistema.
 #
 # Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
 #
@@ -47,10 +46,32 @@ sys_unset_path()
 	PATH=""
 }
 
-# Aggiunge alla variabile d'ambiente PATH una nuova directory.
-sys_add_path()
+# Aggiunge alla variabile d'ambiente PATH nuove directory.
+sys_path_add()
 {
-	PATH="$*:$PATH"
+	for lib in $*; do
+		if [ -n "$PATH" ]; then
+			PATH="${lib%\/}:$PATH"
+		else
+			PATH="${lib%\/}"	
+		fi
+	done
+	
+	export PATH
+}
+
+# Rimuove alla variabile d'ambiente PATH le directory specificate.
+sys_path_remove()
+{
+	for lib in $*; do
+
+		PATH=$(echo $PATH | 
+				   awk -v LIB="$lib" '{gsub(LIB, ""); print}' | 
+			       awk '{gsub(":+",":"); print}' | 
+			       awk '{gsub("^:|:$",""); print}')
+	done
+
+	export PATH
 }
 
 # Imposta il valore del primo prompt (PS1).
