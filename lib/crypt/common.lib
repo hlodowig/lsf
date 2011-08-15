@@ -1,0 +1,45 @@
+################################################################################
+# Crypt - Common Library                                                       #
+################################################################################
+#
+# Libreria contenente definizioni di funzioni di utilità generale di natura
+# crittografica.
+#
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+
+
+if   [ -e "/dev/urandom" ]; then
+	export DEV_RANDOM=/dev/urandom
+elif [ -e "/dev/urandom" ]; then
+	export DEV_RANDOM=/dev/random
+fi
+
+# Genera randomicamente una key a 256-bit e la salva nel file specificato.
+crypt_generate_random_key_file() {
+	
+	[ $# -ne 0 ] || return 1
+	
+	local keyfile="$1" 
+	dd if=$DEV_RANDOM of="$keyfile" bs=32 count=1 2> /dev/null
+	chmod 600 "$keyfile"
+	
+	return $?
+}
+
+# Genera randomicamente una stringa contenente una key a 256-bit.
+crypt_generate_random_key_string() {
+	
+	dd if=$DEV_RANDOM of="/dev/stdout" bs=32 count=1 2> /dev/null
+	
+	return $?
+}
+
+# Restituisce la stringa MD5 associata alla stringa passata come parametro.
+crypt_md5_string()
+{
+	[ $# -ne 0 ] || return 1
+	
+	echo "$*" | md5sum | awk '{print $1}'
+}
+
