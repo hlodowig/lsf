@@ -504,21 +504,27 @@ lib_list()
 
 lib_list_lib()
 {	
-	local ARGS=$(getopt -o redh -l recursive,help,only-enabled,only-disable -- "$@")
+	local ARGS=$(getopt -o rednfhlL -l recursive,help,only-enabled,only-disable,filename,libname,format-list,no-format-list -- "$@")
 	
 	eval set -- $ARGS
 
 	local RECURSIVE=0
 	local ONLY_ENABLED=0
 	local ONLY_DISABLED=0
+	local NAME=1
+	local FORMAT=1
 	local libset=""
 
 	while true ; do
 		case "$1" in
-		-r|--recursive) RECURSIVE=1; shift ;;
-		-e|--only-enabled) ONLY_ENABLED=1; shift ;;
-		-d|--only-disabled) ONLY_DISABLED=1; shift ;;
-		-h|--help) echo "$FUNCNAME [-r|--recursive] <dir>"; return 0;;
+		-n|--libname)        NAME=1          ; shift ;;
+		-f|--filename)       NAME=0          ; shift ;;		
+		-l|--format-list)    FORMAT=1        ; shift ;;		
+		-L|--no-format-list) FORMAT=0        ; shift ;;		
+		-r|--recursive)      RECURSIVE=1     ; shift ;;
+		-e|--only-enabled)   ONLY_ENABLED=1  ; shift ;;
+		-d|--only-disabled)  ONLY_DISABLED=1 ; shift ;;
+		-h|--help) echo "$FUNCNAME <options> [-r|--recursive] <dir>"; return 0;;
 		--) shift;;
 		*) break;;
 		esac
@@ -537,7 +543,12 @@ lib_list_lib()
 		if [ `ls -A1 "$DIR" | wc -l` -gt 0 ]; then
 			for library in $DIR/*.$LIB_EXT; do
 		
-				libname=$(lib_name $library)
+				if [ $NAME -eq 1 ]; then
+					libname=$(lib_name $library)
+				else
+					libname=$library
+				fi
+				
 				found=0
 			
 				for lib in ${libset//;/ }; do
@@ -550,13 +561,13 @@ lib_list_lib()
 				[ $found -eq 0 -a -f $library ] || continue
 			
 				if [ -x $library ]; then
-					if [ $ONLY_ENABLED -eq 1 ]; then
+					if [ $ONLY_ENABLED -eq 1 -o $FORMAT -eq 0 ]; then
 						echo "$libname"
 					elif [ $ONLY_DISABLED -eq 0 ]; then
 						echo "+$libname"
 					fi
 				else
-					if [ $ONLY_DISABLED -eq 1 ]; then
+					if [ $ONLY_DISABLED -eq 1 -o $FORMAT -eq 0  ]; then
 						echo "$libname"
 					elif [ $ONLY_ENABLED -eq 0 ]; then
 						echo "-$libname"
@@ -735,14 +746,28 @@ lib_list_def()
 	if [ $# -eq 0 ]; then
 		return 1
 	fi
+
+	local ARGS=$(getopt -o f:AFV -l file:,only-alias,only-functions,only-variables -- "$@")
+
+	eval set -- $ARGS
+	
+	local _alias=1
+	local _variables=1
+	local _functions=1
 	
 	local LIB_FILE=""
 	local FIND_OPT=""
 	
-	if [ "$1" == "-f" ]; then
-		FIND_OPT="-f"
-		shift
-	fi
+	while true ; do
+		case "$1" in
+		-f|--file)           FIND_OPT="$1"                        ;shift ;;
+		-A|--only-alias)     _alias=1; _functions=0; _variables=0 ;shift ;;
+		-F|--only-functions) _alias=0; _functions=1; _variables=0 ;shift ;;
+		-V|--only-variables) _alias=0; _functions=0; _variables=1 ;shift ;;
+		--) shift;;
+		*) break;;
+		esac
+	done
 
 	local library="$1"
 	LIB_FILE=$(lib_find $FIND_OPT $library)
@@ -785,33 +810,49 @@ lib_list_def()
 			cat "$1" | grep -q -E -e "unalias *$2 *($|;)?"
 		}
 
- 		for var in $(__get_var_list "$LIB_FILE"); do
- 		
- 			if ! __is_local_var $LIB_FILE $var; then
- 				echo "[VAR] $var"
- 			#else
- 			#	echo V " -- $var" 			
- 			fi
- 		done
+		if [ $_variables -eq 1 ]; then
+	 		for var in $(__get_var_list "$LIB_FILE"); do
+	 		
+	 			if ! __is_local_var $LIB_FILE $var; then
+	 				if [ $_functions -eq 1 -a $_alias -eq 1 ]; then
+	 					echo -n "[VAR] "
+	 				fi
+	 				echo "$var"
 
-		for fun in $(__get_fun_list "$LIB_FILE"); do
- 		
- 			if ! __is_local_fun $LIB_FILE $fun; then
- 				echo "[FUN] $fun"
-			#else
- 			#	echo F " -- $fun"
- 			fi
- 		done
+	 			#else
+	 			#	echo V " -- $var" 			
+	 			fi
+	 		done
+ 		fi
 
-		for alias in $(__get_alias_list "$LIB_FILE"); do
- 		
- 			if ! __is_local_alias $LIB_FILE $alias; then
- 				echo "[ALS] $alias"
- 			#else
- 			#	echo A " -- $alias" 			
- 			fi
- 		done
-
+		if [ $_functions -eq 1 ]; then
+			for fun in $(__get_fun_list "$LIB_FILE"); do
+	 		
+	 			if ! __is_local_fun $LIB_FILE $fun; then
+	 				if [ $_variables -eq 1 -a $_alias -eq 1 ]; then
+	 					echo -n "[FUN] "
+	 				fi
+	 				echo "$fun"
+				#else
+	 			#	echo F " -- $fun"
+	 			fi
+	 		done
+		fi
+		
+		if [ $_alias -eq 1 ]; then
+			for alias in $(__get_alias_list "$LIB_FILE"); do
+	 		
+	 			if ! __is_local_alias $LIB_FILE $alias; then
+	 				if [ $_variables -eq 1 -a $_functions -eq 1 ]; then
+	 					echo -n "[ALS] "
+	 				fi
+	 				echo "$alias"
+	 			#else
+	 			#	echo A " -- $alias" 			
+	 			fi
+	 		done
+		fi
+		
 		unset __get_list
 		unset __get_var_list
 		unset __get_fun_list
@@ -882,7 +923,310 @@ lib_exit()
 	done
 }
 
-# main
+
+lib_get_alias_definition()
+{
+	if [ $# -eq 0 ]; then
+		return 1
+	fi
+	
+	local LIB_FILE=""
+	local FIND_OPT=""
+	
+	if [ "$1" == "-h" -o "$1" == "--help" ]; then
+		echo "$FUNCNAME <libname> <alias_name>"
+		echo "$FUNCNAME [-f|--file] <libfile> <alias_name>"
+		return 0
+	elif [ "$1" == "-f" -o "$1" == "--file" ]; then
+		FIND_OPT="-f"
+		shift
+	fi
+
+	local library="$1"
+	LIB_FILE=$(lib_find $FIND_OPT $library)
+
+	
+	if [ -f "$LIB_FILE" ]; then
+
+		local ALIAS_NAME="$2"
+		
+		for a in $(lib_list_def -A -f "$LIB_FILE"); do
+			if [ "$ALIAS_NAME" == "$a" ]; then
+				alias "$ALIAS_NAME"
+			fi
+		done
+	fi
+}
+
+lib_get_variable_value()
+{
+	if [ $# -eq 0 ]; then
+		return 1
+	fi
+	
+	local LIB_FILE=""
+	local FIND_OPT=""
+	
+	if [ "$1" == "-h" -o "$1" == "--help" ]; then
+		echo "$FUNCNAME <libname> <variable_name>"
+		echo "$FUNCNAME [-f|--file] <libfile> <variable_name>"
+		return 0
+	elif [ "$1" == "-f" -o "$1" == "--file" ]; then
+		FIND_OPT="-f"
+		shift
+	fi
+
+	local library="$1"
+	LIB_FILE=$(lib_find $FIND_OPT $library)
+
+	
+	if [ -f "$LIB_FILE" ]; then
+
+		local VAR_NAME="$2"
+	
+		for v in $(lib_list_def -V -f "$LIB_FILE"); do
+			if [ "$VAR_NAME" == "$v" ]; then
+				eval "echo $VAR_NAME=\${$VAR_NAME}"
+			fi
+		done
+	fi
+}
+
+
+lib_get_function_code()
+{
+	if [ $# -eq 0 ]; then
+		return 1
+	fi
+	
+	local LIB_FILE=""
+	local FIND_OPT=""
+	
+	if [ "$1" == "-h" -o "$1" == "--help" ]; then
+		echo "$FUNCNAME <libname> <funcname>"
+		echo "$FUNCNAME [-f|--file] <libfile> <funcname>"
+		return 0
+	elif [ "$1" == "-f" -o "$1" == "--file" ]; then
+		FIND_OPT="-f"
+		shift
+	fi
+
+	local library="$1"
+	LIB_FILE=$(lib_find $FIND_OPT $library)
+
+	
+	if [ -f "$LIB_FILE" ]; then
+
+		local FUN_NAME="$2"
+
+		local LINE=$(eval "cat $LIB_FILE  | awk '/^$FUN_NAME\(\)/ { print FNR}'");
+
+		local VARS=$(cat $LIB_FILE  | awk -v CSTART=$LINE '
+		BEGIN {CEND=0; PAR=0}; 
+		CEND==0 && FNR>=CSTART && /\{/ {PAR=PAR+1}
+		CEND==0 && FNR>=CSTART && /\}/ {PAR=PAR-1; if (PAR==0) {CEND=FNR}}
+		END {printf "-v CSTART=%d -v CEND=%d\n", CSTART, CEND}')
+
+		local CODE=$(cat $LIB_FILE | awk $VARS 'FNR>=CSTART && FNR<=CEND {print}')
+
+		echo -e "Codice della funzione '$FUN_NAME':\n\n$CODE"
+		
+		return 0
+	fi
+	
+	return 2
+}
+
+lib_get_description()
+{
+	if [ $# -eq 0 ]; then
+		return 1
+	fi
+	
+	local ARGS=$(getopt -o hvA:F:V: -l help,verbose,alias:,variable:,function: -- "$@")
+	
+	eval set -- $ARGS
+
+	local LIB_FILE=""
+	local FIND_OPT=""
+	local VERBOSE=1
+	local alias_name=""
+	local variable_name=""
+	local function_name=""
+
+	while true ; do
+		case "$1" in
+		-f|--file)           FIND_OPT="$1"     ; shift  ;;
+		-A|--alias-name)    alias_name="$2"    ; shift 2;;
+		-F|--function-name) function_name="$2" ; shift 2;;
+		-V|--variable-name) variable_name="$2" ; shift 2;;
+		-h|--help) echo "$FUNCNAME <libname> [-A|-V|-F] <name>"
+				   echo "$FUNCNAME [-f|--file] <libfile> [-A|-V|-F] <name>"
+		           return 0;;
+		--) shift;;
+		*) break;;
+		esac
+	done
+
+	local library="$1"
+
+	local ITEM_REGEX=""
+			
+	if [ -n "$alias_name" ]; then
+		ITEM_REGEX="alias *${alias_name} *="
+
+		if [ -z "$library" ]; then
+			library=$(lib_find_def -f -A "$alias_name")
+			FIND_OPT="-f"
+		fi
+
+	elif [ -n "$variable_name" ]; then
+		ITEM_REGEX="${variable_name} *="		
+
+		if [ -z "$library" ]; then
+			library=$(lib_find_def -f -V "$variable_name")
+			FIND_OPT="-f"
+		fi
+
+	elif [ -n "$function_name" ]; then
+		ITEM_REGEX="${function_name}\(\)"
+
+		if [ -z "$library" ]; then
+			library=$(lib_find_def -f -F "$function_name")
+			FIND_OPT="-f"
+		fi
+	fi
+	
+		
+	LIB_FILE=$(lib_find $FIND_OPT $library)
+	
+	if [ -f "$LIB_FILE" ]; then
+
+
+		[ -n "$ITEM_REGEX" ] || return 3
+		
+		local LINE=$(eval "cat $LIB_FILE  | awk 'BEGIN { first=0 }; first==0 && /^ *$ITEM_REGEX/ { print FNR; first=1}'");
+
+		local VARS=$(cat $LIB_FILE  | awk -v LINE=$LINE '
+		BEGIN {CSTART=0; CEND=0; START=1}; 
+		/^#/ && FNR<LINE {if (START==1) { CSTART=FNR; CEND=CSTART; START=0} else {CEND=FNR}}
+		/^$/ && FNR<LINE {START=1}
+		/^ *[^#]+/ && FNR<LINE {START=1; CSTART=0; CEND=0}
+		END {printf "-v CSTART=%d -v CEND=%d\n", CSTART, CEND}')
+
+		local DESC=$(cat $LIB_FILE | awk $VARS 'FNR>=CSTART && FNR<=CEND {gsub("^# *",""); print}')
+
+		echo "$DESC"
+		
+		return 0
+	fi
+	
+	return 2
+}
+
+
+lib_find_def()
+{
+	local ARGS=$(getopt -o edfnhvAFV -l help,only-enabled,only-disable,filename,libname,verbose,only-alias,only-variables,only-functions -- "$@")
+	
+	eval set -- $ARGS
+
+	local ONLY_ENABLED=0
+	local ONLY_DISABLED=0
+	local NAME=1
+	local VERBOSE=1
+	local _alias=1
+	local _variables=1
+	local _functions=1
+
+	while true ; do
+		case "$1" in
+		-A|--only-alias)     _alias=1; _functions=0; _variables=0 ;shift ;;
+		-F|--only-functions) _alias=0; _functions=1; _variables=0 ;shift ;;
+		-V|--only-variables) _alias=0; _functions=0; _variables=1 ;shift ;;
+		-n|--libname)        NAME=1          ; shift ;;
+		-f|--filename)       NAME=0          ; shift ;;		
+		-e|--only-enabled)   ONLY_ENABLED=1  ; shift ;;
+		-d|--only-disabled)  ONLY_DISABLED=1 ; shift ;;
+		-v|--verbose)        VERBOSE=1       ; shift ;;
+		-h|--help) echo "$FUNCNAME <options> [-r|--recursive] <dir>"; return 0;;
+		--) shift;;
+		*) break;;
+		esac
+	done
+
+	local DEF_NAME="$1"
+
+	local found=0
+	
+	for library in $(lib_list_all --no-format-list --filename); do
+		
+		if [ $_variables -eq 1 ]; then
+			for var in $(lib_list_def -V -f $library); do
+				if [ "$DEF_NAME" == $var ]; then
+
+					if [ $_alias -eq 1 -a $_functions -eq 1 ]; then
+						echo -n "[VAR] "
+					fi
+					
+					if [ $NAME -eq 1 ]; then
+						echo "$( lib_name "$library")"					
+					else
+						echo "$library"				
+					fi
+				
+					return 0
+				fi
+			done
+		fi
+
+
+
+		if [ $_alias -eq 1 ]; then
+			for alias in $(lib_list_def -A -f $library); do
+				if [ "$DEF_NAME" == $alias ]; then
+
+					if [ $_alias -eq 1 -a $_variables -eq 1 ]; then
+						echo -n "[ALS] "
+					fi
+
+					if [ $NAME -eq 1 ]; then
+						echo "$( lib_name "$library")"					
+					else
+						echo "$library"				
+					fi
+
+					return 0
+				fi		
+			done
+		fi
+		
+		if [ $_functions -eq 1 ]; then
+			for fun in $(lib_list_def -F -f $library); do
+				if [ "$DEF_NAME" == $fun ]; then
+
+					if [ $_functions -eq 1 -a $_variables -eq 1 ]; then
+						echo -n "[FUN] "
+					fi
+
+					if [ $NAME -eq 1 ]; then
+						echo "$( lib_name "$library")"					
+					else
+						echo "$library"				
+					fi
+
+					return 0
+				fi
+			done
+		fi
+		
+	done
+	
+	return 1
+}
+
+
+# main #########################################################################
 
 if [ "sh" != "$0" -a "bash" != "$0" ]; then 
 

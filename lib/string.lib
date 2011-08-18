@@ -7,7 +7,7 @@
 # Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
 #
 
-# Restituisce la sottostringa ottunuta dalla stringa passata come primo parametro,
+# Restituisce la sottostringa ottenuta dalla stringa passata come primo parametro,
 # a partire dall'indice indicato nel secondo paramentro fino all'indice indcato
 # nel terzo.
 substring() 

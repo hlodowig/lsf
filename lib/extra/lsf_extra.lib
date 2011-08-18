@@ -19,7 +19,7 @@ lib_list_tab()
 }
 
 # Restituisce la lista delle definizioni di alias, funzioni e variabili della 
-# libreria passata come primo paramentro in formato tabulare
+# libreria passata come primo paramentro in formato tabulare.
 lib_list_def_tab()
 {
 	local lib=$1; shift

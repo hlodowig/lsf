@@ -2,11 +2,28 @@
 # Crypt - ECryptFS Library                                                     #
 ################################################################################
 #
-# Libreria contenente definizioni di funzioni relativa a ecryptfs, per il
+# Libreria contenente definizioni di funzioni relative a ecryptfs, per il
 # montaggio e lo smontaggio di directory criptate.
 #
-# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
 #
+# Copyright (C) 2011 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+# ECryptFS library is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# ECryptFS library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with ECryptFS library; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin St, Fifth Floor, 
+# Boston, MA  02110-1301  USA
+#
+
 
 lib_include bool
 lib_include string
@@ -15,7 +32,9 @@ lib_include fs
 lib_include crypt:common
 lib_include cui:tabulator
 
+# File che contiene la lista delle cartelle cryptate
 ECRYPTFS_TAB="$HOME/.ecryptfstab"
+# File che contiene la lista delle cartelle cryptate che vengono montate automaticamente
 ECRYPTFS_AUTOMOUNT="$HOME/.ecryptfs-automount"
 
 
@@ -584,13 +603,21 @@ ecryptfs_mtab()
 	ecryptfs_mount -l | awk '{print $1, $3}' | tabulator -B --headers="SOURCE,MOUNT"
 }
 
+# See: ecryptfs_mount
 alias cmount=ecryptfs_mount
+# See: ecryptfs_umount
 alias cumount=ecryptfs_umount
+# See: ecryptfs_ls
 alias cls=ecryptfs_ls
+# See: ecryptfs_mv
 alias cmv=ecryptfs_mv
+# See: ecryptfs_rm
 alias crm=ecryptfs_rm
+# See: ecryptfs_tab
 alias ctab=ecryptfs_tab
+# See: ecryptfs_mtab
 alias cmtab=ecryptfs_mtab
+# See: ecryptfs_find
 alias cfind=ecryptfs_find
 
 
