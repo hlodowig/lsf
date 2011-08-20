@@ -16,9 +16,16 @@
 #
 math_sum()
 {
-	[ $# -ne 2 ] && return 1
+	[ $# -ge 1 ] || return 1
 	
-	echo $* | awk '{print $1+$2}'
+	local sum=$1
+	shift
+	
+	for num in $*; do
+		sum=$(echo $sum $num | awk '{print $1+$2}')
+	done
+	
+	echo $sum
 }
 
 # Restituisce la differenza tra il primo ed il secondo parametro.
@@ -29,9 +36,16 @@ math_sum()
 #
 math_sub()
 {
-	[ $# -ne 2 ] && return 1
+	[ $# -ge 2 ] || return 1
+
+	local sub=$1
+	shift
 	
-	echo $* | awk '{print $1-$2}'
+	for num in $*; do
+		sub=$(echo $sub $num | awk '{print $1-$2}')
+	done
+	
+	echo $sub
 }
 
 # Restituisce il risultato della moltiplicazione del primo parametro per il
@@ -43,9 +57,16 @@ math_sub()
 #
 math_mul()
 {
-	[ $# -ne 2 ] && return 1
+	[ $# -ge 2 ] || return 1
+
+	local prod=$1
+	shift 
 	
-	echo $* | awk '{print $1*$2}'
+	for num in $*; do
+		prod=$(echo $prod $num | awk '{print $1*$2}')
+	done
+	
+	echo $prod
 }
 
 # Restituisce il risultato della divisione tra il primo parametro ed il secondo
@@ -57,9 +78,16 @@ math_mul()
 #
 math_div()
 {
-	[ $# -ne 2 ] && return 1
+	[ $# -ge 2 ] || return 1
+
+	local quot=$1
+	shift
 	
-	echo $* | awk '{print $1/$2}'
+	for num in $*; do
+		quot=$(echo $quot $num | awk '{print $1/$2}')
+	done
+	
+	echo $quot
 }
 
 # Restituisce il risultato della divisione intera tra il primo parametro ed il 
