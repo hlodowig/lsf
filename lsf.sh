@@ -18,14 +18,19 @@
 # Boston, MA  02110-1301  USA
 #
 
+
+# Estensione dei file di libreria
 export LIB_EXT="lib"
+# Lista dei file di libreria importati.
 export LIB_FILE_LIST=${LIB_FILE_LIST:-""}
 
 
-######### UTILITY FUNCTIONS ####################################################
+
+
+### UTILITY FUNCTIONS ##########################################################
 
 # Restituisce il path assoluto.
-lib__get_absolute_path()
+lib_get_absolute_path()
 {
 	local FILEPATH=$(
 		if [ $# -eq 0 ]; then
@@ -61,11 +66,10 @@ lib__get_absolute_path()
 	echo $FILEPATH
 }
 
-################################################################################
 
 
 
-######### PATH FUNCTIONS #######################################################
+### PATH SECTION ###############################################################
 
 # Restituisce il valore della variabile LIB_PATH, se non viene passato alcun
 # parametro.
@@ -76,7 +80,7 @@ lib__get_absolute_path()
 # > lib_path_get
 #   .:lib:/home/user/lsf/lib
 # > lib_path_get 2:3
-#...lib:/home/user/lsf/lib
+#   lib:/home/user/lsf/lib
 #
 lib_path_get()
 {
@@ -95,6 +99,8 @@ lib_path_get()
 	fi
 }
 
+# Stampa la lista dei path della variabile LIB_PATH, separati dal carattere di
+# newline.
 lib_path_list()
 {
 	echo -e ${LIB_PATH//:/\\n}
@@ -141,12 +147,14 @@ lib_path_remove()
 		
 		LIB_PATH=$(echo $LIB_PATH |
 				   awk -v LIB="$lib/?" '{gsub(LIB, ""); print}' |
-			       awk '{gsub(":+",":"); print}' |
-			       awk '{gsub("^:|:$",""); print}')
+				   awk '{gsub(":+",":"); print}' |
+				   awk '{gsub("^:|:$",""); print}')
 	done
 	
 	export LIB_PATH
 }
+
+
 
 
 ### LIB_PATH SECTION ###########################################################
@@ -175,7 +183,7 @@ lib_list_names()
 # nell'ambiente corrente.
 lib_list_files_add()
 {
-	local lib="$(lib__get_absolute_path "$1")"
+	local lib="$(lib_get_absolute_path "$1")"
 	
 	LIB_FILE_LIST=$(echo -e "${LIB_FILE_LIST}\n$lib" |
 	                sort | uniq | grep -v -E -e '^$')
@@ -185,13 +193,12 @@ lib_list_files_add()
 # nell'ambiente corrente.
 lib_list_files_remove()
 {
-	local lib="$(lib__get_absolute_path "$1")"
+	local lib="$(lib_get_absolute_path "$1")"
 	
 	LIB_FILE_LIST=$( echo -e "$LIB_FILE_LIST" |
 					 awk -vLIB="$lib" '{gsub(LIB,""); print}' |
 					 grep -v -E -e '^$')
 }
-
 
 
 
@@ -277,8 +284,11 @@ lib_log_reset()
 	fi
 }
 
-### LIBRARY SECTION ############################################################
 
+
+
+
+### LIBRARY SECTION ############################################################
 
 # Restituisce il nome di una libreria o di un modulo a partire dal file o dalla
 # cartella.
@@ -290,10 +300,10 @@ lib_name()
 	
 	[ -f "$1" ] || [ -d "$1" ] || return 2
 	
-	local lib=$(lib__get_absolute_path "$1")
+	local lib=$(lib_get_absolute_path "$1")
 	local dirs=""
 	for libdir in ${LIB_PATH//:/ }; do
-		local dir=$(lib__get_absolute_path $libdir)
+		local dir=$(lib_get_absolute_path $libdir)
 		[ "$lib" == $dir ] && return 3
 		dirs="$dirs|$dir"
 	done
@@ -317,9 +327,9 @@ lib_find()
 	while true ; do
 		case "$1" in
 		-f|--file) [ -f "$2" ] || return 1;
-				   lib__get_absolute_path "$2"; return 0;;
+				   lib_get_absolute_path "$2"; return 0;;
 		-d|--dir)  [ -d "$2" ] || return 1;
-				   lib__get_absolute_path "$2"; return 0;;
+				   lib_get_absolute_path "$2"; return 0;;
 		--) shift;;
 		*) break;;
 		esac
@@ -331,10 +341,10 @@ lib_find()
 	for libdir in ${LIB_PATH//:/ }; do
 		
 		if [ -d "${libdir}/$LIB" ]; then
-			lib__get_absolute_path ${libdir}/$LIB
+			lib_get_absolute_path ${libdir}/$LIB
 			return 0
 		elif [ -f "${libdir}/$LIB.$LIB_EXT" ]; then
-			lib__get_absolute_path ${libdir}/$LIB.$LIB_EXT
+			lib_get_absolute_path ${libdir}/$LIB.$LIB_EXT
 			return 0
 		fi
 		
@@ -563,7 +573,7 @@ lib_import()
 		LIB_FILE=$(lib_find $FIND_OPT $LIB)
 	fi
 	
-	#LIB_FILE=$(lib__get_absolute_path $LIB_FILE)
+	#LIB_FILE=$(lib_get_absolute_path $LIB_FILE)
 	
 	if [ -z "$LIB_FILE" ]; then
 		lib_log "Library '$LIB' not found!"	
@@ -627,6 +637,8 @@ alias lib_include_file="lib_import -i -f"
 alias lib_include_dir="lib_import -i -d"
 
 
+
+
 ### List functions #############################################################
 
 lib_list_apply()
@@ -665,7 +677,7 @@ lib_list_apply()
 	}
 	__list_lib()
 	{
-		local DIR="$(lib__get_absolute_path "$1")"
+		local DIR="$(lib_get_absolute_path "$1")"
 		local libdir=""
 		local libname=""
 		
@@ -960,9 +972,10 @@ lib_list_def()
 		lib_log "Library '$library' not found!"
 		return 1
 	fi
-
+	
 	return 0
 }
+
 
 lib_unset()
 {
@@ -1017,7 +1030,7 @@ lib_exit()
 }
 
 
-lib_get_alias_definition()
+lib_get_alias_def()
 {
 	[ $# -eq 0 ] && return 1
 	
@@ -1048,7 +1061,7 @@ lib_get_alias_definition()
 	fi
 }
 
-lib_get_variable_value()
+lib_get_variable_def()
 {
 	if [ $# -eq 0 ]; then
 		return 1
@@ -1081,7 +1094,7 @@ lib_get_variable_value()
 }
 
 
-lib_get_function_code()
+lib_get_function_def()
 {
 	if [ $# -eq 0 ]; then
 		return 1
@@ -1206,13 +1219,15 @@ lib_get_description()
 
 lib_find_def()
 {
-	local ARGS=$(getopt -o edfnhvAFV -l help,only-enabled,only-disable,filename,libname,verbose,only-alias,only-variables,only-functions -- "$@")
+	local ARGS=$(getopt -o edfnhvAFVqtT -l help,only-enabled,only-disable,filename,libname,verbose,only-alias,only-variables,only-functions,quiet,print-type,no-print-type -- "$@")
 	eval set -- $ARGS
 	
 	local ONLY_ENABLED=0
 	local ONLY_DISABLED=0
 	local NAME=1
-	local VERBOSE=1
+	local VERBOSE=0
+	local QUIET=0
+	local PRINT_TYPE=2
 	local _alias=1
 	local _variables=1
 	local _functions=1
@@ -1226,7 +1241,10 @@ lib_find_def()
 		-f|--filename)       NAME=0          ; shift ;;
 		-e|--only-enabled)   ONLY_ENABLED=1  ; shift ;;
 		-d|--only-disabled)  ONLY_DISABLED=1 ; shift ;;
+		-q|--quiet)          QUIET=1         ; shift ;;
 		-v|--verbose)        VERBOSE=1       ; shift ;;
+		-t|--print-type)     PRINT_TYPE=1    ; shift ;;
+		-T|--no-print-type)  PRINT_TYPE=0    ; shift ;;
 		-h|--help) echo "$FUNCNAME <options> [-r|--recursive] <dir>"; return 0;;
 		--) shift;;
 		*) break;;
@@ -1235,65 +1253,67 @@ lib_find_def()
 	
 	local DEF_NAME="$1"
 	local found=0
+	local exit_code=1
+	local s=$(echo $_alias $_functions $_variables | awk '{print $1+$2+$3}')
+	
+	if [ $PRINT_TYPE -eq 2 -a $s -eq 3 ]; then
+		PRINT_TYPE=1
+	fi
+	
+	__find_def()
+	{
+		local opt="$1"
+		local library="$2"
+		
+		if [ "$opt" = "-A" -a $_alias     -eq 1 ] || 
+		   [ "$opt" = "-F" -a $_functions -eq 1 ] || 
+		   [ "$opt" = "-V" -a $_variables -eq 1 ]
+		then
+			for def in $(lib_list_def $opt -f $library); do
+				if [ "$DEF_NAME" == $def ]; then
+
+					if [ $QUIET -eq 0 ]; then
+						if [ $VERBOSE -eq 1 ]; then
+							echo -n "La definizione "
+							case "$opt" in
+							-V) echo -n "della variabile ";;
+							-A) echo -n "dell'alias ";;
+							-F) echo -n "della funzione ";;
+							esac
+							echo "'$DEF_NAME' e' stata trovata nella libreria: "								
+						elif [ $PRINT_TYPE -eq 1 ]; then
+							case "$opt" in
+							-V) echo -n "[VAR] ";;
+							-A) echo -n "[ALS] ";;
+							-F) echo -n "[FUN] ";;
+							esac						
+						fi
+					
+						if [ $NAME -eq 1 ]; then
+							echo "$( lib_name "$library")"
+						else
+							echo "$library"
+						fi
+					fi
+					
+					return 0
+				fi
+			done
+		fi
+		
+		return 1
+	}
 	
 	for library in $(lib_list_all --no-format-list --filename); do
-		
-		if [ $_variables -eq 1 ]; then
-			for var in $(lib_list_def -V -f $library); do
-				if [ "$DEF_NAME" == $var ]; then
-					if [ $_alias -eq 1 -a $_functions -eq 1 ]; then
-						echo -n "[VAR] "
-					fi
-					
-					if [ $NAME -eq 1 ]; then
-						echo "$( lib_name "$library")"
-					else
-						echo "$library"
-					fi
-					
-					return 0
-				fi
-			done
-		fi
-		
-		if [ $_alias -eq 1 ]; then
-			for alias in $(lib_list_def -A -f $library); do
-				if [ "$DEF_NAME" == $alias ]; then
-					if [ $_alias -eq 1 -a $_variables -eq 1 ]; then
-						echo -n "[ALS] "
-					fi
-					
-					if [ $NAME -eq 1 ]; then
-						echo "$( lib_name "$library")"
-					else
-						echo "$library"
-					fi
-					
-					return 0
-				fi
-			done
-		fi
-		
-		if [ $_functions -eq 1 ]; then
-			for fun in $(lib_list_def -F -f $library); do
-				if [ "$DEF_NAME" == $fun ]; then
-					if [ $_functions -eq 1 -a $_variables -eq 1 ]; then
-						echo -n "[FUN] "
-					fi
-					
-					if [ $NAME -eq 1 ]; then
-						echo "$( lib_name "$library")"
-					else
-						echo "$library"
-					fi
-					
-					return 0
-				fi
-			done
-		fi
+	
+		__find_def -V "$library"; exit_code=$?; [ $exit_code -eq 0 ] && break
+		__find_def -A "$library"; exit_code=$?; [ $exit_code -eq 0 ] && break
+		__find_def -F "$library"; exit_code=$?; [ $exit_code -eq 0 ] && break
 	done
 	
-	return 1
+	unset __find_def
+
+	return $exit_code
 }
 
 
