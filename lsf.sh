@@ -164,7 +164,11 @@ lib_list_files()
 {
 	[ -z "$LIB_FILE_LIST" ] && return
 	
-	echo -e "$LIB_FILE_LIST"
+	local libfile=""
+	
+	for libfile in $LIB_FILE_LIST; do
+		echo $libfile | awk '{gsub("^[0-9]+/","/"); print}'
+	done
 }
 
 # Restituisce la lista dei nomi delle librerie importate nell'ambiente corrente.
@@ -175,32 +179,60 @@ lib_list_names()
 	local libfile=""
 	
 	for libfile in $LIB_FILE_LIST; do
+		libfile=$(echo $libfile | awk '{gsub("^[0-9]+\/","/"); print}')
 		lib_name $libfile
 	done
 }
 
-# Aggiunge il path di un file alla lista dei file delle librerie importate
-# nell'ambiente corrente.
-lib_list_files_add()
+# Svuota la lista dei file delle librerie importate nell'ambiente corrente.
+lib_list_files_clear()
 {
-	local lib="$(lib_get_absolute_path "$1")"
-	
-	LIB_FILE_LIST=$(echo -e "${LIB_FILE_LIST}\n$lib" |
-	                sort | uniq | grep -v -E -e '^$')
+	LIB_FILE_LIST=""
 }
 
 # Rimuove il path di un file dalla lista dei file delle librerie importate
 # nell'ambiente corrente.
 lib_list_files_remove()
 {
-	local lib="$(lib_get_absolute_path "$1")"
+	local lib=
 	
-	LIB_FILE_LIST=$( echo -e "$LIB_FILE_LIST" |
-					 awk -vLIB="$lib" '{gsub(LIB,""); print}' |
-					 grep -v -E -e '^$')
+	for lib in $@; do
+
+		lib="$(lib_get_absolute_path "$lib")"
+	
+		LIB_FILE_LIST=$( echo -e "$LIB_FILE_LIST" |
+						 awk -vLIB="[0-9]+$lib" '{gsub(LIB,""); print}' |
+						 grep -v -E -e '^$')
+	done
+	
 }
 
+# Aggiunge il path di un file alla lista dei file delle librerie importate
+# nell'ambiente corrente.
+lib_list_files_add()
+{	
+	[ $# -eq 0 ] && return 1
+	
+	local lib=
+	
+	for lib in $@; do
+		lib_list_files_remove "$lib"
 
+		lib="$(lib_get_absolute_path "$lib")"
+	
+		LIB_FILE_LIST=$(echo -e "${LIB_FILE_LIST}\n$(stat -c %Y $lib)$lib" | 
+			            grep -v -E -e '^$')
+	done
+}
+
+# Restituisce la data di ultima modifica relativa al path della libreria 
+# importata nell'ambiente corrente.
+lib_list_files_get_mod_time()
+{
+	local lib="$(lib_get_absolute_path "$1")"
+	
+	echo -e "$LIB_FILE_LIST" | grep -E -e "$lib" | awk '{gsub("[^0-9]+",""); print}'
+}
 
 
 ### LOG SECTION ################################################################
@@ -587,7 +619,10 @@ lib_import()
 	
 	if [ -f "$LIB_FILE" ]; then
 		
-		if [ $CHECK -eq 0 ] || ! $(lib_is_loaded -f "$LIB_FILE"); then
+		if [ $CHECK -eq 0 ] || 
+		   ! $(lib_is_loaded -f "$LIB_FILE") ||
+		   [ $(stat -c %Y "$LIB_FILE") -gt $(lib_list_files_get_mod_time "$LIB_FILE") ]; 
+		then
 			lib_log "Import library module:\t $LIB_FILE"
 			
 			source "$LIB_FILE"

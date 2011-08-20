@@ -99,9 +99,16 @@ math_div()
 #
 math_div_int()
 {
-	[ $# -ne 2 ] && return 1
+	[ $# -ge 2 ] || return 1
+
+	local quot=$1
+	shift
 	
-	echo $* | awk '{print int($1/$2)}'
+	for num in $*; do
+		quot=$(echo $quot $num | awk '{print int($1/$2)}')
+	done
+	
+	echo $quot
 }
 
 # Restituisce un numero intero, ottenuto arrotondando per eccesso o per difetto
