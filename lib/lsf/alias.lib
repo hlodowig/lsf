@@ -1,0 +1,13 @@
+
+alias lib_import_all="lib_import -a"
+alias lib_import_file="lib_import -f"
+alias lib_import_dir="lib_import -d"
+
+alias lib_include_all="lib_include"
+alias lib_include_file="lib_include -f"
+alias lib_include_dir="lib_include -d"
+
+alias lib_def_get_alias="lib_def_get -A"
+alias lib_def_get_function="lib_def_get -F"
+alias lib_def_get_variable="lib_def_get -V"
+
