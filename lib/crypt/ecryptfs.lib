@@ -340,7 +340,7 @@ END
 		elif [ "$pass" == "auto" ]; then
 		
 			pass=":passphrase_passwd=$(crypt_md5_string "$src_dir")"
-		elif ! string_contains_regexp "$pass" "^:"; then
+		elif ! string_contains "$pass" "^:"; then
 			
 			local pass_type=$(echo "$pass" | awk -F: '{print $1}')
 			local pass=$(echo "$pass" | awk -F: '{print $2}')

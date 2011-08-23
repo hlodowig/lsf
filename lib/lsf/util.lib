@@ -1,0 +1,203 @@
+################################################################################
+# Library System Framework - Extra Library                                     #
+################################################################################
+#
+# Libreria contenente definizioni di funzioni che estendono quelle basi del
+# framework LSF.
+#
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+
+lib_include cui:tabulator
+
+# Stampa il contenuto del file relativa ad una libreria.
+lib_cat()
+{
+	__lib_cat()
+	{
+		local libfile="$2"
+		
+		if [ -n "$libfile" ]; then
+			cat $libfile
+		fi
+	}
+	
+	lib_apply --lib-function __lib_cat $@
+	
+	local exit_code=$?
+	
+	unset __lib_cat
+	
+	return $exit_code
+}
+
+lib_make_script()
+{
+	local ARGS=$(getopt -o hl:f:m:cCvVdDxX -l help,libname:,libfile:,main:,verbose,no-verbose,dump,no-dump,executable,no-executable,print-comments,no-print-comments -- "$@")
+	eval set -- $ARGS
+	
+	local MAIN=""
+	local LIB=""
+	local FILTER="^ *lib_(include|import).*"
+	local VERBOSE=0
+	local DUMP=0
+	local EXE=1
+	local EXT=".sh"
+	
+	while true ; do
+		case "$1" in
+		-l|--libname)           LIB=$(lib_find    "$2")                ; shift 2;;
+		-f|--libfile)           LIB=$(lib_find -f "$2")                ; shift 2;;
+		-m|--main)              MAIN="$2"                              ; shift 2;;
+		-x|--executable)        EXE=1                                  ; shift  ;;
+		-X|--no-executable)     EXE=0                                  ; shift  ;;
+		-v|--verbose)           VERBOSE=1                              ; shift  ;;
+		-V|--no-verbose)        VERBOSE=0                              ; shift  ;;
+		-d|--dump)              DUMP=1                                 ; shift  ;;
+		-D|--no-dump)           DUMP=0                                 ; shift  ;;
+		-c|--print-comments)    FILTER="^ *lib_(include|import).*"     ; shift  ;;
+		-C|--no-print-comments) FILTER="^ *(#|lib_(include|import)).*" ; shift  ;;
+		-h|--help) echo "$FUNCNAME [OPTIONS] [-l|--libname] <libname> [[-m|--main] <main_function>] [<script_file>]";
+		           echo "$FUNCNAME [OPTIONS] [-f|--libfile] <libname> [[-m|--main] <main_function>] [<script_file>]";
+		           return 0 ;;
+		--) shift;;
+		*) break;;
+		esac
+	done
+	
+	[ -z "$LIB" ] && return 1
+	
+	local FILE_SCRIPT="$1"
+	
+	[ $DUMP -eq 1 ] && FILE_SCRIPT="/dev/stderr";
+	 
+	if [ -z "$FILE_SCRIPT" ]; then
+		if [ -n "$MAIN" ]; then
+			FILE_SCRIPT="${MAIN}${EXT}"
+		else
+			FILE_SCRIPT="${LIB%.lib}${EXT}"
+		fi
+	fi
+	
+	if [ $VERBOSE -eq 1 ]; then
+		echo "Make script '$FILE_SCRIPT'..."
+		echo
+		echo "Output       : $FILE_SCRIPT"
+		echo "Library      : $LIB"
+		echo "Main function: $MAIN"
+		echo
+		echo "Dipendenze:"
+		lib_depend -rmf "$LIB"
+	fi
+	
+	(echo -e "#!/bin/bash\n";
+	 echo "# Enable aliases";
+	 echo "shopt -s expand_aliases") > "$FILE_SCRIPT"
+
+	for lib in $(lib_depend -rmf "$LIB"); do
+		
+		(lib_cat -f "$lib" | grep -v -E -e "$FILTER"; echo) >> "$FILE_SCRIPT"
+	done
+	
+	lib_cat -f "$LIB" | grep -v -E -e "$FILTER" >> "$FILE_SCRIPT"
+	
+	if [ -n "$MAIN" ]; then
+		echo -e "\n# main\n$MAIN \$@" >> "$FILE_SCRIPT"
+	fi
+	
+	[ $DUMP -eq 0 -a $EXE -eq 1 ] && chmod +x "$FILE_SCRIPT"
+	
+	return 0
+}
+
+
+lib_list_dir()
+{
+	local ARGS=$(getopt -o rh -l recursive,help -- "$@")
+	eval set -- $ARGS
+	
+	local OPTIONS=""
+	
+	while true ; do
+		case "$1" in
+		-r|--recursive) OPTIONS="--recursive"             ; shift    ;;
+		-h|--help) echo "$FUNCNAME [-r|--recursive] <dir>"; return 0 ;;
+		--) shift;;
+		*) break;;
+		esac
+	done
+	
+	__dir_fun()
+	{
+		local libdir="$1"
+		local libname="$(lib_name $libdir)"
+		
+		[ -n "$libname" ] || return
+		
+		if [ -x "$libdir" ]; then
+			echo -e "[+] [DIR] [=] $(lib_name $libdir) \t $libdir"
+		else
+			echo -e "[-] [DIR] [=] $(lib_name $libdir) \t $libdir"
+		fi
+	}
+	
+	__lib_fun()
+	{
+		local library="$1"
+		
+		if [ -x $library ]; then
+			echo -en "[+] [LIB] "
+		else
+			echo -en "[-] [LIB] "
+		fi
+		
+		if lib_is_loaded -f $library; then
+			echo -en "[*] "
+		else
+			echo -en "[O] "
+		fi
+		
+		echo -e "$(lib_name $library) \t $library"
+	}
+	
+	lib_list_apply $OPTIONS --dir-function __dir_fun --lib-function __lib_fun $*
+	
+	unset __lib_fun
+	unset __dir_fun
+}
+
+alias lib_list_all=lib_list_dir
+
+
+# Restituisce la lista delle librerie in formato tabulare.
+lib_list_tab()
+{
+	lib_list_all | 
+	awk '{gsub("\\[(\\+|\\*)\\]","Yes"); gsub("\\[(-|O)\\]","No"); gsub("\\[=\\]","--"); print}' | 
+	tabulator --headers="Type,Name,Enabled?,Loaded?,Path" --fields="2,4,1,3,5" --title="Libraries" $*
+}
+
+# Restituisce la lista delle definizioni di alias, funzioni e variabili della 
+# libreria passata come primo paramentro in formato tabulare.
+lib_def_list_tab()
+{
+	local lib=$1; shift
+	
+	lib_def_list $lib | 
+	awk '{gsub("\\[VAR\\]","Variable"); gsub("\\[FUN\\]","Function"); gsub("\\[ALS\\]","Alias"); print}' | 
+	tabulator --headers="Name,Type" --fields="2,1" --title="Library: [ $lib ] - Definitions" $*
+}
+
+# Restituisce la lista delle librerie tramite interfaccia grafica.
+lib_list_x()
+{
+	lib_list_tab -x --width 600 
+}
+
+# Restituisce la lista delle definizioni di alias, funzioni e variabili della 
+# libreria passata come primo paramentro tramite interfaccia grafica.
+lib_def_list_x()
+{
+	lib_def_list_tab $1 -x --width 500
+}
+

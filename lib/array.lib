@@ -7,6 +7,39 @@
 # Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
 #
 
+# Crea un array.
+#
+# ES.
+# > array_create ARRAY_NAME
+#
+array_create()
+{
+	[ $# -gt 0 ] || return 1
+	
+	local VAR_NAME=$1
+
+	eval "declare -a $VAR_NAME"
+	
+	return 0
+}
+
+# Distrugge un array.
+#
+# ES.
+# > ARRAY_NAME=()
+# > array_destroy ARRAY_NAME
+#
+array_destroy()
+{
+	[ $# -gt 0 ] || return 1
+	
+	local VAR_NAME=$1
+
+	eval "unset $VAR_NAME"
+	
+	return 0
+}
+
 # Imposta un array.
 #
 # ES.
