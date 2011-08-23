@@ -73,12 +73,8 @@ array_keyset()
 {
 	[ $# -gt 0 ] || return 2
 	
-	local def="$(array_def $1)"
-
-	[ -n "$def" ] || return 1
-	
-	echo "$def" | awk '{gsub("[(]|[)]| ","\n"); print}' | 
-	              grep -o "\[.*\]" | awk '{gsub("=|[[]|[]]",""); print}'
+	array_def $1 | grep -o -E -e "\[[^]]+\]" | 
+	awk '{gsub("[[]\"?|\"?[]]",""); print}'
 	
 }
 

@@ -51,7 +51,13 @@ alias map_get=array_get
 alias map_put=array_set
 
 # Restituisce le chiavi di una mappa.
-alias map_keyset=array_keyset
+map_keyset()
+{
+	[ $# -gt 0 ] || return 2
+	
+	 array_keyset $1 | awk '{printf "\"%s\"\n", $0}' | tr \" \'
+	
+}
 
 # Restituisce i valori di un set con quoting.
 #
@@ -128,8 +134,19 @@ alias map_is_empty=array_is_empty
 # > echo $?
 #   1
 #
-alias map_contains=array_contains
+alias map_contains_value=array_contains
 
+map_contains_key()
+{
+	[ $# -gt 1 ] || return 1
+	
+	for key in $(map_keyset $1); do
+	
+		[ "$2" == "$key" ] && return 0
+	done
+	
+	return 1
+}
 
 # Trasforma i valori di una mappa in un'array.
 map2array()
