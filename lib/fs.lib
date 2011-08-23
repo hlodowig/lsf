@@ -8,8 +8,8 @@
 # Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
 #
 
-lib_include array
-lib_include string
+lib_include type:array
+lib_include type:string
 lib_include math
 
 # Costruisce una cartella.

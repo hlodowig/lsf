@@ -25,8 +25,8 @@
 #
 
 
-lib_include bool
-lib_include string
+lib_include type:bool
+lib_include type:string
 lib_include io
 lib_include fs
 lib_include crypt:common

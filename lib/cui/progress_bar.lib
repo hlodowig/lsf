@@ -24,7 +24,7 @@
 lib_include io
 lib_include term
 lib_include math
-lib_include string
+lib_include type:string
 
 
 progress_bar_builder()
