@@ -15,7 +15,7 @@ lib_include math
 # Costruisce una cartella.
 fs_mkdir()
 {
-	mkdir -p "$*"	
+	mkdir -p "$*"
 }
 
 # Converte un path in un array.
@@ -24,7 +24,7 @@ fs_path2array()
 	local array_var=$1
 	local path="$2"
 
-	array_set $array_var ${path//\// }
+	array_set_all $array_var ${path//\// }
 }
 
 # Converte un path relativo in un path assoluto, se necessario.
@@ -39,8 +39,8 @@ fs_get_absolute_path()
 	)
 	
 	if ! string_contains "$FILEPATH" "^/"; then
-	  # This is a relative path
-	  FILEPATH="${PWD}/$FILEPATH"
+		# This is a relative path
+		FILEPATH="${PWD}/$FILEPATH"
 	fi
 
 	FILEPATH=$(echo "$FILEPATH" | 
@@ -52,10 +52,10 @@ fs_get_absolute_path()
 		 #print
 		 gsub("/\\.$","/");
 		 #print
-	     gsub("/#/","/");
+		 gsub("/#/","/");
 		 #print
 		 while ($0~"//+|/#|/[^/]+/##") {
-	         gsub("//+|/[^/]+/##(/|$)?","/");
+			 gsub("//+|/[^/]+/##(/|$)?","/");
 			 #print
 		 }
 		 gsub("/$","")
@@ -80,32 +80,32 @@ fs_get_relative_path()
 	fs_path2array C "$PWD"
 	
 	
-	local lD=$(array_length D)
-	local lC=$(array_length C)
+	local lD=$(array_size D)
+	local lC=$(array_size C)
 	
 	local l=$(math_min $lD $lC)
 	
 	local i=1
 	
 	for (( i=0; $i<$l; i++ )); do
-		if [ "$(array_get_item D $i)" == "$(array_get_item C $i)" ]; then
-			array_remove_item D $i
-			array_remove_item C $i			 
+		if [ "$(array_get D $i)" == "$(array_get C $i)" ]; then
+			array_remove D $i
+			array_remove C $i
 		else
 			break
 		fi
 	done
 
-	lD=$(array_length D)
-	lC=$(array_length C)
+	lD=$(array_size D)
+	lC=$(array_size C)
 
 	if [ $lD -eq 0 -a $lC -eq 0 ]; then
 		echo .
-	else	
-		dir_path=$(array_get D)
+	else
+		dir_path=$(array2string D)
 		dir_path=${dir_path// //}
 
-		C=$(array_get C)
+		C=$(array2string C)
 		C=${C// //}
 
 		C=$(echo "/$C" | awk '{gsub("/[^/]+","../"); print}')
@@ -113,7 +113,7 @@ fs_get_relative_path()
 		dir_path=${C}${dir_path#/}
 		
 		echo ${dir_path%/}
-	fi		
+	fi
 }
 
 

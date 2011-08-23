@@ -1,0 +1,169 @@
+################################################################################
+# Set Library                                                                  #
+################################################################################
+#
+# Libreria contenente definizioni e funzioni per la manipolazione di insiemi.
+#
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+
+lib_include type:array
+
+# Crea un mappa.
+#
+# ES.
+# > map_create MAP_NAME
+#
+map_create()
+{
+	[ $# -gt 0 ] || return 1
+	
+	local VAR_NAME=$1
+	
+	declare -g -A $VAR_NAME
+	
+	return 0
+}
+
+# Distrugge un set.
+#
+# ES.
+# > MAP_NAME=()
+# > map_destroy MAP_NAME
+#
+alias map_destroy=array_destroy
+
+
+# Restituisce la definizione dell'mappa nell'ambiente corrente.
+#
+# ES.
+# > map_set MAP_NAME 'item 0' 'item 4' 'item 7'
+# > map_def MAP_NAME
+#   MAP_NAME=( [0]='item 0' [4]='item 4' [7]='item 7' )
+#
+alias map_def=array_def
+
+# Restituisce il valore della mappa associato alla chiave passata come parametro.
+alias map_get=array_get
+
+# Inserisce nella mappa la coppia chiave-valore. Se esiste, viene sovrascritto
+# il precendente valore.
+alias map_put=array_set
+
+# Restituisce le chiavi di una mappa.
+alias map_keyset=array_keyset
+
+# Restituisce i valori di un set con quoting.
+#
+# ES.
+# > MAP_NAME=( 'item 1' 'item 2' 'item 3' )
+# > map_values MAP_NAME
+#   'item 1' 'item 2' 'item 3'
+#
+alias map_values=array_values
+
+# Restituisce i valori di un set.
+#
+# ES.
+# > MAP_NAME=( item1 item2 item3 )
+# > map_get MAP_NAME
+#   item1 item2 item3
+#
+map_entry_set()
+{
+	[ $# -gt 0 ] || return 1
+	
+	for key in $(map_keyset $1); do
+		echo "$key=$(map_get $1 "$key")"
+	done
+}
+
+
+alias map_remove=array_remove
+
+
+# Restituisce la dimensione di un array.
+#
+# ES.
+# > ARRAY_NAME=( item1 item2 item3 )
+# > array_length ARRAY_NAME
+#   3
+#
+alias map_size=array_size
+
+
+# Rimuove tutti i valore di un mappa.
+#
+# ES.
+# > MAP_NAME=( item1 item2 item3 )
+# > map_clear MAP_NAME
+# > map_get MAP_NAME
+#   (empty string)
+#
+alias map_clear=array_clear
+
+# Restituisce un exit code pari a 0 se l'mappa è vuoto, altrimenti 1.
+#
+# ES.
+# > MAP_NAME=( )
+# > map_is_empty MAP_NAME
+# > echo $?
+#   0
+#
+# > MAP_NAME=( item1 )
+# > map_is_empty MAP_NAME
+# > echo $?
+#   1
+#
+alias map_is_empty=array_is_empty
+
+# Restituisce 0 se l'mappa contiene l'elemento specificato, altrimenti 1.
+#
+# > MAP_NAME=( item1 item2 item3 )
+# > map_contains MAP_NAME item3
+# > echo $?
+#   0
+#
+# > map_contains MAP_NAME item5
+# > echo $?
+#   1
+#
+alias map_contains=array_contains
+
+
+# Trasforma i valori di una mappa in un'array.
+map2array()
+{
+	[ $# -gt 0 ] || return 1
+	
+	local MAP_NAME=$1
+	
+	local values="$(map_values $MAP_NAME)"
+	
+	unset $MAP_NAME
+	
+	declare -g -a $MAP_NAME
+
+	eval "$MAP_NAME=( $values )"
+	
+	return 0
+}
+
+# Trasforma i valori di una mappa in un'insieme.
+map2set()
+{
+	[ $# -gt 0 ] || return 1
+	
+	local MAP_NAME=$1
+	
+	local values="$(map_values $MAP_NAME)"
+	
+	unset $MAP_NAME
+	
+	declare -g -a $MAP_NAME
+
+	eval "$MAP_NAME=( $(echo $values| sort | uniq ))"
+	
+	return 0
+}
+

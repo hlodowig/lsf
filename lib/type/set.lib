@@ -1,0 +1,154 @@
+################################################################################
+# Set Library                                                                  #
+################################################################################
+#
+# Libreria contenente definizioni e funzioni per la manipolazione di insiemi.
+#
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+
+lib_include type:array
+
+# Crea un insieme.
+#
+# ES.
+# > set_create SET_NAME
+#
+alias set_create=array_create
+
+# Distrugge un set.
+#
+# ES.
+# > SET_NAME=()
+# > set_destroy SET_NAME
+#
+alias set_destroy=array_destroy
+
+# Imposta un set.
+#
+# ES.
+# > SET_NAME=()
+# > set_set SET_NAME item1 item2 item3
+#
+alias set_set_all=array_set_all
+
+# Restituisce la definizione dell'insieme nell'ambiente corrente.
+#
+# ES.
+# > set_set SET_NAME 'item 0' 'item 4' 'item 7'
+# > set_def SET_NAME
+#   SET_NAME=( [0]='item 0' [4]='item 4' [7]='item 7' )
+#
+alias set_def=array_def
+
+# Restituisce i valori di un set con quoting.
+#
+# ES.
+# > SET_NAME=( 'item 1' 'item 2' 'item 3' )
+# > set_values SET_NAME
+#   'item 1' 'item 2' 'item 3'
+#
+alias set_values=array_values
+
+
+# Aggiunge il valore, se non presente nell'insieme.
+#
+# ES.
+# > SET_NAME=( item1 item2 item3 )
+# > set_remove_item SET_NAME 2
+# > set_get SET_NAME
+#   item1 item3
+# > set_get_item SET_NAME 2
+#   (empty string)
+#
+set_add()
+{
+	[ $# -gt 1 ] || return 1
+	
+	local SET_NAME=$1
+	local value=$2
+	
+	local values="$(echo -e "$(set_values $SET_NAME)\n'$value'")"
+	
+	eval "$SET_NAME=( $(echo "$values" | sort | uniq ))"
+	
+	return 0
+}
+
+# Rimuove il valore, se presente nell'insieme.
+#
+# ES.
+# > SET_NAME=( item1 item2 item3 )
+# > set_remove_item SET_NAME 2
+# > set_get SET_NAME
+#   item1 item3
+# > set_get_item SET_NAME 2
+#   (empty string)
+#
+set_remove()
+{
+	[ $# -gt 1 ] || return 1
+	
+	local SET_NAME=$1
+	local value=$2
+	
+	eval "$SET_NAME=( $(eval "set_values $SET_NAME | sort | uniq | grep -v \"'$value'\"") )"
+	
+	return 0
+}
+
+
+# Restituisce la dimensione di un array.
+#
+# ES.
+# > ARRAY_NAME=( item1 item2 item3 )
+# > array_length ARRAY_NAME
+#   3
+#
+alias set_size=array_size
+
+
+# Rimuove tutti i valore di un insieme.
+#
+# ES.
+# > SET_NAME=( item1 item2 item3 )
+# > set_clear SET_NAME
+# > set_get SET_NAME
+#   (empty string)
+#
+alias set_clear=array_clear
+
+# Restituisce un exit code pari a 0 se l'insieme è vuoto, altrimenti 1.
+#
+# ES.
+# > SET_NAME=( )
+# > set_is_empty SET_NAME
+# > echo $?
+#   0
+#
+# > SET_NAME=( item1 )
+# > set_is_empty SET_NAME
+# > echo $?
+#   1
+#
+alias set_is_empty=array_is_empty
+
+# Restituisce 0 se l'insieme contiene l'elemento specificato, altrimenti 1.
+#
+# > SET_NAME=( item1 item2 item3 )
+# > set_contains SET_NAME item3
+# > echo $?
+#   0
+#
+# > set_contains SET_NAME item5
+# > echo $?
+#   1
+#
+alias set_contains=array_contains
+
+
+# Trasforma un insieme in una mappa.
+alias set2map=array2map
+
+alias set2string=array2string
+
