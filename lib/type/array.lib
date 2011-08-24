@@ -358,7 +358,7 @@ array_compact()
 }
 
 # Trasforma un array in un insieme, eliminando i duplicati e ordinando gli elementi.
-array2set()
+array_to_set()
 {
 	[ $# -gt 0 ] || return 1
 	
@@ -370,7 +370,7 @@ array2set()
 }
 
 # Trasforma un array in una mappa.
-array2map()
+array_to_map()
 {
 	[ $# -gt 0 ] || return 1
 	
@@ -393,7 +393,7 @@ array2map()
 # > array_get ARRAY_NAME
 #   item1 item2 item3
 #
-array2string()
+array_to_string()
 {
 	[ $# -gt 0 ] || return 1
 	

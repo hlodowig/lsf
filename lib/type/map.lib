@@ -80,7 +80,7 @@ map_entry_set()
 	[ $# -gt 0 ] || return 1
 	
 	for key in $(map_keyset $1); do
-		echo "$key=$(map_get $1 "$key")"
+		echo "$key='$(map_get $1 "$key")'"
 	done
 }
 
@@ -141,15 +141,14 @@ map_contains_key()
 	[ $# -gt 1 ] || return 1
 	
 	for key in $(map_keyset $1); do
-	
-		[ "$2" == "$key" ] && return 0
+		[ "'$2'" == "$key" ] && return 0
 	done
 	
 	return 1
 }
 
 # Trasforma i valori di una mappa in un'array.
-map2array()
+map_to_array()
 {
 	[ $# -gt 0 ] || return 1
 	
@@ -167,7 +166,7 @@ map2array()
 }
 
 # Trasforma i valori di una mappa in un'insieme.
-map2set()
+map_to_set()
 {
 	[ $# -gt 0 ] || return 1
 	
@@ -183,4 +182,7 @@ map2set()
 	
 	return 0
 }
+
+alias map_to_string=array_to_string
+
 

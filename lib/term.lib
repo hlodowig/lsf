@@ -9,7 +9,7 @@
 
 
 # Restituisce il numero di colonne del terminale corrente.
-term_get_colums()
+term_get_columns()
 {
 	tput cols
 }

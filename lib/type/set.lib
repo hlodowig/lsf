@@ -146,9 +146,15 @@ alias set_is_empty=array_is_empty
 #
 alias set_contains=array_contains
 
+set_to_array()
+{
+	[ $# -gt 1 ] || return 1
+	
+	return 0
+}
 
 # Trasforma un insieme in una mappa.
-alias set2map=array2map
+alias set_to_map=array_to_map
 
-alias set2string=array2string
+alias set_to_string=array_to_string
 

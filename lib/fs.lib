@@ -19,7 +19,7 @@ fs_mkdir()
 }
 
 # Converte un path in un array.
-fs_path2array()
+fs_path_to_array()
 {
 	local array_var=$1
 	local path="$2"
@@ -76,8 +76,8 @@ fs_get_relative_path()
 	local D=()
 	local C=()
 	
-	fs_path2array D "$dir_path"
-	fs_path2array C "$PWD"
+	fs_path_to_array D "$dir_path"
+	fs_path_to_array C "$PWD"
 	
 	
 	local lD=$(array_size D)
@@ -102,10 +102,10 @@ fs_get_relative_path()
 	if [ $lD -eq 0 -a $lC -eq 0 ]; then
 		echo .
 	else
-		dir_path=$(array2string D)
+		dir_path=$(array_to_string D)
 		dir_path=${dir_path// //}
 
-		C=$(array2string C)
+		C=$(array_to_string C)
 		C=${C// //}
 
 		C=$(echo "/$C" | awk '{gsub("/[^/]+","../"); print}')
