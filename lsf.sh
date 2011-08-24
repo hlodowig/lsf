@@ -380,7 +380,15 @@ OPTIONS
 		operazioni di naming.
 		Se la directory non esiste, ritorna un exit code pari a 1, altrimenti ritorna 0
 		e ne stampa il path sullo standard output (se l'optione quiet non è specificata).
-		
+	
+	-p, --add-libpath
+		Aggiuge temporaneamente una nuova lista di path di libreria a quelli presenti
+		nella variabile d'ambiente LIB_PATH.
+	
+	-P, --libpath
+		Imposta temporaneamente una nuova lista di path di libreria, invece di quelli 
+		presenti nella variabile d'ambiente LIB_PATH.
+	
 	-q, --quiet
 		Non stampa il path sullo standard output.
 	
@@ -466,17 +474,20 @@ END
 
 	[ $# -eq 0 -o -z "$*" ] && return 1
 	
-	local ARGS=$(getopt -o hqQf:d: -l help,quiet,no-quiet,file:,dir: -- "$@")
+	local ARGS=$(getopt -o hqQf:d:p:P: -l help,quiet,no-quiet,file:,dir:,add-libpath:,libpath: -- "$@")
 	
 	eval set -- $ARGS
 	
 	local QUIET=0
 	local exit_code=1
+	local libpath="$LIB_PATH"
 	
 	while true ; do
 		case "$1" in
-		-q|--quiet)    QUIET=1; shift;;
-		-Q|--no-quiet) QUIET=0; shift;;
+		-q|--quiet)        QUIET=1                    ; shift  ;;
+		-Q|--no-quiet)     QUIET=0                    ; shift  ;;
+		-p|--add-libpath)  libpath="${2}:${LIB_PATH}" ; shift 2;;
+		-P|--libpath)      libpath="$2"               ; shift 2;;
 		-f|--file) 
 			if [ -f "$2" ]; then
 			 [ $QUIET -eq 1 ] || __lib_get_absolute_path "$2"
@@ -500,7 +511,7 @@ END
 	local LIB="${1//://}"
 	local libdir=
 	
-	for libdir in ${LIB_PATH//:/ }; do
+	for libdir in ${libpath//:/ }; do
 		
 		if [ -d "${libdir}/$LIB" ]; then
 			[ $QUIET -eq 1 ] || __lib_get_absolute_path ${libdir}/$LIB
@@ -740,7 +751,7 @@ lib_depend()
 		{
 			[ $# -eq 0 ] && return 1
 			
-			echo "$DEPEND" | grep -E -q -e "$1" > /dev/null
+			echo "$DEPEND" | grep -E -q -e "$1"
 		}
 		
 		__get_dependences()
@@ -911,6 +922,14 @@ OPTIONS
 	-D, --dummy
 		Esegue tutte le operazioni di checking, ma non importa la libreria.
 	
+	-p, --add-libpath
+		Aggiuge temporaneamente una nuova lista di path di libreria a quelli presenti
+		nella variabile d'ambiente LIB_PATH.
+	
+	-P, --libpath
+		Imposta temporaneamente una nuova lista di path di libreria, invece di quelli 
+		presenti nella variabile d'ambiente LIB_PATH.
+	
 	-h, --help
 		Stampa questo messaggio ed esce.
 	
@@ -990,7 +1009,7 @@ END
 ) | less
 	}
 
-	local ARGS=$(getopt -o hfdircCuDqQlLRFa -l help,file,dir,include,recursive,check,no-check,update,dummy,quiet,no-quiet,list,list-files,list-clear,force,all -- "$@")
+	local ARGS=$(getopt -o hfdircCuDqQlLRFap:P: -l help,file,dir,include,recursive,check,no-check,update,dummy,quiet,no-quiet,list,list-files,list-clear,force,all,libpath:,add-libpath: -- "$@")
 	eval set -- $ARGS
 	
 	#echo $ARGS
@@ -998,6 +1017,7 @@ END
 	local ALL=0
 	local LIB=""
 	local LIB_FILE=""
+	local LIB_PATH_OPT=""
 	local FIND_OPT=""
 	local OPTIONS=""
 	local INCLUDE=0
@@ -1021,10 +1041,12 @@ END
 		-Q|--no-quiet)   QUIET=0             OPTIONS="$OPTIONS $1"    ; shift  ;;
 		-D|--dummy)      DUMMY=1;            OPTIONS="$OPTIONS $1"    ; shift  ;;
 		-F|--force)      CHECK=0; INCLUDE=1; OPTIONS="$OPTIONS -C -i" ; shift  ;;
+		-p|--add-libpath)  LIB_PATH_OPT="$1 $2"                       ; shift 2;;
+		-P|--libpath)      LIB_PATH_OPT="$1 $2"                       ; shift 2;;
 		-l|--list)       __lib_list_names      ; unset __lib_import_usage     ; return ;; 
 		-L|--list-files) __lib_list_files      ; unset __lib_import_usage     ; return ;;
 		-R|--list-clear) __lib_list_files_clear; unset __lib_import_usage     ; return ;;
-		-h|--help)     __import_lib_usage $FUNCNAME; unset __lib_import_usage ; return ;; 
+		-h|--help)     __lib_import_usage $FUNCNAME; unset __lib_import_usage ; return ;; 
 		-u|--update)     UPDATE=1                                     ; break  ;;
 		--) shift;;
 		-*) echo "Usa $FUNCNAME -h oppure $FUNCNAME --help per ulteriori informazioni";
@@ -1041,7 +1063,7 @@ END
 		
 		for dir in ${LIB_PATH//:/ }
 		do
-			$FUNCNAME $OPTIONS --recursive --dir $dir
+			$FUNCNAME $OPTIONS $LIB_PATH_OPT --recursive --dir $dir
 		done
 		
 		return 0
@@ -1053,7 +1075,7 @@ END
 		unset __lib_import_usage
 		
 		for lib_loaded in $(__lib_list_files); do
-			$FUNCNAME --include --check --file "$lib_loaded"
+			$FUNCNAME $LIB_PATH_OPT --include --check --file "$lib_loaded"
 		done
 		
 		return 0
@@ -1066,7 +1088,7 @@ END
 		LIB="$1"
 	fi
 	
-	LIB_FILE=$(lib_find $FIND_OPT $LIB)
+	LIB_FILE=$(lib_find $LIB_PATH_OPT $FIND_OPT $LIB)
 	
 	
 	if [ -z "$LIB_FILE" ]; then
@@ -1110,7 +1132,7 @@ END
 			
 			for library in $DIR/*.$LIB_EXT; do
 				if [ $INCLUDE -eq 1 -o -x $library ]; then
-					$FUNCNAME $OPTIONS --file $library
+					$FUNCNAME $LIB_PATH_OPT $OPTIONS --file $library
 				fi
 			done
 			
@@ -1120,7 +1142,7 @@ END
 					test -d $libdir || continue
 					
 					if [ $INCLUDE -eq 1 -o  -x "$libdir" ]; then
-						$FUNCNAME $OPTIONS --dir $libdir
+						$FUNCNAME $LIB_PATH_OPT $OPTIONS --dir $libdir
 					else
 						[ $QUIET -eq 1 ] || lib_log "Library directory '$libdir' disable!"
 					fi
