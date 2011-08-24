@@ -683,24 +683,36 @@ lib_disable()
 # Restituisce le dipendenze di una libreria
 lib_depend()
 {
-	local ARGS=$(getopt -o hfmnhrRvV -l help,file,filename,libname,verbose,recursive,no-recursive,verbose,no-verbose -- "$@")
+	local ARGS=$(getopt -o hiIfmnhrRvV -l help,inverse,reverse,no-inverse,no-reverse,file,filename,libname,verbose,recursive,no-recursive,verbose,no-verbose -- "$@")
 	eval set -- $ARGS
 	
 	local FIND_OPT=
 	local NAME=1
 	local RECURSIVE=1
+	local REVERSE=0
 	local VERBOSE=0
 	
 	while true ; do
 		case "$1" in
-		-f|--file)           FIND_OPT="$1"   ; shift ;;
-		-n|--libname)        NAME=1          ; shift ;;
-		-m|--filename)       NAME=0          ; shift ;;
-		-r|--recursive)      RECURSIVE=1     ; shift ;;
-		-R|--no-recursive)   RECURSIVE=0     ; shift ;;
-		-v|--verbose)        VERBOSE=1       ; shift ;;
-		-V|--no-verbose)     VERBOSE=0       ; shift ;;		
-		-h|--help) echo "$FUNCNAME <options> [-r|--recursive] <dir>"; return 0;;
+		-f|--file)                    FIND_OPT="$1"   ; shift ;;
+		-n|--libname)                 NAME=1          ; shift ;;
+		-m|--filename)                NAME=0          ; shift ;;
+		-r|--recursive)               RECURSIVE=1     ; shift ;;
+		-R|--no-recursive)            RECURSIVE=0     ; shift ;;
+		-i|--inverse|--reverse)       REVERSE=1       ; shift ;;
+		-I|--no-inverse|--no-reverse) REVERSE=0       ; shift ;;
+		-v|--verbose)                 VERBOSE=1       ; shift ;;
+		-V|--no-verbose)              VERBOSE=0       ; shift ;;
+		-h|--help) 
+			echo "$FUNCNAME [-nmvV] [-r|--recursive] LIB_NAME"; 
+			echo "$FUNCNAME [-nmvV] [-r|--recursive] -f|--file LIB_FILE"; 
+			echo "$FUNCNAME [-nmvV] -R|--no-recursive LIB_NAME"; 
+			echo "$FUNCNAME [-nmvV] -R|--no-recursive -f|--file LIB_FILE"; 
+			echo "$FUNCNAME [-nmvV] -i|--reverse|--inverse LIB_NAME"; 
+			echo "$FUNCNAME [-nmvV] -i|--reverse|--inverse -f|--file LIB_FILE"; 
+			echo "$FUNCNAME [-nmvV] [-I|--no-reverse|--no-inverse] LIB_NAME"; 
+			echo "$FUNCNAME [-nmvV] [-I|--no-reverse|--no-inverse] -f|--file LIB_FILE"; 
+			return 0;;
 		--) shift;;
 		*) break;;
 		esac
@@ -719,50 +731,85 @@ lib_depend()
 		[ $# -eq 0 ] && return 1
 		
 		DEPEND=$( echo -e "$DEPEND\n$1" |
-		          grep -v -E -e '^$')
+			      grep -v -E -e '^$')
 	}
 	
-	__find_dependence()
-	{
-		[ $# -eq 0 ] && return 1
+	if [ $REVERSE -eq 0 ]; then
 		
-		echo "$DEPEND" | grep -E -q -e "$1" > /dev/null
-	}
-	
-	__get_dependences()
-	{
-		[ -n "$1" -a -f "$1" ] || return 1
+		__find_dependence()
+		{
+			[ $# -eq 0 ] && return 1
+			
+			echo "$DEPEND" | grep -E -q -e "$1" > /dev/null
+		}
 		
-		local LIB_DEP=
-		
-		eval "LIB_DEP=($(cat "$1" | grep -E -e "lib_(import|include)" | awk '{gsub("include","import -i"); print}' | tr ';' '\n' | awk '{gsub(" *lib_import *",""); printf "\"%s\"\n", $0}' | tr \" \'))"
-
-		
-		local dep=
-		local dep2=
-		
-		for dep in "${LIB_DEP[@]}"; do
-			for dep2 in $(lib_import --quiet --force --dump $dep); do
-				if ! __find_dependence $dep2; then
-					
-					__add_dependence $dep2
-					
-					if [ $RECURSIVE -eq 1 ]; then
-						$FUNCNAME $dep2
+		__get_dependences()
+		{
+			[ -n "$1" -a -f "$1" ] || return 1
+			
+			local LIB_DEP=
+			
+			eval "LIB_DEP=($(cat "$1" | grep -E -e "lib_(import|include)" | 
+			awk '{gsub("include","import -i"); print}' | tr ';' '\n' | 
+			awk '{gsub(" *lib_import *",""); printf "\"%s\"\n", $0}' | tr \" \'))"
+			
+			
+			local dep=
+			local dep2=
+			
+			for dep in "${LIB_DEP[@]}"; do
+				for dep2 in $(lib_import --quiet --force --dummy $dep); do
+					if ! __find_dependence $dep2; then
+						
+						__add_dependence $dep2
+						
+						if [ $RECURSIVE -eq 1 ]; then
+							$FUNCNAME $dep2
+						fi
 					fi
-				fi
+				done
 			done
+		}
+		
+		__get_dependences "$LIB_FILE"
+		
+		unset __find_dependence
+		unset __get_dependences
+		
+		if [ $VERBOSE -eq 1 ]; then
+			echo "Dipendenze trovate per la libreria '$1':"
+		fi
+		
+	else
+		__find_lib()
+		{
+			[ -n "$1" -a -f "$1" ] || return 1
+			
+			if cat "$1" | grep -E -e "lib_(import|include)" | grep -qo "$LIB_FILE"; then
+				return 0
+			fi
+			
+			local LIB_NAME="$(lib_name $LIB_FILE)"
+			
+			if cat "$1" | grep -E -e "lib_(import|include)" | grep -qo "$LIB_NAME"; then
+				return 0
+			fi
+			
+			return 1
+		}
+		
+		
+		for lib in $(lib_list --filename --no-format-list); do
+			if __find_lib $lib; then
+				__add_dependence $lib
+			fi
 		done
-	}
-	
-	__get_dependences "$LIB_FILE"
-	
-	unset __add_dependences
-	unset __find_dependence
-	unset __get_dependences
-	
-	if [ $VERBOSE -eq 1 ]; then
-		echo "Dipendenze trovate per la libreria '$1':"
+		
+		unset __find_lib
+		
+		if [ $VERBOSE -eq 1 ]; then
+			echo "Dipendenze inverse trovate per la libreria '$1':"
+		fi
 	fi
 	
 	if [ $NAME -eq 0 ]; then
@@ -774,6 +821,9 @@ lib_depend()
 			lib_name $dep
 		done
 	fi
+	
+	unset __add_dependences
+	
 }
 
 # Importa una libreria nell'ambiente corrente.
@@ -1107,8 +1157,9 @@ lib_list_apply()
 		-d|--dir-function)  DIR_FUN="$2"; shift 2;;
 		-l|--lib-function)  LIB_FUN="$2"; shift 2;;
 		-r|--recursive)     RECURSIVE=1 ; shift  ;;
-		-h|--help) echo "$FUNCNAME [-r|--recursive] [-d|--dir-function] <dir_fun> [-l|--lib-function] <lib_fun> [DIR ...]";
-		           return 0;;
+		-h|--help)
+			echo "$FUNCNAME [-r|--recursive] [-d|--dir-function] <dir_fun> [-l|--lib-function] <lib_fun> [DIR ...]";
+			 return 0;;
 		--) shift;;
 		*) break;;
 		esac
