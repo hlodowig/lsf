@@ -38,7 +38,16 @@
     <style id="variable-definition" _name="Variable Definition" map-to="sh:variable"/>
     <style id="others"              _name="Others"              map-to="def:keyword"/>
     <style id="common-command"      _name="Common Commands"     map-to="def:keyword"/>
-    <style id="lsf-command"         _name="LSF Commands"        map-to="def:keyword-lsf"/>
+    <style id="lsf-command"         _name="LSF Commands"        map-to="def:lsf-keyword"/>
+    <style id="lsf-math"            _name="LSF Math"            map-to="def:lsf-function"/>
+    <style id="lsf-io"              _name="LSF IO"              map-to="def:lsf-function"/>
+    <style id="lsf-fs"              _name="LSF Filesystem"      map-to="def:lsf-function"/>
+    <style id="lsf-term"            _name="LSF Terminal"        map-to="def:lsf-function"/>
+    <style id="lsf-util-bool"       _name="LSF Util Bool"       map-to="def:lsf-function"/>
+    <style id="lsf-util-string"     _name="LSF Util String"     map-to="def:lsf-function"/>
+    <style id="lsf-util-map"        _name="LSF Util Map"        map-to="def:lsf-function"/>
+    <style id="lsf-util-set"        _name="LSF Util Set"        map-to="def:lsf-function"/>
+    <style id="lsf-util-array"      _name="LSF Util Array"      map-to="def:lsf-function"/>
     <style id="here-doc-bound"      _name="Heredoc Bound"       map-to="def:keyword"/>
     <style id="subshell"            _name="Subshell"            map-to="def:preprocessor"/>
   </styles>
@@ -459,52 +468,6 @@
       <keyword>znew</keyword>
     </context>
 
-    <context id="lsf-command" style-ref="lsf-command">
-      <prefix>(?&lt;![\w\-\.])</prefix>
-      <suffix>(?![\w\-\.])</suffix>
-      <keyword>lib_import</keyword>
-      <keyword>lib_import_all</keyword>
-      <keyword>lib_import_file</keyword>
-      <keyword>lib_import_dir</keyword>
-      <keyword>lib_include</keyword>
-      <keyword>lib_include_all</keyword>
-      <keyword>lib_include_file</keyword>
-      <keyword>lib_include_dir</keyword>
-      <keyword>lib_find</keyword>
-      <keyword>lib_name</keyword>
-      <keyword>lib_depend</keyword>
-      <keyword>lib_enable</keyword>
-      <keyword>lib_disable</keyword>
-      <keyword>lib_exit</keyword>
-      <keyword>lib_unset</keyword>
-      <keyword>lib_update</keyword>
-      <keyword>lib_apply</keyword>
-      <keyword>lib_list</keyword>
-      <keyword>lib_list_apply</keyword>
-      <keyword>lib_def_find</keyword>
-      <keyword>lib_def_list</keyword>
-      <keyword>lib_def_get_alias</keyword>
-      <keyword>lib_def_get_variable</keyword>
-      <keyword>lib_def_get_function</keyword>
-      <keyword>lib_def_get_description</keyword>
-      <keyword>lib_is_enabled</keyword>
-      <keyword>lib_is_installed</keyword>
-      <keyword>lib_is_loaded</keyword>
-      <keyword>lib_path_get</keyword>
-      <keyword>lib_path_set</keyword>
-      <keyword>lib_path_list</keyword>
-      <keyword>lib_path_add</keyword>
-      <keyword>lib_path_remove</keyword>
-      <keyword>lib_log</keyword>
-      <keyword>lib_log_enable</keyword>
-      <keyword>lib_log_disable</keyword>
-      <keyword>lib_log_is_enabled</keyword>
-      <keyword>lib_log_print</keyword>
-      <keyword>lib_log_reset</keyword>
-      <keyword>lib_log_out_get</keyword>
-      <keyword>lib_log_out_set</keyword>
-    </context>
-
     <context id="case">
       <start>\bcase\b</start>
       <end>\besac\b</end>
@@ -518,6 +481,203 @@
         </context>
         <context ref="lsf"/>
       </include>
+    </context>
+
+
+    <context id="lsf-command" style-ref="lsf-command">
+      <prefix>(?&lt;![\w\-\.])lib_</prefix>
+      <suffix>(?![\w\-\.])</suffix>
+      <keyword>import</keyword>
+      <keyword>import_all</keyword>
+      <keyword>import_file</keyword>
+      <keyword>import_dir</keyword>
+      <keyword>include</keyword>
+      <keyword>include_all</keyword>
+      <keyword>include_file</keyword>
+      <keyword>include_dir</keyword>
+      <keyword>find</keyword>
+      <keyword>name</keyword>
+      <keyword>depend</keyword>
+      <keyword>enable</keyword>
+      <keyword>disable</keyword>
+      <keyword>exit</keyword>
+      <keyword>unset</keyword>
+      <keyword>update</keyword>
+      <keyword>apply</keyword>
+      <keyword>list</keyword>
+      <keyword>list_apply</keyword>
+      <keyword>def_find</keyword>
+      <keyword>def_list</keyword>
+      <keyword>def_get_alias</keyword>
+      <keyword>def_get_variable</keyword>
+      <keyword>def_get_function</keyword>
+      <keyword>def_get_description</keyword>
+      <keyword>is_enabled</keyword>
+      <keyword>is_installed</keyword>
+      <keyword>is_loaded</keyword>
+      <keyword>path_get</keyword>
+      <keyword>path_set</keyword>
+      <keyword>path_list</keyword>
+      <keyword>path_add</keyword>
+      <keyword>path_remove</keyword>
+      <keyword>log</keyword>
+      <keyword>log_enable</keyword>
+      <keyword>log_disable</keyword>
+      <keyword>log_is_enabled</keyword>
+      <keyword>log_print</keyword>
+      <keyword>log_reset</keyword>
+      <keyword>log_out_get</keyword>
+      <keyword>log_out_set</keyword>
+    </context>
+
+    <context id="lsf-util-bool" style-ref="lsf-util-bool">
+      <prefix>(?&lt;![\w\-\.])</prefix>
+      <suffix>(?![\w\-\.])</suffix>
+      <keyword>bool_read</keyword>
+      <keyword>bool_valuation</keyword>
+      <keyword>T</keyword>
+      <keyword>F</keyword>
+      <keyword>TRUE</keyword>
+      <keyword>FALSE</keyword>
+      <keyword>True</keyword>
+      <keyword>False</keyword>
+    </context>
+
+    <context id="lsf-util-string" style-ref="lsf-util-string">
+      <prefix>(?&lt;![\w\-\.])string_</prefix>
+      <suffix>(?![\w\-\.])</suffix>
+      <keyword>contains</keyword>
+      <keyword>get</keyword>
+      <keyword>get_line</keyword>
+      <keyword>length</keyword>
+      <keyword>remove</keyword>
+      <keyword>remove_line</keyword>
+      <keyword>sub</keyword>
+      <keyword>substring</keyword>
+    </context>
+
+    <context id="lsf-util-map" style-ref="lsf-util-map">
+      <prefix>(?&lt;![\w\-\.])map_</prefix>
+      <suffix>(?![\w\-\.])</suffix>
+      <keyword>create</keyword>
+      <keyword>def</keyword>
+      <keyword>destroy</keyword>
+      <keyword>get</keyword>
+      <keyword>put</keyword>
+      <keyword>remove</keyword>
+      <keyword>size</keyword>
+      <keyword>is_empty</keyword>
+      <keyword>clear</keyword>
+      <keyword>keyset</keyword>
+      <keyword>values</keyword>
+      <keyword>entry_set</keyword>
+      <keyword>contains_key</keyword>
+      <keyword>contains_value</keyword>
+      <keyword>to_string</keyword>
+      <keyword>to_array</keyword>
+      <keyword>to_set</keyword>
+    </context>
+
+    <context id="lsf-util-set" style-ref="lsf-util-set">
+      <prefix>(?&lt;![\w\-\.])set_</prefix>
+      <suffix>(?![\w\-\.])</suffix>
+      <keyword>create</keyword>
+      <keyword>def</keyword>
+      <keyword>destroy</keyword>
+      <keyword>add</keyword>
+      <keyword>remove</keyword>
+      <keyword>size</keyword>
+      <keyword>is_empty</keyword>
+      <keyword>clear</keyword>
+      <keyword>values</keyword>
+      <keyword>set_all</keyword>
+      <keyword>contains</keyword>
+      <keyword>to_string</keyword>
+      <keyword>to_array</keyword>
+      <keyword>to_map</keyword>
+    </context>
+
+    <context id="lsf-util-array" style-ref="lsf-util-array">
+      <prefix>(?&lt;![\w\-\.])array_</prefix>
+      <suffix>(?![\w\-\.])</suffix>
+      <keyword>add</keyword>
+      <keyword>add_all</keyword>
+      <keyword>clear</keyword>
+      <keyword>compact</keyword>
+      <keyword>contains</keyword>
+      <keyword>create</keyword>
+      <keyword>def</keyword>
+      <keyword>destroy</keyword>
+      <keyword>free_index</keyword>
+      <keyword>get</keyword>
+      <keyword>index_of</keyword>
+      <keyword>is_empty</keyword>
+      <keyword>keyset</keyword>
+      <keyword>length</keyword>
+      <keyword>occurrences_of</keyword>
+      <keyword>remove</keyword>
+      <keyword>remove_value</keyword>
+      <keyword>set</keyword>
+      <keyword>set_all</keyword>
+      <keyword>size</keyword>
+      <keyword>values</keyword>
+      <keyword>to_string</keyword>
+      <keyword>to_set</keyword>
+      <keyword>to_map</keyword>
+    </context>
+
+    <context id="lsf-io" style-ref="lsf-io">
+      <prefix>(?&lt;![\w\-\.])</prefix>
+      <suffix>(?![\w\-\.])</suffix>
+      <keyword>print</keyword>
+      <keyword>println</keyword>
+      <keyword>print_error</keyword>
+      <keyword>println_error</keyword>
+    </context>
+
+    <context id="lsf-fs" style-ref="lsf-fs">
+      <prefix>(?&lt;![\w\-\.])fs_</prefix>
+      <suffix>(?![\w\-\.])</suffix>
+      <keyword>get_absolute_path</keyword>
+      <keyword>get_relative_path</keyword>
+      <keyword>mkdir</keyword>
+      <keyword>path_to_array</keyword>
+      <keyword>chext</keyword>
+      <keyword>ensure_dir</keyword>
+    </context>
+
+    <context id="lsf-math" style-ref="lsf-math">
+      <prefix>(?&lt;![\w\-\.])math_</prefix>
+      <suffix>(?![\w\-\.])</suffix>
+      <keyword>div</keyword>
+      <keyword>div_int</keyword>
+      <keyword>int_round</keyword>
+      <keyword>max</keyword>
+      <keyword>min</keyword>
+      <keyword>mod</keyword>
+      <keyword>mul</keyword>
+      <keyword>neg</keyword>
+      <keyword>sub</keyword>
+      <keyword>sum</keyword>
+    </context>
+
+    <context id="lsf-term" style-ref="lsf-term">
+      <prefix>(?&lt;![\w\-\.])term_</prefix>
+      <suffix>(?![\w\-\.])</suffix>
+      <keyword>cursor_restore</keyword>
+      <keyword>cursor_save</keyword>
+      <keyword>cursor_set</keyword>
+      <keyword>get_bg_color</keyword>
+      <keyword>get_color</keyword>
+      <keyword>get_columns</keyword>
+      <keyword>move</keyword>
+      <keyword>move_down</keyword>
+      <keyword>move_left</keyword>
+      <keyword>move_right</keyword>
+      <keyword>move_up</keyword>
+      <keyword>set_bg_color</keyword>
+      <keyword>set_color</keyword>
+      <keyword>set_clear</keyword>
     </context>
 
     <context id="lsf" class="no-spell-check">
@@ -540,6 +700,15 @@
         <context ref="built-in-command"/>
         <context ref="common-command"/>
         <context ref="lsf-command"/>
+        <context ref="lsf-math"/>
+        <context ref="lsf-io"/>
+        <context ref="lsf-fs"/>
+        <context ref="lsf-term"/>
+        <context ref="lsf-util-bool"/>
+        <context ref="lsf-util-string"/>
+        <context ref="lsf-util-array"/>
+        <context ref="lsf-util-set"/>
+        <context ref="lsf-util-map"/>
       </include>
     </context>
 

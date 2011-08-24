@@ -90,8 +90,9 @@
 
   <!-- Statements -->
   <style name="def:statement"               foreground="#white" bold="true"/>
-  <style name="def:keyword-lsf"                 foreground="#yellow" bold="true"/>
-
+  <style name="def:lsf-keyword"             foreground="#yellow" bold="true"/>
+  <style name="def:lsf-function"            foreground="#orange" bold="true"/>
+  
   <!-- Types -->
   <style name="def:type"                    foreground="chameleon1" bold="true"/> 
 
