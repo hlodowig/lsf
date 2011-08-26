@@ -18,13 +18,20 @@
 # Boston, MA  02110-1301  USA
 #
 
+# Variabile d'ambiente contenente la lista delle directory contenenti librerie.
+export LIB_PATH="${LIB_PATH:-"lib"}"
 
 # Estensione dei file di libreria
-export LIB_EXT="lib"
+export LIB_EXT="lsf"
+
+# Estensione degli archivi di libreria
+export ARC_EXT="lsa"
+
 # Lista dei file di libreria importati.
-export LIB_FILE_LIST=${LIB_FILE_LIST:-""}
+export LIB_FILE_LIST="${LIB_FILE_LIST:-""}"
 
-
+# Mappa che associa ad un archivio una directory temporanea
+declare -gxA LIB_ARC_MAP
 
 
 ### UTILITY FUNCTIONS ##########################################################
@@ -43,8 +50,8 @@ __lib_get_absolute_path()
 	echo "$STRING" | grep -E -q -e "$REGEXP" >/dev/null
 	
 	if ! echo "$FILEPATH" | grep -E -q -e "^/" >/dev/null; then
-	  # This is a relative path
-	  FILEPATH="${PWD}/$FILEPATH"
+		
+		FILEPATH="${PWD}/$FILEPATH"
 	fi
 	
 	FILEPATH=$(echo "$FILEPATH" |
@@ -52,9 +59,9 @@ __lib_get_absolute_path()
 		 gsub("\\.(/|$)","#/");
 		 gsub("/\\.#","/##");
 		 gsub("/\\.$","/");
-	     gsub("/#/","/");
+		 gsub("/#/","/");
 		 while ($0~"//+|/#|/[^/]+/##") {
-	         gsub("//+|/[^/]+/##(/|$)?","/");
+		     gsub("//+|/[^/]+/##(/|$)?","/");
 		 }
 		 gsub("/$","")
 		 print
@@ -235,6 +242,9 @@ __lib_list_files_get_mod_time()
 }
 
 
+
+
+
 ### LOG SECTION ################################################################
 
 # Variabile booleana d'ambiente che indica se il log è attivo 
@@ -320,6 +330,7 @@ lib_log_reset()
 
 
 
+
 ### LIBRARY SECTION ############################################################
 
 # Restituisce il nome di una libreria o di un modulo a partire dal file o dalla
@@ -330,9 +341,18 @@ lib_name()
 {
 	[ $# -gt 0 ] || [ -e "$1" ] || return 1
 	
-	[ -f "$1" ] || [ -d "$1" ] || return 2
 	
-	local lib=$(__lib_get_absolute_path "$1")
+	local lib="$1"
+	local sublib=""
+	
+	if echo "$lib" | grep -q "\.$ARC_EXT"; then
+		local regex="^.*.$ARC_EXT"
+		lib="$(echo "$1" | grep -o -E -e "$regex")"
+		sublib="$(echo "$1" | awk -v S="$regex" '{gsub(S,""); print}')"
+	fi
+	
+	
+	lib=$(__lib_get_absolute_path "$lib")
 	local dirs=""
 	for libdir in ${LIB_PATH//:/ }; do
 		local dir=$(__lib_get_absolute_path $libdir)
@@ -340,9 +360,527 @@ lib_name()
 		dirs="$dirs|$dir"
 	done
 	
-	echo $lib |
+	echo ${lib}${sublib} | awk -v S=".$ARC_EXT" '{gsub(S,"@"); print}' |
 	awk -v S="^($dirs)/|(.$LIB_EXT|/)$" '{gsub(S,""); print}' |
 	tr / :
+}
+
+
+# Costruisce un archivio o ne visualizza il contenuto.
+lib_archive()
+{
+
+	__lib_archive_usage()
+	{
+		local CMD="$1"
+		
+		cat << END
+NAME
+	$CMD - Crea e gestice gli archivi di libreria.
+
+SYNOPSIS
+	Create command:
+		$CMD [OPTIONS] -c|--create|--build [-d|--dir DIR] ARCHIVE_FILE
+		$CMD [OPTIONS] -c|--create|--build  -d|--dir DIR  [DIR.$ARC_EXT]
+	
+	Check command:
+		$CMD [OPTIONS] -C|--check   ARCHIVE_FILE
+		$CMD [OPTIONS] [NAMING_OPTIONS] -y|--verify  ARCHIVE_NAME@
+	
+	List command:
+		$CMD [OPTIONS] -l|--list  ARCHIVE_FILE
+		$CMD [OPTIONS] [NAMING_OPTIONS] -L|--ls    ARCHIVE_NAME@
+	
+	Search command:
+		$CMD [OPTIONS] -s|--search LIB_FILE  ARCHIVE_FILE
+		$CMD [OPTIONS] [NAMING_OPTIONS] -f|--find   ARCHIVE_NAME@LIB_NAME
+	
+	Extract command:
+		$CMD [OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -x|--extract  ARCHIVE_FILE
+		$CMD [OPTIONS] [EXTRACT OPTIONS] [NAMING_OPTIONS] [-d|--dir DIR] -u|--unpack   ARCHIVE_NAME@
+	
+	
+DESCRIPTION
+	Il comando $CMD crea e gestisce un archivio di libreria.
+	
+	
+GENERIC OPTIONS
+	-h, --help
+		Stampa questa messaggio e esce.
+	
+	-q, --quiet
+		Non stampa nulla sullo standard output.
+	
+	-Q, --no-quiet
+		Stampa infomazioni essenziali.
+	
+	-v, --verbose
+		Stampa informazioni dettagliate.
+	
+	-V, --no-verbose
+		Non stampa informazioni dettagliate.
+	
+COMMAND OPTIONS
+	-c, --create, --build
+		Crea un nuovo archivio di libreria
+	
+	-C, --check
+		Controlla se il file passato come parametro è un archivio di librerie
+	
+	-y, --verify
+		Equivale a: --naming --check o in breve -nC
+	
+	-l, --list
+		Stampa la lista dei file e delle directory contenute nell'archivio di librerie
+	
+	-L, --ls
+		Equivale a: --naming --list  o in breve -nl
+	
+	-s, --search
+		Verifica se il file o la directory specificata come parametro è contenuto
+		all'interno dell'archivio di libreria.
+	
+	-f, --find
+		Equivale a: --naming --search o in breve -ns
+	
+	-x, --extract
+		Estrae il contenuto dell'archivio di librerie nella directory specificata.
+	
+	-u, --unpack
+		Equivale a: --naming --extract o in brave -nx
+	
+CREATE OPTIONS
+	-d, --dir
+
+EXTRACT OPTIONS
+	-d, --dir
+	-t, --temp-dir
+	--no-temp-dir
+	-T, --track
+	--no-track
+	-r, --clean-dir
+	-R, --no-clean-dir
+	-F, --force
+	    --no-force
+	
+NAMING OPTIONS
+	-n, --naming
+		
+	
+	-N, --no-naming
+		
+	
+	-p, --add-libpath
+		Aggiuge temporaneamente una nuova lista di path di libreria a quelli presenti
+		nella variabile d'ambiente LIB_PATH.
+	
+	-P, --libpath
+		Imposta temporaneamente una nuova lista di path di libreria, invece di quelli 
+		presenti nella variabile d'ambiente LIB_PATH.
+	
+
+END
+		return 0
+	}
+	
+	local ARGS=$(getopt -o CyclLhs:fxud:nNvVqQrRtTFp:P: -l check,verify,create,build,list,ls,search:,find,extract,unpack,dir:,help,naming,no-naming,temp-dir,no-temp-dir,track,no-track,clean-dir,no-clean-dir,quiet,no-quiet,verbose,no-verbose,force,no-force,clean,clean-temp,clean-track,libpath:,add-libpath: -- "$@")
+	eval set -- $ARGS
+	
+	
+	local ARCHIVE_NAME=""
+	local LIB=""
+	local DIR=""
+	local NAMING=0
+	local TMP=0
+	local TRACK=0
+	local FORCE=0
+	local QUIET=0
+	local VERBOSE=0
+	local CMD=""
+	local SEARCH=0
+	local CLEAN_DIR=0
+	local CLEAN_TEMP=0
+	local CLEAN_TRACK=0
+	local LIB_PATH_OPT=
+	local tar_verbose=
+	local libpath=
+
+	
+	while true ; do
+		case "$1" in
+		-c|--create|--build) CMD="CREATE"                     ; shift  ;;
+		-C|--check)          CMD="CHECK"                      ; shift  ;;
+		-y|--verify)         CMD="CHECK"; NAMING=1            ; shift  ;;
+		-l|--list)           CMD="LIST"                       ; shift  ;;
+		-L|--ls)             CMD="LIST"; NAMING=1             ; shift  ;;
+		-x|--extract)        CMD="EXTRACT"                    ; shift  ;;
+		-u|--unpack)         CMD="EXTRACT"; NAMING=1          ; shift  ;;
+		-s|--search)         CMD="SEARCH"; LIB="$2"           ; shift 2;;
+		-f|--find)           CMD="SEARCH"; NAMING=1           ; shift  ;;
+		-n|--naming)         NAMING=1                         ; shift  ;;
+		-N|--no-naming)      NAMING=0                         ; shift  ;;
+		-p|--add-libpath)    LIB_PATH_OPT="$1 $2"             ; shift 2;;
+		-P|--libpath)        LIB_PATH_OPT="$1 $2"             ; shift 2;;
+		--clean-temp)        CMD="CLEAN";
+		                     CLEAN_TEMP=1                     ; shift  ;;
+		--clean-track)       CMD="CLEAN";
+		                     CLEAN_TRACK=1                    ; shift  ;;
+		--clean)             CMD="CLEAN";
+		                     CLEAN_TEMP=1;
+		                     CLEAN_TRACK=1                    ; shift  ;;
+		-d|--dir)            DIR="$2"                         ; shift 2;;
+		-t|--temp-dir)       TMP=1                            ; shift  ;;
+		--no-temp-dir)       TMP=0                            ; shift  ;;
+		-T|--track)          TRACK=1                          ; shift  ;;
+		--no-track)          TRACK=0                          ; shift  ;;
+		-r|--clean-dir)      CLEAN_DIR=1                      ; shift  ;;
+		-R|--no-clean-dir)   CLEAN_DIR=0                      ; shift  ;;
+		-F|--force)          FORCE=1                          ; shift  ;;
+		--no-force)          FORCE=0                          ; shift  ;;
+		-q|--quiet)          QUIET=1                          ; shift  ;;
+		-Q|--no-quiet)       QUIET=0                          ; shift  ;;
+		-v|--verbose)        VERBOSE=1                        ; shift  ;;
+		-V|--no-verbose)     VERBOSE=0                        ; shift  ;;
+		-h|--help) __lib_archive_usage "$FUNCNAME"; return 0;;
+		--) shift; break;;
+		esac
+	done
+	
+	if [ $QUIET -eq 0 -a $VERBOSE -eq 1 ]; then
+		tar_verbose="-vv"
+	elif [ $QUIET -eq 0 -o $VERBOSE -eq 1 ]; then
+		tar_verbose="-v"
+	fi
+	
+	if [ -z "$CMD" ]; then
+		echo "$FUNCNAME: nessun comando specificato."
+		echo
+		echo "La lista dei comandi è la seguente:"
+		echo "-c --create --build"
+		echo "-C --check"
+		echo "-y --verify"
+		echo "-l --list"
+		echo "-L --ls"
+		echo "-s --search"
+		echo "-f --find"
+		echo "-x --extract"
+		echo "-u --unpack"
+		echo
+		echo "Usa $FUNCNAME -h o $FUNCNAME --help per ulteriori informazioni."
+		return 1
+	fi
+	
+	
+	__lib_archive_create()
+	{
+		[ $# -eq 0 ] && return 1
+		
+		local DIR="$1"
+		local ARCHIVE_FILE="$2"
+		
+		if [ -z "$ARCHIVE_FILE" -a "$DIR" != "." ]; then
+			ARCHIVE_FILE="$(basename "$DIR")"
+		else
+			ARCHIVE_FILE="lib"
+		fi
+		
+		if ! echo $ARCHIVE_FILE | grep -q ".$ARC_EXT$"; then
+			ARCHIVE_FILE="$ARCHIVE_FILE.$ARC_EXT"
+		fi
+		
+		[ $VERBOSE -eq 1 ] && echo "Creazione archivio di librerie: $ARCHIVE_FILE"
+		
+		ARCHIVE_FILE="$(__lib_get_absolute_path "$ARCHIVE_FILE")"
+		
+		if [ ! -d "$DIR" ]; then
+			if [ $VERBOSE -eq 1 ]; then
+				echo "La directory '$DIR' non esiste."
+				echo "Creazione archivio fallita!"
+			fi
+			return 2
+		fi
+		
+		(cd "$DIR" && tar -czf "$ARCHIVE_FILE" *);
+		
+		local exit_code=$?
+		
+		if [ $VERBOSE -eq 1 ]; then
+			if [ $exit_code -eq 0 ]; then
+				echo "Creazione archivio completata con successo!"
+			else
+				echo "Creazione archivio fallita!"
+			fi
+		fi
+		
+		return $exit_code
+	}
+	
+	__lib_is_archive()
+	{
+		[ $# -eq 0 ] && return 1
+		
+		local verbose=$VERBOSE
+		
+		if [ "$1" == "-q" ]; then
+			verbose=0
+			shift
+		fi
+		
+		[ -f "$1" ] && file --mime-type "$1" | grep -q "gzip"
+		
+		local exit_code=$?
+		
+		if [ $verbose -eq 1 ]; then
+			if [ $exit_code -eq 0 ]; then
+				echo "Il file '$(basename "$1")' è un archivio di libreria"
+			else
+				echo "Il file '$(basename "$1")' non è un archivio di libreria"
+			fi
+		fi
+		
+		return $exit_code
+	}
+	
+	__lib_archive_list()
+	{
+		[ $# -gt 0 ] && __lib_is_archive -q "$1"  || return 1 
+		
+		local ARCHIVE_NAME=$(__lib_get_absolute_path "$1")
+		
+		if [ $VERBOSE -eq 1 ]; then
+			echo "Librerie dell'archivio '$(basename "$1")':"
+		fi
+		
+		tar -tzf "$ARCHIVE_NAME" | awk '{gsub("^[.]?/?",""); print}'
+	}
+	
+	__lib_archive_search()
+	{
+		[ $# -gt 0 ] && __lib_is_archive -q "$1"  || return 1 
+		
+		local ARCHIVE_NAME=$(__lib_get_absolute_path "$1")
+		local LIB="$2"
+		
+		if [ -z "$LIB" ]; then
+			
+			[ $QUIET -eq 1 ] || echo "$ARCHIVE_NAME"
+			return 0
+		fi
+		
+		
+		[ $VERBOSE -eq 1 ] &&
+		echo -n "Ricerca della libreria '$LIB' nell'archivio '$(basename "$1")': "
+		
+		local libfile=""
+		for libfile in $(__lib_archive_list "$ARCHIVE_NAME"); do
+			if [ "$2" == "$libfile" ]; then
+				[ $VERBOSE -eq 1 ] && echo "trovato!";
+				[ $QUIET -eq 1 ] || echo "\n$ARCHIVE_NAME:$LIB";
+				return 0
+			elif [ "$2.$LIB_EXT" == "$libfile" ]; then
+				[ $VERBOSE -eq 1 ] && echo "trovato!";
+				[ $QUIET -eq 1 ] || echo "$ARCHIVE_NAME:$LIB.$LIB_EXT";
+				return 0
+			fi
+		done
+		
+		[ $VERBOSE -eq 1 ] && echo "non trovato!"
+		
+		return 1
+	}
+	
+	
+	__lib_archive_extract()
+	{
+		[ $# -gt 1 ] && __lib_is_archive -q "$1"  || return 1
+		
+		local ARCHIVE_NAME=$(__lib_get_absolute_path "$1")
+		local DIR="$2"
+		
+		local old_mod_time=0
+		local new_mod_time=$(stat -c %Y $1)
+		local exit_code=1
+		
+		if [ $TRACK -eq 1 -a -z "$DIR" ]; then
+			
+			[ $VERBOSE -eq 1 ] &&
+			echo "Verifica se l'archivio '$(basename "$1")' è già stato estratto..."
+			
+			DIR="${LIB_ARC_MAP[$ARCHIVE_NAME]}"
+			
+			if [ -n "$DIR" ]; then 
+				
+				if [ ! -d "$DIR" ]; then
+					
+					[ $VERBOSE -eq 1 ] &&
+					echo "La directory '$DIR' è stata rimossa."
+					
+					DIR=""
+					
+					unset LIB_ARC_MAP[$ARCHIVE_NAME]
+				else
+					[ $VERBOSE -eq 1 ] &&
+					echo "Directory trovata: $DIR"
+					
+					old_mod_time=$(stat -c %Y "$DIR")
+					
+					if [ ${new_mod_time} -gt ${old_mod_time:=0} ]; then
+						
+						[ $VERBOSE -eq 1 ] &&
+						echo "L'archivio è stato modificato, la directory non è valida!"
+						
+						#[ $? -eq 0 -a $VERBOSE -eq 1 ] &&
+						#echo "Rimozione del contenuto della cartella associata all'archivio."
+						#rm -r "$DIR/*"
+					elif [ $FORCE -eq 0 ]; then
+						
+						[ $VERBOSE -eq 1 ] &&
+						echo "Estrazione dell'archivio non necessaria."
+						
+						return 0
+					fi
+				fi
+			else
+				[ $VERBOSE -eq 1 ] &&
+				echo "Directory non trovata"
+			fi
+		fi
+		
+		if [ $TMP -eq 1 ] && [ -z "$DIR" -o ! -d "$DIR" ]; then
+			
+			DIR=$(mktemp --tmpdir -d lsf-$$-XXXXXXXX)
+			
+			[ $VERBOSE -eq 1 ] &&
+			echo "Creata nuova cartella temporanea per l'archivio': '$DIR'"
+		fi
+		
+		if [ -z "$DIR" ]; then
+			DIR=$(basename "$1" | awk -v S=".$ARC_EXT" '{gsub(S,""); print}')
+		fi
+		
+		if [ ! -d "$DIR" ]; then
+			
+			[ $VERBOSE -eq 1 ] &&
+			echo "La directory '$DIR' non esiste e verrà creata."
+			
+			mkdir -p "$DIR"
+		elif [ $CLEAN_DIR -eq 1 ]; then
+			
+			[ $? -eq 0 -a $VERBOSE -eq 1 ] &&
+			echo "Rimozione del contenuto della cartella associata all'archivio."
+			
+			rm -r $DIR/*
+		fi
+		
+		[ $VERBOSE -eq 1 -o $QUIET -eq 0 ] &&
+		echo -e "Estrazione dell'archivio '$(basename "$1")' nella directory: $DIR\n"
+		
+		# Estazione dell'archivio
+		tar $tar_verbose -xzf "$ARCHIVE_NAME" -C $DIR
+		
+		local exit_code=$?
+		
+		if [ $VERBOSE -eq 1 ]; then
+			if [ $exit_code -eq 0 ]; then
+				echo -e "\nCompletata con successo!"
+			else
+				echo -e "\nEstrazione fallita!"
+			fi
+		fi
+		
+		if [ $TRACK -eq 1 ]; then
+			LIB_ARC_MAP[$ARCHIVE_NAME]="$(__lib_get_absolute_path "$DIR")"
+			if [ $VERBOSE -eq 1 ]; then
+				echo "Salvataggio della directory corrente di estarzione nella mappa degli archivi."
+				echo "LIB_ARC_MAP[$ARCHIVE_NAME]=${LIB_ARC_MAP[$ARCHIVE_NAME]}"
+			fi
+		fi
+		
+		return $exit_code
+	}
+	
+	__lib_archive_clean()
+	{
+		if [ $CLEAN_TRACK -eq 1 ]; then
+			
+			[ $QUIET -eq 0 ] &&
+			lib_log "Pulizia della mappa degli archivi."
+			
+			LIB_ARC_MAP=()
+		fi
+		
+		if [ $CLEAN_TEMP -eq 1 ]; then
+			
+			[ $QUIET -eq 0 ] &&
+			lib_log "Rimozione delle directory temporanee."
+			
+			local tmp_dir=
+			
+			for tmp_dir in $(ls /tmp/lsf-* 2> /dev/null); do
+				[ $VERBOSE -eq 1 ] &&
+				echo "Remove directory: $tmp_dir"
+				rm -r $tmp_dir 2> /dev/null
+			done
+		fi
+	}
+	
+	___exit()
+	{
+		unset __lib_is_archive
+		unset __lib_archive_list
+		unset __lib_archive_create
+		unset __lib_archive_search
+		unset __lib_archive_extract
+		unset __lib_archive_clean
+		unset ___exit
+		
+		return ${1:-0}
+	}
+	
+	local ARCHIVE_FILE="$1"
+	
+	if [ $NAMING -eq 1 ]; then
+		
+		local arcname=$(lib_find $LIB_PATH_OPT "$1")
+		LIB=$(echo $1 | awk '{gsub("^.*@:?",""); print}')
+		
+		[ $VERBOSE -eq 1 ] &&
+		echo -n "Ricerca della libreria '$LIB' nell'archivio '$(basename "$1"| awk '{gsub("@.*$",""); print}').$ARC_EXT': "
+		
+		
+		
+		if [ "$CMD" == "SEARCH" ]; then
+			if [ -z "$arcname" ]; then
+				[ $VERBOSE -eq 1 ] && echo "non trovato!"
+			else
+				[ $VERBOSE -eq 1 ] && echo "trovato!"
+				[ $QUIET -eq 0 ] && echo $arcname
+				return 0
+			fi
+		fi
+		
+		[ -n "$arcname" ] || return 1
+		
+		LIB="$(echo "$arcname" | awk -F : '{ print $2 }')"
+		ARCHIVE_FILE="$(echo "$arcname" | awk -F : '{ print $1 }')"
+	fi
+	
+	case "$CMD" in
+	"CHECK")   __lib_is_archive "$ARCHIVE_FILE";
+	           ___exit $?; return $?;;
+	"LIST")    __lib_archive_list    "$ARCHIVE_FILE";
+	           ___exit $?; return $?;;
+	"CREATE")  __lib_archive_create  "${DIR:=.}" "$ARCHIVE_FILE";
+	           ___exit $?; return $?;;
+	"SEARCH")  __lib_archive_search  "$ARCHIVE_FILE" "$LIB";
+	           ___exit $?; return $?;;
+	"EXTRACT") __lib_archive_extract "$ARCHIVE_FILE" "$DIR";
+	           ___exit $?; return $?;;
+	"CLEAN")   __lib_archive_clean;
+	           ___exit $?; return $?;;
+	esac
+	
+	return 1
 }
 
 
@@ -359,7 +897,7 @@ NAME
 	$CMD - Restituisce il path della libreria passato come parametro.
 
 SYNOPSIS
-	$CMD [OPTIONS] LIBRARY_NAME...
+	$CMD [OPTIONS] [DIR:...][ARCHIVE@:][DIR:...]LIB_NAME
 	
 	$CMD [OPTIONS] -f|--file LIBRARY_FILE_PATH
 	
@@ -367,6 +905,7 @@ SYNOPSIS
 	
 DESCRIPTION
 	Il comando $CMD trova il path associato ad una libreria, sia essa file o cartella.
+	
 	
 OPTIONS
 	
@@ -381,6 +920,13 @@ OPTIONS
 		Se la directory non esiste, ritorna un exit code pari a 1, altrimenti ritorna 0
 		e ne stampa il path sullo standard output (se l'optione quiet non è specificata).
 	
+	-a, --archive  ARCHIVE_PATH[:LIB_PATH]
+		Verifica se l'archivio specificato, o il file contenuto in esso, esiste, senza eseguire
+		operazioni di naming.
+		Se l'archivio, o il file in esso specificato, non esiste, ritorna un exit code pari a 1, 
+		altrimenti ritorna 0 e ne stampa il path sullo standard output 
+		(se l'optione quiet non è specificata).
+		
 	-p, --add-libpath
 		Aggiuge temporaneamente una nuova lista di path di libreria a quelli presenti
 		nella variabile d'ambiente LIB_PATH.
@@ -474,13 +1020,15 @@ END
 
 	[ $# -eq 0 -o -z "$*" ] && return 1
 	
-	local ARGS=$(getopt -o hqQf:d:p:P: -l help,quiet,no-quiet,file:,dir:,add-libpath:,libpath: -- "$@")
+	local ARGS=$(getopt -o hqQf:d:a:p:P:vV -l help,quiet,no-quiet,file:,dir:,archive:,add-libpath:,libpath:,verbose,no-verbose -- "$@")
 	
 	eval set -- $ARGS
 	
 	local QUIET=0
-	local exit_code=1
 	local libpath="$LIB_PATH"
+	local ARCHIVE_MODE=0
+	local VERBOSE=0
+	local opts=
 	
 	while true ; do
 		case "$1" in
@@ -489,45 +1037,75 @@ END
 		-p|--add-libpath)  libpath="${2}:${LIB_PATH}" ; shift 2;;
 		-P|--libpath)      libpath="$2"               ; shift 2;;
 		-f|--file) 
-			if [ -f "$2" ]; then
-			 [ $QUIET -eq 1 ] || __lib_get_absolute_path "$2"
-			 exit_code=0
-			fi
-			unset __lib_find_usage
-			return $exit_code;;
+			[ -f "$2" ] || return 1
+			[ $QUIET -eq 1 ] || __lib_get_absolute_path "$2"
+			return 0;;
 		-d|--dir)
-			if [ -d "$2" ]; then
-			 [ $QUIET -eq 1 ] || __lib_get_absolute_path "$2"
-			 exit_code=0
-			fi
-			unset __lib_find_usage
-			return $exit_code;;
-		-h|--help) __lib_find_usage $FUNCNAME; unset __lib_find_usage; return 0;;
+			[ -d "$2" ] || return 1
+			[ $QUIET -eq 1 ] || __lib_get_absolute_path "$2"
+			return 0;;
+		-a|--archive) ARCHIVE_MODE=1                  ; shift  ;;
+		-v|--verbose)        VERBOSE=1; opts="-v"     ; shift  ;;
+		-V|--no-verbose)     VERBOSE=0                ; shift  ;;
+		-h|--help) __lib_find_usage $FUNCNAME; return 0;;
 		--) shift;;
 		*) break;;
 		esac
 	done
 	
+	
 	local LIB="${1//://}"
+	local SUB_LIB=""
+	
+	if [ $ARCHIVE_MODE -eq 1 ]; then
+		if echo "$LIB" | grep -q ".$ARC_EXT"; then
+			local lib="$LIB"
+			local regex="^.*.$ARC_EXT"
+			
+			LIB="$(echo "$lib" | grep -o -E -e "$regex")"
+			SUB_LIB="$(echo "$lib" | awk -v S="$regex" '{gsub(S,""); print}')"
+			SUB_LIB="${SUB_LIB#/}"
+			
+			lib_archive $opts --no-quiet --search "$SUB_LIB" $LIB
+			
+			return $?
+			
+		else # archivio con estensione errata
+			return 1
+		fi
+	fi
+	
+	
+	if echo "$LIB" | grep -q "@"; then
+		local lib="$LIB"
+		local regex="^.*@"
+		
+		LIB="$(echo "$lib" | grep -o -E -e "$regex" | awk '{gsub("@",""); print}').$ARC_EXT"
+		SUB_LIB="$(echo "$lib" | awk -v S="$regex" '{gsub(S,""); print}')"
+		SUB_LIB="${SUB_LIB#/}"
+	fi
+	
 	local libdir=
 	
 	for libdir in ${libpath//:/ }; do
 		
 		if [ -d "${libdir}/$LIB" ]; then
+			
 			[ $QUIET -eq 1 ] || __lib_get_absolute_path ${libdir}/$LIB
-			exit_code=0
-			break
+			return 0
+			
 		elif [ -f "${libdir}/$LIB.$LIB_EXT" ]; then
+			
 			[ $QUIET -eq 1 ] || __lib_get_absolute_path ${libdir}/$LIB.$LIB_EXT
-			exit_code=0
-			break
+			return 0
+		else
+			lib_archive $opts --no-quiet --search "$SUB_LIB" "${libdir}/$LIB"
+			
+			return $?
 		fi
-		
 	done
 	
-	unset __lib_find_usage; 
-	
-	return $exit_code
+	return 1
 }
 
 # Restituisce un exit code pari a 0 se la libreria passata come parametro è
@@ -588,7 +1166,7 @@ lib_apply()
 {
 	[ $# -eq 0 ] && return 1
 	
-	local ARGS=$(getopt -o h,F:fd -l help,lib-function:,file,dir -- "$@")
+	local ARGS=$(getopt -o h,F:fda -l help,lib-function:,file,dir,archive -- "$@")
 	eval set -- $ARGS
 	
 	local FIND_OPT=""
@@ -597,10 +1175,11 @@ lib_apply()
 	
 	while true ; do
 		case "$1" in
-		-F|--lib-function) LIB_FUN="$2" ; shift 2;;
-		-f|--file) FIND_OPT="$1"        ; shift  ;;
-		-d|--dir)  FIND_OPT="$1"        ; shift  ;;
-		-h|--help) return 0;;
+		-F|--lib-function) LIB_FUN="$2"   ; shift 2;;
+		-f|--file)         FIND_OPT="$1"  ; shift  ;;
+		-d|--dir)          FIND_OPT="$1"  ; shift  ;;
+		-a|--archive)      FIND_OPT="$1"  ; shift  ;;
+		-h|--help)         return 0;;
 		--) shift;;
 		*) break;;
 		esac
@@ -691,151 +1270,7 @@ lib_disable()
 	return $exit_code
 }
 
-# Restituisce le dipendenze di una libreria
-lib_depend()
-{
-	local ARGS=$(getopt -o hiIfmnhrRvV -l help,inverse,reverse,no-inverse,no-reverse,file,filename,libname,verbose,recursive,no-recursive,verbose,no-verbose -- "$@")
-	eval set -- $ARGS
-	
-	local FIND_OPT=
-	local NAME=1
-	local RECURSIVE=1
-	local REVERSE=0
-	local VERBOSE=0
-	
-	while true ; do
-		case "$1" in
-		-f|--file)                    FIND_OPT="$1"   ; shift ;;
-		-n|--libname)                 NAME=1          ; shift ;;
-		-m|--filename)                NAME=0          ; shift ;;
-		-r|--recursive)               RECURSIVE=1     ; shift ;;
-		-R|--no-recursive)            RECURSIVE=0     ; shift ;;
-		-i|--inverse|--reverse)       REVERSE=1       ; shift ;;
-		-I|--no-inverse|--no-reverse) REVERSE=0       ; shift ;;
-		-v|--verbose)                 VERBOSE=1       ; shift ;;
-		-V|--no-verbose)              VERBOSE=0       ; shift ;;
-		-h|--help) 
-			echo "$FUNCNAME [-nmvV] [-r|--recursive] LIB_NAME"; 
-			echo "$FUNCNAME [-nmvV] [-r|--recursive] -f|--file LIB_FILE"; 
-			echo "$FUNCNAME [-nmvV] -R|--no-recursive LIB_NAME"; 
-			echo "$FUNCNAME [-nmvV] -R|--no-recursive -f|--file LIB_FILE"; 
-			echo "$FUNCNAME [-nmvV] -i|--reverse|--inverse LIB_NAME"; 
-			echo "$FUNCNAME [-nmvV] -i|--reverse|--inverse -f|--file LIB_FILE"; 
-			echo "$FUNCNAME [-nmvV] [-I|--no-reverse|--no-inverse] LIB_NAME"; 
-			echo "$FUNCNAME [-nmvV] [-I|--no-reverse|--no-inverse] -f|--file LIB_FILE"; 
-			return 0;;
-		--) shift;;
-		*) break;;
-		esac
-	done
 
-	[ $# -eq 0 ] && return 1
-	
-	local LIB_FILE="$(lib_find $FIND_OPT "$1")"
-	
-	[ -n "$LIB_FILE" ] || return 2
-	
-	local DEPEND=
-	
-	__add_dependence()
-	{
-		[ $# -eq 0 ] && return 1
-		
-		DEPEND=$( echo -e "$DEPEND\n$1" |
-			      grep -v -E -e '^$')
-	}
-	
-	if [ $REVERSE -eq 0 ]; then
-		
-		__find_dependence()
-		{
-			[ $# -eq 0 ] && return 1
-			
-			echo "$DEPEND" | grep -E -q -e "$1"
-		}
-		
-		__get_dependences()
-		{
-			[ -n "$1" -a -f "$1" ] || return 1
-			
-			local LIB_DEP=
-			
-			eval "LIB_DEP=($(cat "$1" | grep -E -e "lib_(import|include)" | 
-			awk '{gsub("include","import -i"); print}' | tr ';' '\n' | 
-			awk '{gsub(" *lib_import *",""); printf "\"%s\"\n", $0}' | tr \" \'))"
-			
-			
-			local dep=
-			local dep2=
-			
-			for dep in "${LIB_DEP[@]}"; do
-				for dep2 in $(lib_import --quiet --force --dummy $dep); do
-					if ! __find_dependence $dep2; then
-						
-						__add_dependence $dep2
-						
-						if [ $RECURSIVE -eq 1 ]; then
-							$FUNCNAME $dep2
-						fi
-					fi
-				done
-			done
-		}
-		
-		__get_dependences "$LIB_FILE"
-		
-		unset __find_dependence
-		unset __get_dependences
-		
-		if [ $VERBOSE -eq 1 ]; then
-			echo "Dipendenze trovate per la libreria '$1':"
-		fi
-		
-	else
-		__find_lib()
-		{
-			[ -n "$1" -a -f "$1" ] || return 1
-			
-			if cat "$1" | grep -E -e "lib_(import|include)" | grep -qo "$LIB_FILE"; then
-				return 0
-			fi
-			
-			local LIB_NAME="$(lib_name $LIB_FILE)"
-			
-			if cat "$1" | grep -E -e "lib_(import|include)" | grep -qo "$LIB_NAME"; then
-				return 0
-			fi
-			
-			return 1
-		}
-		
-		
-		for lib in $(lib_list --filename --no-format-list); do
-			if __find_lib $lib; then
-				__add_dependence $lib
-			fi
-		done
-		
-		unset __find_lib
-		
-		if [ $VERBOSE -eq 1 ]; then
-			echo "Dipendenze inverse trovate per la libreria '$1':"
-		fi
-	fi
-	
-	if [ $NAME -eq 0 ]; then
-		echo "$DEPEND" | grep -v -E -e '^$'
-	else
-		local dep=
-		
-		for dep in $DEPEND; do
-			lib_name $dep
-		done
-	fi
-	
-	unset __add_dependences
-	
-}
 
 # Importa una libreria nell'ambiente corrente.
 #
@@ -891,7 +1326,14 @@ OPTIONS
 		Se l'optione 'include' non è specificata, importa solo gli script abilitati,
 		altrimenti importa tutti gli script con estensione '.$LIB_EXT'.
 		(see: LIBRARY NAMING section of lib_find)
-		
+	
+	-a, --archive
+		Importa gli script contenuti nella cartella specificata dal path,
+		senza eseguire operazioni di naming.
+		Se l'optione 'include' non è specificata, importa solo gli script abilitati,
+		altrimenti importa tutti gli script con estensione '.$LIB_EXT'.
+		(see: LIBRARY NAMING section of lib_find)
+	
 	-r, --recursive
 		Se la libreria è una cartella, importa ricorsivamente gli script nella cartella
 		e nelle sue sottocartelle.
@@ -936,7 +1378,7 @@ OPTIONS
 	
 	Command list:
 	
-	-a, --all
+	-A, --all
 		Importa tutte le librerie abilitate presenti nei path della variabile
 		d'ambiente LIB_PATH.
 	
@@ -1008,10 +1450,11 @@ EXAMPLES
 END
 ) | less
 	}
-
-	local ARGS=$(getopt -o hfdircCuDqQlLRFap:P: -l help,file,dir,include,recursive,check,no-check,update,dummy,quiet,no-quiet,list,list-files,list-clear,force,all,libpath:,add-libpath: -- "$@")
+	
+	local ARGS=$(getopt -o hfdircCuDqQlLRFaAp:P:vV -l help,file,dir,archive,include,recursive,check,no-check,update,dummy,quiet,no-quiet,list,list-files,list-clear,force,all,libpath:,add-libpath:,verbose,no-verbose -- "$@")
 	eval set -- $ARGS
 	
+	#echo "___________________________________________________"
 	#echo $ARGS
 	
 	local ALL=0
@@ -1026,27 +1469,34 @@ END
 	local UPDATE=0
 	local DUMMY=0
 	local QUIET=0
+	local VERBOSE=0
 	
 	while true ; do
 		
 		case "$1" in
-		-a|--all)        ALL=1                                        ; shift  ;;
+		-A|--all)        ALL=1                                        ; shift  ;;
 		-f|--file)       FIND_OPT="$1"                                ; shift  ;;
 		-d|--dir)        FIND_OPT="$1"                                ; shift  ;;
+		-a|--archive)    FIND_OPT="$1"                                ; shift  ;;
 		-r|--recursive)  RECURSIVE=1;        OPTIONS="$OPTIONS $1"    ; shift  ;;
 		-c|--check)      CHECK=1;            OPTIONS="$OPTIONS $1"    ; shift  ;;
 		-C|--no-check)   CHECK=0;            OPTIONS="$OPTIONS $1"    ; shift  ;;
 		-i|--include)    INCLUDE=1;          OPTIONS="$OPTIONS $1"    ; shift  ;;
 		-q|--quiet)      QUIET=1             OPTIONS="$OPTIONS $1"    ; shift  ;;
 		-Q|--no-quiet)   QUIET=0             OPTIONS="$OPTIONS $1"    ; shift  ;;
+		-v|--verbose)    VERBOSE=1           OPTIONS="$OPTIONS $1"    ; shift  ;;
+		-V|--no-verbose) VERBOSE=0           OPTIONS="$OPTIONS $1"    ; shift  ;;
 		-D|--dummy)      DUMMY=1;            OPTIONS="$OPTIONS $1"    ; shift  ;;
 		-F|--force)      CHECK=0; INCLUDE=1; OPTIONS="$OPTIONS -C -i" ; shift  ;;
 		-p|--add-libpath)  LIB_PATH_OPT="$1 $2"                       ; shift 2;;
 		-P|--libpath)      LIB_PATH_OPT="$1 $2"                       ; shift 2;;
-		-l|--list)       __lib_list_names      ; unset __lib_import_usage     ; return ;; 
-		-L|--list-files) __lib_list_files      ; unset __lib_import_usage     ; return ;;
-		-R|--list-clear) __lib_list_files_clear; unset __lib_import_usage     ; return ;;
-		-h|--help)     __lib_import_usage $FUNCNAME; unset __lib_import_usage ; return ;; 
+		-l|--list)       __lib_list_names      ; return ;; 
+		-L|--list-files) __lib_list_files      ; return ;;
+		-R|--list-clear)
+			lib_archive --clean
+			__lib_list_files_clear;
+			return 0;;
+		-h|--help)     __lib_import_usage $FUNCNAME;  return 0;; 
 		-u|--update)     UPDATE=1                                     ; break  ;;
 		--) shift;;
 		-*) echo "Usa $FUNCNAME -h oppure $FUNCNAME --help per ulteriori informazioni";
@@ -1059,8 +1509,6 @@ END
 	# lib_import --all invocation
 	if [ $ALL -eq 1 ]; then
 		
-		unset __lib_import_usage
-		
 		for dir in ${LIB_PATH//:/ }
 		do
 			$FUNCNAME $OPTIONS $LIB_PATH_OPT --recursive --dir $dir
@@ -1071,8 +1519,6 @@ END
 	
 	# lib_import --update invocation
 	if [ $UPDATE -eq 1 ]; then
-		
-		unset __lib_import_usage
 		
 		for lib_loaded in $(__lib_list_files); do
 			$FUNCNAME $LIB_PATH_OPT --include --check --file "$lib_loaded"
@@ -1088,7 +1534,16 @@ END
 		LIB="$1"
 	fi
 	
+	
 	LIB_FILE=$(lib_find $LIB_PATH_OPT $FIND_OPT $LIB)
+	
+	#echo "___________________________________________________"
+	#echo "FIND LIB_FILE=$LIB_FILE"
+	
+	SUB_LIB="$(echo "$LIB_FILE" | awk -F : '{ print $2 }')"
+	LIB_FILE="$(echo "$LIB_FILE" | awk -F : '{ print $1 }')"
+	
+	#echo "LIB_FILE=$LIB_FILE, SUB_LIB=$SUB_LIB"
 	
 	
 	if [ -z "$LIB_FILE" ]; then
@@ -1101,28 +1556,61 @@ END
 		return 2
 	fi
 	
-	if [ -f "$LIB_FILE" ]; then
+	
+	if [ -f "$LIB_FILE" ]; then  # se la libreria è un file o un'archivio
 		
-		if [ $CHECK -eq 0 ] || 
+		if [ $CHECK -eq 0 ] ||
 		   ! $(lib_is_loaded -f "$LIB_FILE") ||
 		   [ $(stat -c %Y "$LIB_FILE") -gt $(__lib_list_files_get_mod_time "$LIB_FILE") ]; 
 		then
-			if [ $DUMMY -eq 0 ]; then
-				source "$LIB_FILE"
-			else
+			if [ $DUMMY -eq 1 ]; then
+				# Stampa semplicemente il path della libreria.
 				echo "$LIB_FILE"
+				
+			else # importa un file
+			
+				if ! file --mime-type "$LIB_FILE" | grep -q "gzip"; then
+					
+					source "$LIB_FILE"
+					
+					__lib_list_files_add "$LIB_FILE"
+					
+					[ $QUIET -eq 1 ] || lib_log "Import library module:\t $LIB"
+				
+				else # importa un'archivio
+					
+					# Scompatta l'archivio in una directory temporanea, se non 
+					# già stata associata all'archivio ne crea una nuova e ne 
+					# tiene traccia.
+					
+					local opts=""
+					
+					[ $QUIET   -eq 1 ] && opts="--quiet"
+					[ $VERBOSE -eq 1 ] && opts="$opts --verbose"
+					
+					lib_archive $opts --clean-dir --track --temp-dir --extract "$LIB_FILE"
+					
+					local tmp_dir="${LIB_ARC_MAP[$LIB_FILE]}"
+					
+					lib_path_add "$tmp_dir"
+					
+					if [ -n "$SUB_LIB" ]; then
+						
+						# importa un file dell'archivio
+						$FUNCNAME $LIB_PATH_OPT $OPTIONS --file  "${tmp_dir}/${SUB_LIB}"
+					else
+						# importa tutto l'archivio
+						$FUNCNAME --recursive $LIB_PATH_OPT $OPTIONS --dir  "$tmp_dir"
+					fi
+					
+					lib_path_remove "$tmp_dir"
+				fi
 			fi
-			
-			[ $QUIET -eq 1 ] || lib_log "Import library module:\t $LIB"
-			
-			[ $DUMMY -eq 1 ] || __lib_list_files_add "$LIB_FILE"
 		fi
 		
-		unset __lib_import_usage
+		return 0
 		
-		return $?
-		
-	elif [ -d "$LIB_FILE" ]; then
+	elif [ -d "$LIB_FILE" ]; then # importa una directory
 		
 		local DIR="$LIB_FILE"
 		
@@ -1138,7 +1626,7 @@ END
 			
 			if [ $RECURSIVE -eq 1 ]; then
 				for libdir in $DIR/*; do
-				
+					
 					test -d $libdir || continue
 					
 					if [ $INCLUDE -eq 1 -o  -x "$libdir" ]; then
@@ -1147,12 +1635,16 @@ END
 						[ $QUIET -eq 1 ] || lib_log "Library directory '$libdir' disable!"
 					fi
 				done
+				
+				for library in $DIR/*.$ARC_EXT; do
+					if [ $INCLUDE -eq 1 -o -x $library ]; then
+						$FUNCNAME $LIB_PATH_OPT $OPTIONS --archive $library
+					fi
+				done
 			fi
 		fi
 		
-		unset __lib_import_usage
-		
-		return $?
+		return 0
 	fi
 }
 
@@ -1251,6 +1743,10 @@ lib_list_apply()
 
 
 
+# Mostra la lista delle librerie
+#
+# @see lib_name
+# @see lib_list_apply
 lib_list()
 {
 	local ARGS=$(getopt -o rednfhlLmM -l recursive,help,only-enabled,only-disable,filename,libname,format-list,no-format-list,list-dir,no-list-dir -- "$@")
@@ -1314,11 +1810,153 @@ lib_list()
 }
 
 
+# Restituisce le dipendenze di una libreria
+lib_depend()
+{
+	local ARGS=$(getopt -o hiIfmnhrRvV -l help,inverse,reverse,no-inverse,no-reverse,file,filename,libname,verbose,recursive,no-recursive,verbose,no-verbose -- "$@")
+	eval set -- $ARGS
+	
+	local FIND_OPT=
+	local NAME=1
+	local RECURSIVE=1
+	local REVERSE=0
+	local VERBOSE=0
+	
+	while true ; do
+		case "$1" in
+		-f|--file)                    FIND_OPT="$1"   ; shift ;;
+		-n|--libname)                 NAME=1          ; shift ;;
+		-m|--filename)                NAME=0          ; shift ;;
+		-r|--recursive)               RECURSIVE=1     ; shift ;;
+		-R|--no-recursive)            RECURSIVE=0     ; shift ;;
+		-i|--inverse|--reverse)       REVERSE=1       ; shift ;;
+		-I|--no-inverse|--no-reverse) REVERSE=0       ; shift ;;
+		-v|--verbose)                 VERBOSE=1       ; shift ;;
+		-V|--no-verbose)              VERBOSE=0       ; shift ;;
+		-h|--help) 
+			echo "$FUNCNAME [-nmvV] [-r|--recursive] LIB_NAME"; 
+			echo "$FUNCNAME [-nmvV] [-r|--recursive] -f|--file LIB_FILE"; 
+			echo "$FUNCNAME [-nmvV] -R|--no-recursive LIB_NAME"; 
+			echo "$FUNCNAME [-nmvV] -R|--no-recursive -f|--file LIB_FILE"; 
+			echo "$FUNCNAME [-nmvV] -i|--reverse|--inverse LIB_NAME"; 
+			echo "$FUNCNAME [-nmvV] -i|--reverse|--inverse -f|--file LIB_FILE"; 
+			echo "$FUNCNAME [-nmvV] [-I|--no-reverse|--no-inverse] LIB_NAME"; 
+			echo "$FUNCNAME [-nmvV] [-I|--no-reverse|--no-inverse] -f|--file LIB_FILE"; 
+			return 0;;
+		--) shift;;
+		*) break;;
+		esac
+	done
 
-################################################################################
+	[ $# -eq 0 ] && return 1
+	
+	local LIB_FILE="$(lib_find $FIND_OPT "$1")"
+	
+	[ -n "$LIB_FILE" ] || return 2
+	
+	local DEPEND=
+	
+	__add_dependence()
+	{
+		[ $# -eq 0 ] && return 1
+		
+		DEPEND=$( echo -e "$DEPEND\n$1" |
+			      grep -v -E -e '^$')
+	}
+	
+	if [ $REVERSE -eq 0 ]; then
+		
+		__find_dependence()
+		{
+			[ $# -eq 0 ] && return 1
+			
+			echo "$DEPEND" | grep -E -q -e "$1"
+		}
+		
+		__get_dependences()
+		{
+			[ -n "$1" -a -f "$1" ] || return 1
+			
+			local LIB_DEP=
+			
+			eval "LIB_DEP=($(cat "$1" | grep -E -e "lib_(import|include)" | 
+			awk '{gsub("include","import -i"); print}' | tr ';' '\n' | 
+			awk '{gsub(" *lib_import *",""); printf "\"%s\"\n", $0}' | tr \" \'))"
+			
+			local dep=
+			local dep2=
+			
+			for dep in "${LIB_DEP[@]}"; do
+				for dep2 in $(lib_import --quiet --force --dummy $dep); do
+					if ! __find_dependence $dep2; then
+						
+						__add_dependence $dep2
+						
+						if [ $RECURSIVE -eq 1 ]; then
+							$FUNCNAME $dep2
+						fi
+					fi
+				done
+			done
+		}
+		
+		__get_dependences "$LIB_FILE"
+		
+		unset __find_dependence
+		unset __get_dependences
+		
+		if [ $VERBOSE -eq 1 ]; then
+			echo "Dipendenze trovate per la libreria '$1':"
+		fi
+		
+	else
+		__find_lib()
+		{
+			[ -n "$1" -a -f "$1" ] || return 1
+			
+			if cat "$1" | grep -E -e "lib_(import|include)" | grep -qo "$LIB_FILE"; then
+				return 0
+			fi
+			
+			local LIB_NAME="$(lib_name $LIB_FILE)"
+			
+			if cat "$1" | grep -E -e "lib_(import|include)" | grep -qo "$LIB_NAME"; then
+				return 0
+			fi
+			
+			return 1
+		}
+		
+		
+		for lib in $(lib_list --filename --no-format-list); do
+			if __find_lib $lib; then
+				__add_dependence $lib
+			fi
+		done
+		
+		unset __find_lib
+		
+		if [ $VERBOSE -eq 1 ]; then
+			echo "Dipendenze inverse trovate per la libreria '$1':"
+		fi
+	fi
+	
+	if [ $NAME -eq 0 ]; then
+		echo "$DEPEND" | grep -v -E -e '^$'
+	else
+		local dep=
+		
+		for dep in $DEPEND; do
+			lib_name $dep
+		done
+	fi
+	
+	unset __add_dependences
+	
+}
 
 
-
+# Esce dall'ambiente corrente rimuovendo tutte le definizioni del framework
 lib_exit()
 {
 	local VERBOSE=0
@@ -1348,514 +1986,6 @@ lib_exit()
 }
 
 
-
-### FIND SECTION ###############################################################
-
-lib_def_find()
-{
-	local ARGS=$(getopt -o edfmnhvAFVqtT -l help,file,only-enabled,only-disable,filename,libname,verbose,only-alias,only-variables,only-functions,quiet,print-type,no-print-type -- "$@")
-	eval set -- $ARGS
-	
-	local FIND_OPT=
-	local ONLY_ENABLED=0
-	local ONLY_DISABLED=0
-	local NAME=1
-	local VERBOSE=0
-	local QUIET=0
-	local PRINT_TYPE=2
-	local _alias=1
-	local _variables=1
-	local _functions=1
-	
-	while true ; do
-		case "$1" in
-		-A|--only-alias)     _alias=1; _functions=0; _variables=0 ;shift ;;
-		-F|--only-functions) _alias=0; _functions=1; _variables=0 ;shift ;;
-		-V|--only-variables) _alias=0; _functions=0; _variables=1 ;shift ;;
-		-f|--file)           FIND_OPT="$1"   ; shift ;;
-		-n|--libname)        NAME=1          ; shift ;;
-		-m|--filename)       NAME=0          ; shift ;;
-		-e|--only-enabled)   ONLY_ENABLED=1  ; shift ;;
-		-d|--only-disabled)  ONLY_DISABLED=1 ; shift ;;
-		-q|--quiet)          QUIET=1         ; shift ;;
-		-v|--verbose)        VERBOSE=1       ; shift ;;
-		-t|--print-type)     PRINT_TYPE=1    ; shift ;;
-		-T|--no-print-type)  PRINT_TYPE=0    ; shift ;;
-		-h|--help) echo "$FUNCNAME <options> [-r|--recursive] <dir>"; return 0;;
-		--) shift;;
-		*) break;;
-		esac
-	done
-	
-	local DEF_NAME="$1"
-	shift
-	
-	local found=0
-	local exit_code=1
-	local s=$(echo $_alias $_functions $_variables | awk '{print $1+$2+$3}')
-		
-	if [ $PRINT_TYPE -eq 2 -a $s -eq 3 ]; then
-		PRINT_TYPE=1
-	fi
-	
-	__find_def()
-	{
-		local opt="$1"
-		local library="$2"
-		
-		if [ "$opt" = "-A" -a $_alias     -eq 1 ] || 
-		   [ "$opt" = "-F" -a $_functions -eq 1 ] || 
-		   [ "$opt" = "-V" -a $_variables -eq 1 ]
-		then
-			for def in $(lib_def_list $opt -f $library); do
-				if [ "$DEF_NAME" == $def ]; then
-					
-					if [ $QUIET -eq 0 ]; then
-						if [ $VERBOSE -eq 1 ]; then
-							echo -n "La definizione "
-							case "$opt" in
-							-V) echo -n "della variabile ";;
-							-A) echo -n "dell'alias ";;
-							-F) echo -n "della funzione ";;
-							esac
-							echo "'$DEF_NAME' e' stata trovata nella libreria: "
-						elif [ $PRINT_TYPE -eq 1 ]; then
-							case "$opt" in
-							-V) echo -n "[VAR] ";;
-							-A) echo -n "[ALS] ";;
-							-F) echo -n "[FUN] ";;
-							esac
-						fi
-						
-						if [ $NAME -eq 1 ]; then
-							echo "$( lib_name "$library")"
-						else
-							echo "$library"
-						fi
-					fi
-					
-					return 0
-				fi
-			done
-		fi
-		
-		return 1
-	}
-
-	local libs=
-	
-	if [ $# -eq 0 ]; then
-		libs="$(lib_list --no-format-list --filename)"
-	else
-		local lib=
-		
-		for lib in $@; do
-			libs="$libs $(lib_find $FIND_OPT $lib)"
-		done
-	fi
-	
-	[ -n "$libs" ] || return 1
-	
-	for library in $libs; do
-	
-		__find_def -V "$library"; exit_code=$?; [ $exit_code -eq 0 ] && break
-		__find_def -A "$library"; exit_code=$?; [ $exit_code -eq 0 ] && break
-		__find_def -F "$library"; exit_code=$?; [ $exit_code -eq 0 ] && break
-	done
-	
-	unset __find_def
-
-	return $exit_code
-}
-
-
-### DEFINITION SECTION #########################################################
-
-lib_def_list()
-{
-	[ $# -eq 0 ] && return 1
-	
-	local ARGS=$(getopt -o f:AFV -l file:,only-alias,only-functions,only-variables -- "$@")
-	eval set -- $ARGS
-	
-	local _alias=1
-	local _variables=1
-	local _functions=1
-	
-	local LIB_FILE=""
-	local FIND_OPT=""
-	
-	while true ; do
-		case "$1" in
-		-f|--file)           FIND_OPT="$1"                        ;shift ;;
-		-A|--only-alias)     _alias=1; _functions=0; _variables=0 ;shift ;;
-		-F|--only-functions) _alias=0; _functions=1; _variables=0 ;shift ;;
-		-V|--only-variables) _alias=0; _functions=0; _variables=1 ;shift ;;
-		--) shift;;
-		*) break;;
-		esac
-	done
-	
-	local library="$1"
-	LIB_FILE=$(lib_find $FIND_OPT $library)
-	
-	if [ -f "$LIB_FILE" ]; then
-		__get_list()
-		{
-			cat "$1" | 
-			awk '! /^[[:blank:]]*\#/ {gsub("^[[:blank:]]*",""); print}' |
-			awk '
-				/^[[:blank:]]*[a-zA-Z0-9_]+=/ {gsub("[[:blank:]]*|=.*",""); print "[VAR]",$0}
-				/^[[:blank:]]*(function)?[[:blank:]]*[a-zA-Z0-9|_]+\(\)/ { gsub("function|[[:blank:]]*|\\(\\).*$",""); print "[FUN]",$0}
-				/(alias)[[:blank:]]*[a-zA-Z0-9_]+=/ {gsub("=[^;]*","\n");  gsub("[^\n]*alias", "[ALS]");print}' |
-			sort | uniq
-		}
-		
-		__get_var_list()
-		{
-			__get_list "$1" | awk '/^\[VAR\]/ {print $2}'
-		}
-		
-		__get_fun_list()
-		{
-			__get_list "$1" | awk '/^\[FUN\]/ {print $2}'
-		}
-		
-		__get_alias_list()
-		{
-			__get_list "$1" | awk '/^\[ALS\]/ {print $2}'
-		}
-		
-		__is_local_var()
-		{
-			cat "$1" | grep -q -E -e "local *$2 *($|=)|unset *$2 *($|;)?"
-		}
-		
-		__is_local_fun()
-		{
-			cat "$1" | grep -q -E -e "unset *$2 *($|;)?"
-		}
-		
-		__is_local_alias()
-		{
-			cat "$1" | grep -q -E -e "unalias *$2 *($|;)?"
-		}
-		
-		if [ $_variables -eq 1 ]; then
-			for var in $(__get_var_list "$LIB_FILE"); do
-				
-				if ! __is_local_var $LIB_FILE $var; then
-					if [ $_functions -eq 1 -a $_alias -eq 1 ]; then
-						echo -n "[VAR] "
-					fi
-					echo "$var"
-				fi
-			done
-		fi
-		
-		if [ $_functions -eq 1 ]; then
-			for fun in $(__get_fun_list "$LIB_FILE"); do
-				
-				if ! __is_local_fun $LIB_FILE $fun; then
-					if [ $_variables -eq 1 -a $_alias -eq 1 ]; then
-						echo -n "[FUN] "
-					fi
-					echo "$fun"
-				fi
-			done
-		fi
-		
-		if [ $_alias -eq 1 ]; then
-			for alias in $(__get_alias_list "$LIB_FILE"); do
-				
-				if ! __is_local_alias $LIB_FILE $alias; then
-					if [ $_variables -eq 1 -a $_functions -eq 1 ]; then
-						echo -n "[ALS] "
-					fi
-					echo "$alias"
-				fi
-			done
-		fi
-		
-		unset __get_list
-		unset __get_var_list
-		unset __get_fun_list
-		unset __get_alias_list
-		unset __is_local_var
-		unset __is_local_fun
-		unset __is_local_alias
-	else
-		lib_log "Library '$library' not found!"
-		return 1
-	fi
-	
-	return 0
-}
-
-
-lib_def_get()
-{
-	[ $# -eq 0 ] && return 1
-	
-	local ARGS=$(getopt -o hvAFVl:f: -l help,verbose,alias,variable,function,libname,libfile -- "$@")
-	eval set -- $ARGS
-		
-	local DEF_NAME=""
-	local LIB_FILE=""
-	local VERBOSE=1
-	local TYPE=""
-	
-	while true ; do
-		case "$1" in
-		-l|--libname) 	LIB_FILE=$(lib_find        $2) ; shift 2;;
-		-f|--libfile)   LIB_FILE=$(lib_find --file $2) ; shift 2;;
-		-A|--alias-name)    TYPE="-A"                  ; shift ;;
-		-F|--function-name) TYPE="-F"                  ; shift ;;
-		-V|--variable-name) TYPE="-V"                  ; shift ;;
-		-h|--help) echo "$FUNCNAME [-A|-V|-F] <name> [-l|--libname] <libname>"
-		           echo "$FUNCNAME [-A|-V|-F] <name> [-f|--libfile] <libfile>"
-		           return 0;;
-		--) shift;;
-		*) break;;
-		esac
-	done
-	
-	DEF_NAME="$1"
-
-	if [ -z "$LIB_FILE" ]; then
-		LIB_FILE=$(lib_def_find --filename $TYPE $DEF_NAME)
-		
-		if [ -z "$TYPE" ]; then
-			TYPE="$(echo "$LIB_FILE" | awk '{print $1}')"
-			LIB_FILE="$(echo "$LIB_FILE" | awk '{print $2}')"
-
-			case "$TYPE" in
-			\[ALS\]) TYPE="-A";;
-			\[FUN\]) TYPE="-F";;
-			\[VAR\]) TYPE="-V";;
-			esac
-		fi
-	fi
-		
-	[ -n "$LIB_FILE" ] || return 2
-	[ -n "$TYPE"     ] || return 3
-
-		
-	__get_alias_def()
-	{
-		local ALIAS_NAME="$1"
-		local LIB_FILE="$2"
-		
-		for a in $(lib_def_list -A -f "$LIB_FILE"); do
-			if [ "$ALIAS_NAME" == "$a" ]; then
-				
-				cat $LIB_FILE  | grep -o -E -e "alias $ALIAS_NAME=([^'\";]+|'.+'|\".*\") *;?" | awk '{gsub(";$","");print}'
-				
-				return 0
-			fi
-		done
-		
-		return 1
-	}
-	
-	__get_variable_def()
-	{
-		local VAR_NAME="$1"
-		local LIB_FILE="$2"
-		
-		for v in $(lib_def_list -V -f "$LIB_FILE"); do
-			if [ "$VAR_NAME" == "$v" ]; then
-				eval "echo $VAR_NAME=\${$VAR_NAME}"
-				
-				return 0
-			fi
-		done
-		
-		return 1
-	}
-	
-	__get_function_def()
-	{
-		local FUN_NAME="$1"
-		local LIB_FILE="$2"
-
-		echo "F=$FUN_NAME, LIB=$LIB_NAME, LINE=$LINE"
-		
-		local LINE=$(eval "cat $LIB_FILE  | awk '/^$FUN_NAME\(\)/ { print FNR}'");
-		
-		[ -n "$LINE" ] || return 1
-		
-		
-		local VARS=$(cat $LIB_FILE  | awk -v CSTART=$LINE '
-		BEGIN {CEND=0; PAR=0}; 
-		CEND==0 && FNR>=CSTART && /\{/ {PAR=PAR+1}
-		CEND==0 && FNR>=CSTART && /\}/ {PAR=PAR-1; if (PAR==0) {CEND=FNR}}
-		END {printf "-v CSTART=%d -v CEND=%d\n", CSTART, CEND}')
-		
-		local CODE=$(cat $LIB_FILE | awk $VARS 'FNR>=CSTART && FNR<=CEND {print}')
-		
-		echo "$CODE"
-		
-		return 0	
-	}
-						
-	case "$TYPE" in
-	-A) __get_alias_def    $DEF_NAME $LIB_FILE;;
-	-F) __get_function_def $DEF_NAME $LIB_FILE;;
-	-V) __get_variable_def $DEF_NAME $LIB_FILE;;
-	esac
-
-	
-	unset __get_alias_def
-	unset __get_variable_def
-	unset __get_function_def
-	
-	return 0
-}
-
-
-lib_def_get_description()
-{
-	[ $# -eq 0 ] && return 1
-	
-	local ARGS=$(getopt -o hvA:F:V: -l help,verbose,alias:,variable:,function: -- "$@")
-	eval set -- $ARGS
-	
-	local LIB_FILE=""
-	local FIND_OPT=""
-	local VERBOSE=1
-	local alias_name=""
-	local variable_name=""
-	local function_name=""
-
-	while true ; do
-		case "$1" in
-		-f|--file)          FIND_OPT="$1"      ; shift  ;;
-		-A|--alias-name)    alias_name="$2"    ; shift 2;;
-		-F|--function-name) function_name="$2" ; shift 2;;
-		-V|--variable-name) variable_name="$2" ; shift 2;;
-		-h|--help) echo "$FUNCNAME <libname> [-A|-V|-F] <name>"
-		           echo "$FUNCNAME [-f|--file] <libfile> [-A|-V|-F] <name>"
-		           return 0;;
-		--) shift;;
-		*) break;;
-		esac
-	done
-	
-	local library="$1"
-	local ITEM_REGEX=""
-	
-	if [ -n "$alias_name" ]; then
-		ITEM_REGEX="alias *${alias_name} *="
-		
-		if [ -z "$library" ]; then
-			library=$(lib_def_find --filename -A "$alias_name")
-			FIND_OPT="--file"
-		fi
-		
-	elif [ -n "$variable_name" ]; then
-		ITEM_REGEX="${variable_name} *="
-		
-		if [ -z "$library" ]; then
-			library=$(lib_def_find --filename -V "$variable_name")
-			FIND_OPT="--file"
-		fi
-		
-	elif [ -n "$function_name" ]; then
-		ITEM_REGEX="${function_name}\(\)"
-		
-		if [ -z "$library" ]; then
-			library=$(lib_def_find --filename -F "$function_name")
-			FIND_OPT="--file"
-		fi
-	fi
-	
-	LIB_FILE=$(lib_find $FIND_OPT $library)
-	
-	if [ -f "$LIB_FILE" ]; then
-		[ -n "$ITEM_REGEX" ] || return 3
-		
-		local LINE=$(eval "cat $LIB_FILE  | awk 'BEGIN { first=0 }; first==0 && /^ *$ITEM_REGEX/ { print FNR; first=1}'");
-
-		[ -n "$LINE" ] || return 1
-		
-		local VARS=$(cat $LIB_FILE  | awk -v LINE=$LINE '
-		BEGIN {CSTART=0; CEND=0; START=1}; 
-		/^#/ && FNR<LINE {if (START==1) { CSTART=FNR; CEND=CSTART; START=0} else {CEND=FNR}}
-		/^$/ && FNR<LINE {START=1}
-		/^ *[^#]+/ && FNR<LINE {START=1; CSTART=0; CEND=0}
-		END {printf "-v CSTART=%d -v CEND=%d\n", CSTART, CEND}')
-		
-		local DESC=$(cat $LIB_FILE | awk $VARS 'FNR>=CSTART && FNR<=CEND {gsub("^# *",""); print}')
-		
-		echo "$DESC"
-		
-		return 0
-	fi
-	
-	return 2
-}
-
-lib_unset()
-{
-	local ARGS=$(getopt -o f -l file -- "$@")
-	
-	eval set -- $ARGS
-	
-	local options=""
-	local libs=""
-		
-	while true ; do
-		case "$1" in
-		-f|--file) options="$1"; shift;;
-		--) shift;;
-		*) break;;
-		esac
-	done
-	
-	__lib_unset()
-	{		
-		local VAR_AND_FUN=$(lib_def_list $options $1 | 
-			awk '{gsub("\\[(VAR|FUN)\\]","unset"); gsub("\\[ALS\\]","unalias"); printf "%s:%s\n",$1,$2}')
-	
-		if [ -n "$VAR_AND_FUN" ]; then
-			lib_log "Library '$lib': unset variables, functions and alias"
-		
-			for def in $VAR_AND_FUN; do
-				local CMD=$(echo $def | tr : ' ')
-				
-				[ "$CMD" != "unset PATH" ] || continue 
-				[ "$CMD" != "unset PS1"  ] || continue
-				[ "$CMD" != "unset PS2"  ] || continue
-				[ "$CMD" != "unset PS3"  ] || continue
-				
-				lib_log "Library '$1': $CMD"
-				eval "$CMD 2> /dev/null"
-			done
-		fi
-	
-		local lib="$(lib_find $options "$1")"
-	
-		__lib_list_files_remove "$lib"
-	}
-	
-	if [ $# -eq 0 ]; then
-		options="--file"
-		libs="$(__lib_list_files)"
-	else
-		libs="$@"
-	fi
-
-	for libfile in $libs; do
-		__lib_unset $libfile
-	done
-	
-	unset __lib_unset
-	
-	return 0
-}
-
-
 ### MAIN SECTION ###############################################################
 
 if [ "sh" != "$0" -a "bash" != "$0" ]; then 
@@ -1866,7 +1996,8 @@ if [ "sh" != "$0" -a "bash" != "$0" ]; then
 	while true; do
 		case "$1" in
 			-h|--help) echo "LibSys Help (not implementated)"; exit 0;;
-			import*|include*|name|find|list*|enable|disable|unset|is_*|get_*|set_*) CMD=${LIBSYS}_$1; shift;;
+			import*|include*|name|find|list*|enable|disable|unset|is_*|get_*|set_*)
+				CMD=${LIBSYS}_$1; shift;;
 			log*) CMD=${LIBSYS}_$1_$2; shift 2;;
 			*) break
 		esac
@@ -1878,3 +2009,4 @@ if [ "sh" != "$0" -a "bash" != "$0" ]; then
 	fi
 fi
 
+################################################################################
