@@ -74,7 +74,7 @@
   <style name="search-match"                foreground="aluminium1" background="chameleon3"/>
 
   <!-- Comments -->
-  <style name="def:comment"                 foreground="#green"/>
+  <style name="def:comment"                 foreground="#cyan"/>
   <style name="def:shebang"                 foreground="aluminium4" bold="true"/>
   <style name="def:doc-comment-element"     italic="true"/>
 

@@ -24,7 +24,7 @@
 <language id="lsf" _name="lsf" version="2.0" _section="Scripts">
   <metadata>
     <property name="mimetypes">text/x-shellscript;application/x-shellscript;text/x-sh</property>
-    <property name="globs">*.lib</property>
+    <property name="globs">*.lsf</property>
     <property name="line-comment-start">#</property>
   </metadata>
 
@@ -487,6 +487,7 @@
     <context id="lsf-command" style-ref="lsf-command">
       <prefix>(?&lt;![\w\-\.])lib_</prefix>
       <suffix>(?![\w\-\.])</suffix>
+      <keyword>archive</keyword>
       <keyword>import</keyword>
       <keyword>import_all</keyword>
       <keyword>import_file</keyword>
