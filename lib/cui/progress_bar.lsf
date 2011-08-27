@@ -20,11 +20,12 @@
 # Boston, MA  02110-1301  USA
 #
 
+lib_include cui:term
 
 lib_include io
-lib_include term
 lib_include math
 lib_include type:string
+
 
 
 progress_bar_builder()
