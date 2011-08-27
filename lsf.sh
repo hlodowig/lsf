@@ -805,11 +805,13 @@ SYNOPSIS
 	    $CMD [OPTIONS] [NAMING_OPTIONS] -L|--ls    ARCHIVE_NAME@
 	
 	Search command:
-	    $CMD [OPTIONS] -s|--search LIB_FILE  ARCHIVE_FILE
-	    $CMD [OPTIONS] [NAMING_OPTIONS] -f|--find   ARCHIVE_NAME@LIB_NAME
+	    $CMD [OPTIONS] -s|--search -m|--library LIB_FILE  ARCHIVE_FILE
+	    $CMD [OPTIONS] -s|--search ARCHIVE_FILE[:|/]LIB_FILE
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -f|--find   ARCHIVE_NAME@[:]LIB_NAME
 	
 	Extract command:
-	    $CMD [OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -x|--extract  ARCHIVE_FILE
+	    $CMD [OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -x|--extract [-m|--library LIB_FILE] ARCHIVE_FILE
+	    $CMD [OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -x|--extract  ARCHIVE_FILE[[:|/]LIB_FILE]
 	    $CMD [OPTIONS] [EXTRACT OPTIONS] [NAMING_OPTIONS] [-d|--dir DIR] -u|--unpack   ARCHIVE_NAME@
 	
 	
@@ -905,7 +907,7 @@ END
 		return 0
 	}
 	
-	local ARGS=$(getopt -o CyclLhs:fxud:nNvVqQrRtTFp:P:w -l check,verify,create,build,list,ls,search:,find,extract,unpack,dir:,help,naming,no-naming,temp-dir,no-temp-dir,track,no-track,clean-dir,no-clean-dir,quiet,no-quiet,verbose,no-verbose,force,no-force,clean,clean-temp,clean-track,libpath:,add-libpath:,realpath -- "$@")
+	local ARGS=$(getopt -o CyclLhsfxud:nNvVqQrRtTFp:P:wWm: -l check,verify,create,build,list,ls,search,find,extract,unpack,dir:,help,naming,no-naming,temp-dir,no-temp-dir,track,no-track,clean-dir,no-clean-dir,quiet,no-quiet,verbose,no-verbose,force,no-force,clean,clean-temp,clean-track,libpath:,add-libpath:,realpath,library: -- "$@")
 	eval set -- $ARGS
 	
 	#echo "ARCHIVE ARGS=$ARGS" > /dev/stderr
@@ -938,12 +940,13 @@ END
 		-L|--ls)             CMD="LIST"; NAMING=1                  ; shift    ;;
 		-x|--extract)        CMD="EXTRACT"                         ; shift    ;;
 		-u|--unpack)         CMD="EXTRACT"; NAMING=1               ; shift    ;;
-		-s|--search)         CMD="SEARCH"; LIB_FILE="$2"           ; shift   2;;
+		-s|--search)         CMD="SEARCH"                          ; shift    ;;
 		-f|--find)           CMD="SEARCH"; NAMING=1                ; shift    ;;
+		-m|--library)        LIB_FILE="$2"                         ; shift   2;;
 		-n|--naming)         NAMING=1                              ; shift    ;;
 		-N|--no-naming)      NAMING=0                              ; shift    ;;
-		-p|--add-libpath)    libpath="${2}:${LIB_PATH}"              ; shift 2;;
-		-P|--libpath)        libpath="$2"                            ; shift 2;;
+		-p|--add-libpath)    libpath="${2}:${LIB_PATH}"            ; shift   2;;
+		-P|--libpath)        libpath="$2"                          ; shift   2;;
 		--clean-temp)        CMD="CLEAN";
 		                     CLEAN_TEMP=1                          ; shift    ;;
 		--clean-track)       CMD="CLEAN";
@@ -1214,7 +1217,7 @@ END
 			[ $? -eq 0 -a $VERBOSE -eq 1 ] &&
 			echo "Rimozione del contenuto della cartella associata all'archivio."
 			
-			rm -r $DIR/*
+			rm -r $DIR/* 2> /dev/null
 		fi
 		
 		if [ $VERBOSE -eq 1 ]; then
@@ -1299,7 +1302,7 @@ END
 		local LIB_NAME=$(echo ${ARC_FILE} | awk '{gsub("^.*@:?",""); print}')
 		
 		#echo "ARC_NAME=$ARC_NAME" > /dev/stderr
-		#echo "LIB_FILE=$LIB_NAME" > /dev/stderr
+		#echo "LIB_NAME=$LIB_NAME" > /dev/stderr
 		
 		[ -z "$ARC_NAME" ] || ARC_FILE="${ARC_NAME//://}.$ARC_EXT"
 		[ -z "$LIB_NAME" ] || LIB_FILE="${LIB_NAME//://}.$LIB_EXT"
@@ -1311,10 +1314,19 @@ END
 				break
 			fi
 		done
+	else
+		local regex="^.*.$ARC_EXT"
+		local lib_file=
 		
-		#echo "ARC_FILE=$ARC_FILE" > /dev/stderr
-		#echo "LIB_FILE=$LIB_FILE" > /dev/stderr
+		lib_file="$(echo "$ARC_FILE" | awk -v S="${regex}(:|/)?" '{gsub(S,""); print}')"
+		lib_file="${lib_file#/}"
+		[ -z "$LIB_FILE" ] && LIB_FILE="$lib_file"
+		
+		ARC_FILE="$(echo "$ARC_FILE" | grep -o -E -e "$regex")"
 	fi
+	
+	#echo "ARC_FILE=$ARC_FILE" > /dev/stderr
+	#echo "LIB_FILE=$LIB_FILE" > /dev/stderr
 	
 	case "$CMD" in
 	CHECK)   __lib_is_archive      "$ARC_FILE";;
@@ -1502,24 +1514,11 @@ END
 	
 	
 	local LIB="${1//://}"
-	local SUB_LIB=""
 	
 	if [ $ARCHIVE_MODE -eq 1 ]; then
-		if echo "$LIB" | grep -q ".$ARC_EXT"; then
-			local lib="$LIB"
-			local regex="^.*.$ARC_EXT"
-			
-			LIB="$(echo "$lib" | grep -o -E -e "$regex")"
-			SUB_LIB="$(echo "$lib" | awk -v S="$regex" '{gsub(S,""); print}')"
-			SUB_LIB="${SUB_LIB#/}"
-			
-			lib_archive --no-quiet $opts --search "$SUB_LIB" $LIB
-			
-			return $?
-			
-		else # archivio con estensione errata
-			return 1
-		fi
+		lib_archive --no-quiet $opts --search $LIB
+		
+		return $?
 	fi
 	
 	
@@ -1546,7 +1545,7 @@ END
 			[ $QUIET -eq 1 ] || __lib_get_absolute_path ${libdir}/$LIB.$LIB_EXT
 			return 0
 		else
-			lib_archive --no-quiet $opts --search "$SUB_LIB" "${libdir}/$LIB"
+			lib_archive --no-quiet $opts --search "${libdir}/$LIB:$SUB_LIB"
 			
 			return $?
 		fi
@@ -1612,16 +1611,7 @@ lib_apply()
 		
 		if [ "$FIND_OPT" == "-a" -o "$FIND_OPT" == "--archive" ]; then
 			
-			local lib="$LIB_FILE"
-			local regex="^.*.$ARC_EXT"
-			
-			LIB_FILE="$(echo "$lib" | grep -o -E -e "$regex")"
-			SUB_LIB="$(echo "$lib" | awk -v S="$regex" '{gsub(S,""); print}')"
-			SUB_LIB="${SUB_LIB#/}"
-			
-			lib_archive --quiet --clean-dir --track --temp-dir --extract "$LIB_FILE"
-			
-			LIB_FILE="${LIB_ARC_MAP[$LIB_FILE]}/$SUB_LIB"
+			LIB_FILE=$(lib_archive --clean-dir --track --temp-dir --extract "$LIB_FILE") 
 		fi
 		
 		$LIB_FUN "$library" "$LIB_FILE" 
@@ -1756,11 +1746,12 @@ END
 		return $?
 	}
 	
-	___exit()
+	__lib_test_exit()
 	{
 		unset __lib_is_enabled
 		unset __lib_is_installed
 		unset __lib_is_loaded
+		unset __lib_test_exit
 		
 		return $1
 	}
@@ -1796,31 +1787,14 @@ END
 	
 	
 	case "$CMD" in
-	ENABLED)     __lib_is_enabled   "$LIB"; ___exit $?; return $?;;
-	DISABLED)  ! __lib_is_enabled   "$LIB"; ___exit $?; return $?;;
-	INSTALLED)   __lib_is_installed "$LIB"; ___exit $?; return $?;;
-	LOADED)      __lib_is_loaded    "$LIB"; ___exit $?; return $?;;
+	ENABLED)     __lib_is_enabled   "$LIB";;
+	DISABLED)  ! __lib_is_enabled   "$LIB";;
+	INSTALLED)   __lib_is_installed "$LIB";;
+	LOADED)      __lib_is_loaded    "$LIB";;
 	EXIST)       return $found;;
 	esac
 	
-	return 1
-
-#	while true ; do
-#		case "$1" in
-#		-e|--is-enabled)    
-#		-E|--is-disabled) ! lib_is_enabled      "$2"; ___exit $?; return $?;;
-#		-i|--is-installed)  lib_is_installed    "$2"; ___exit $?; return $?;;
-#		-e|--is-loaded)     lib_is_loaded       "$2"; ___exit $?; return $?;;
-#		-f|--file)          test -f             "$2"; ___exit $?; return $?;;
-#		-d|--dir)           test -d             "$2"; ___exit $?; return $?;;
-#		-a|--archive)       lib_archive --check "$2"; ___exit $?; return $?;;
-#		-h|--help)        __lib_test_usage $FUNCNAME; ___exit $?; return  0;;
-#		--) shift;;
-#		*) break;;
-#		esac
-#	done
-	
-	return 1
+	__lib_test_exit $?
 }
 
 
