@@ -39,6 +39,8 @@
     <style id="others"              _name="Others"              map-to="def:keyword"/>
     <style id="common-command"      _name="Common Commands"     map-to="def:keyword"/>
     <style id="lsf-command"         _name="LSF Commands"        map-to="def:lsf-keyword"/>
+    <style id="lsf-command-alias"   _name="LSF Commands Alias"  map-to="def:lsf-keyword2"/>
+    <style id="lsf-command-code"    _name="LSF Commands Code"   map-to="def:lsf-keyword2"/>
     <style id="lsf-math"            _name="LSF Math"            map-to="def:lsf-function"/>
     <style id="lsf-io"              _name="LSF IO"              map-to="def:lsf-function"/>
     <style id="lsf-fs"              _name="LSF Filesystem"      map-to="def:lsf-function"/>
@@ -489,13 +491,8 @@
       <suffix>(?![\w\-\.])</suffix>
       <keyword>archive</keyword>
       <keyword>import</keyword>
-      <keyword>import_all</keyword>
-      <keyword>import_file</keyword>
-      <keyword>import_dir</keyword>
       <keyword>include</keyword>
-      <keyword>include_all</keyword>
-      <keyword>include_file</keyword>
-      <keyword>include_dir</keyword>
+      <keyword>update</keyword>
       <keyword>find</keyword>
       <keyword>name</keyword>
       <keyword>depend</keyword>
@@ -503,32 +500,62 @@
       <keyword>disable</keyword>
       <keyword>exit</keyword>
       <keyword>unset</keyword>
-      <keyword>update</keyword>
       <keyword>apply</keyword>
       <keyword>list</keyword>
       <keyword>list_apply</keyword>
-      <keyword>def_find</keyword>
-      <keyword>def_list</keyword>
-      <keyword>def_get_alias</keyword>
-      <keyword>def_get_variable</keyword>
-      <keyword>def_get_function</keyword>
-      <keyword>def_get_description</keyword>
+      <keyword>log</keyword>
       <keyword>is_enabled</keyword>
       <keyword>is_installed</keyword>
       <keyword>is_loaded</keyword>
+      <keyword>path</keyword>
+    </context>
+    
+    <context id="lsf-command-alias" style-ref="lsf-command-alias">
+      <prefix>(?&lt;![\w\-\.])lib_</prefix>
+      <suffix>(?![\w\-\.])</suffix>
+      <keyword>archive_create</keyword>
+      <keyword>archive_build</keyword>
+      <keyword>archive_check</keyword>
+      <keyword>archive_verify</keyword>
+      <keyword>archive_list</keyword>
+      <keyword>archive_ls</keyword>
+      <keyword>archive_search</keyword>
+      <keyword>archive_find</keyword>
+      <keyword>archive_extract</keyword>
+      <keyword>archive_unpack</keyword>
+      <keyword>import_all</keyword>
+      <keyword>import_file</keyword>
+      <keyword>import_dir</keyword>
+      <keyword>import_archive</keyword>
+      <keyword>include_all</keyword>
+      <keyword>include_file</keyword>
+      <keyword>include_dir</keyword>
+      <keyword>include_archive</keyword>
+      <keyword>def_get_alias</keyword>
+      <keyword>def_get_variable</keyword>
+      <keyword>def_get_function</keyword>
+      <keyword>log_enable</keyword>
+      <keyword>log_disable</keyword>
+      <keyword>log_is_enabled</keyword>
+      <keyword>log_view</keyword>
+      <keyword>log_reset</keyword>
+      <keyword>log_out_get</keyword>
+      <keyword>log_out_set</keyword>
       <keyword>path_get</keyword>
       <keyword>path_set</keyword>
       <keyword>path_list</keyword>
       <keyword>path_add</keyword>
       <keyword>path_remove</keyword>
-      <keyword>log</keyword>
-      <keyword>log_enable</keyword>
-      <keyword>log_disable</keyword>
-      <keyword>log_is_enabled</keyword>
-      <keyword>log_print</keyword>
-      <keyword>log_reset</keyword>
-      <keyword>log_out_get</keyword>
-      <keyword>log_out_set</keyword>
+      <keyword>path_reset</keyword>
+    </context>
+
+    <context id="lsf-command-code" style-ref="lsf-command-code">
+      <prefix>(?&lt;![\w\-\.])lib_def_</prefix>
+      <suffix>(?![\w\-\.])</suffix>
+      <keyword>get</keyword>
+      <keyword>get_alias</keyword>
+      <keyword>get_variable</keyword>
+      <keyword>get_function</keyword>
     </context>
 
     <context id="lsf-util-bool" style-ref="lsf-util-bool">
@@ -701,6 +728,8 @@
         <context ref="built-in-command"/>
         <context ref="common-command"/>
         <context ref="lsf-command"/>
+        <context ref="lsf-command-alias"/>
+        <context ref="lsf-command-code"/>
         <context ref="lsf-math"/>
         <context ref="lsf-io"/>
         <context ref="lsf-fs"/>

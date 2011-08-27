@@ -91,6 +91,7 @@
   <!-- Statements -->
   <style name="def:statement"               foreground="#white" bold="true"/>
   <style name="def:lsf-keyword"             foreground="#yellow" bold="true"/>
+  <style name="def:lsf-keyword2"            foreground="#yellow" bold="false"/>
   <style name="def:lsf-function"            foreground="#orange" bold="true"/>
   
   <!-- Types -->
