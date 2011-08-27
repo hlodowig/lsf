@@ -18,6 +18,11 @@
 # Boston, MA  02110-1301  USA
 #
 
+# LSF Version info
+LFS_VERSINFO=([0]="0" [1]="8" [2]="1" [3]="0" [4]="alpha" [5]="all")
+
+
+
 # Variabile d'ambiente contenente la lista delle directory contenenti librerie.
 export LIB_PATH="${LIB_PATH:-"lib"}"
 
@@ -34,7 +39,100 @@ export LIB_FILE_LIST="${LIB_FILE_LIST:-""}"
 declare -gxA LIB_ARC_MAP
 
 
+### TMP ####
+
+lib_is_installed()
+{
+	lib_find --quiet "$1"
+}
+
+lib_is_loaded()
+{
+	[ -n "$1" ] || return 1
+	
+	local lib=
+	
+	if [ "$1" == "-f" ]; then
+		lib=$(lib_find -f $2)
+	else
+		lib=$(lib_find $1)
+	fi
+	
+	[ -n "$lib" ] || return 1
+	
+	echo "$(__lib_list_files)" | grep -E -q -e "$lib" > /dev/null
+	
+	return $?
+}
+
+lib_is_enabled()
+{
+	__lib_is_enabled()
+	{
+		local library="$1"
+		local libfile="$2"
+		
+		if [ -n "$libfile" ]; then
+			test -x "$libfile" && return 0
+			return 1
+		fi
+		
+		return 2
+	}
+	
+	lib_apply --lib-function __lib_is_enabled $@
+	
+	local exit_code=$?
+	
+	unset __lib_is_enabled
+	
+	return $exit_code
+}
+
+
 ### UTILITY FUNCTIONS ##########################################################
+
+lsf_version()
+{
+	local EXTENDED=0
+	
+	[ "$1" == "-e" ] && EXTENDED=1
+	
+	[ $EXTENDED -eq 1 ] && echo -n "LSF "
+	
+	[ -n "${LFS_VERSINFO[0]}" ] && echo -n "${LFS_VERSINFO[0]}"
+	[ -n "${LFS_VERSINFO[1]}" ] && echo -n ".${LFS_VERSINFO[1]}"
+	[ -n "${LFS_VERSINFO[2]}" -a "${LFS_VERSINFO[2]}" != "0" ] && echo -n ".${LFS_VERSINFO[2]}"
+	[ -n "${LFS_VERSINFO[3]}" -a "${LFS_VERSINFO[3]}" != "0" ] && echo -n ".${LFS_VERSINFO[3]}"
+
+	if [ $EXTENDED -eq 1 ]; then
+		[ -n "${LFS_VERSINFO[4]}" ] && echo -n " ${LFS_VERSINFO[4]}"
+	fi
+	
+	echo
+}
+
+# Stampa il contento di una directory
+__lib_list_dir()
+{
+	[ $# -eq 0 -a ! -d "$1" ] && return 1
+	local dir="$1"
+	local file=
+	
+	
+	if [ "$dir" != "." ]; then
+		echo "$dir"
+		dir="$dir/*"
+	else
+		dir="*"
+	fi
+	
+	for file in $dir; do
+		[ -f $file ] && echo $file
+		
+		[ -d $file ] && $FUNCNAME $file 
+	done
+}
 
 # Restituisce il path assoluto.
 __lib_get_absolute_path()
@@ -74,97 +172,7 @@ __lib_get_absolute_path()
 }
 
 
-
-
-### PATH SECTION ###############################################################
-
-# Restituisce il valore della variabile LIB_PATH, se non viene passato alcun
-# parametro.
-# Se come parametro viene passata una sequenza numerica separata da ':',vengono
-# retituiti i path relativi alle posizioni.
-#
-# ES.
-# > lib_path_get
-#   .:lib:/home/user/lsf/lib
-# > lib_path_get 2:3
-#   lib:/home/user/lsf/lib
-#
-lib_path_get()
-{
-	if [ -z "$*" ]; then
-		echo $LIB_PATH
-	else
-		local LP=""
-		for path_num in $(echo $* | tr : ' '); do
-			local LP=$LP:$(echo $LIB_PATH | 
-			               awk -F: -v PN=$path_num '{print $PN}')
-		done
-		
-		LP=${LP#:}
-		
-		echo ${LP%:}
-	fi
-}
-
-# Stampa la lista dei path della variabile LIB_PATH, separati dal carattere di
-# newline.
-lib_path_list()
-{
-	echo -e ${LIB_PATH//:/\\n}
-}
-
-# Imposta la variabile LIB_PATH.
-lib_path_set()
-{
-	LIB_PATH=""
-	
-	local lib=""
-	
-	for lib in $(echo $1 | tr : ' '); do
-		if [ -n "$LIB_PATH" ]; then
-			LIB_PATH="$LIB_PATH:${lib%\/}"
-		else
-			LIB_PATH="${lib%\/}"
-		fi
-	done
-	
-	export LIB_PATH
-}
-
-# Aggiunge un path alla lista contenuta nella variabile LIB_PATH.
-lib_path_add()
-{
-	for lib in $*; do
-		if [ -n "$LIB_PATH" ]; then
-			LIB_PATH="${lib%\/}:$LIB_PATH"
-		else
-			LIB_PATH="${lib%\/}"
-		fi
-	done
-	
-	export LIB_PATH
-}
-
-# Rimuove un path dalla lista contenuta nella variabile LIB_PATH.
-lib_path_remove()
-{
-	for lib in $*; do
-		
-		lib="${lib%\/}"
-		
-		LIB_PATH=$(echo $LIB_PATH |
-				   awk -v LIB="$lib/?" '{gsub(LIB, ""); print}' |
-				   awk '{gsub(":+",":"); print}' |
-				   awk '{gsub("^:|:$",""); print}')
-	done
-	
-	export LIB_PATH
-}
-
-
-
-
-### LIB_PATH SECTION ###########################################################
+### LIB_LIST FILES SECTION #####################################################
 
 # Restituisce la lista dei file delle librerie importate nell'ambiente corrente.
 __lib_list_files()
@@ -242,9 +250,6 @@ __lib_list_files_get_mod_time()
 }
 
 
-
-
-
 ### LOG SECTION ################################################################
 
 # Variabile booleana d'ambiente che indica se il log è attivo 
@@ -252,86 +257,491 @@ export LIB_LOG_ENABLE=${LIB_LOG_ENABLE:-0}
 # Variabile d'ambiente contenente il path del dispositivo e file di output.
 export LIB_LOG_OUT=${LIB_LOG_OUT:-"/dev/stderr"}
 
-# Restituisce il device o il file di output del log.
-lib_log_out_get()
-{
-	echo $LIB_LOG_OUT
-}
-
-# Imposta il device o il file di output del log.
-lib_log_out_set()
-{
-	case $1 in
-	1|out|stdout) LIB_LOG_OUT="/dev/stdout";;
-	2|err|stderr) LIB_LOG_OUT="/dev/stderr";;
-	*) LIB_LOG_OUT="$1";;
-	esac
-	
-	if [ -w "$LIB_LOG_OUT" ]; then
-		export LIB_LOG_OUT
-		return 0
-	fi
-	
-	return 1
-}
-
-# Stampa un messaggio di log.
+# Log Manager
+#
+# Stampa messaggi di log.
 lib_log()
 {
-	if [ -d "$LIB_LOG_OUT" ]; then
-		local LIB_LOG_DIR=$(dirname "$LIB_LOG_OUT")
+	__lib_log_usage()
+	{
+		local CMD="$1"
 		
-		! test -d "$LIB_LOG_DIR" && mkdir "$LIB_LOG_DIR" || return 1
-		! test -e "$LIB_LOG_OUT" && touch "$LIB_LOG_OUT" || return 2
-	fi
+		(cat << END
+NAME
+	$CMD - Log Manager di LSF.
+
+SYNOPSIS
+	Enable/Disable command:
+	    $CMD [OPTIONS] -e|--enable
+	    $CMD [OPTIONS] -s|--disable
+	    $CMD [OPTIONS] -E|--is-enabled
 	
-	if [ $LIB_LOG_ENABLE -eq 1 ]; then
-		echo -e $(date +"%Y-%m-%d %H:%M:%S") $(id -nu) $* >> ${LIB_LOG_OUT}
-	fi
-}
-
-# Resituisce exit code pari a 0 se il log è attivo, altrimenti 1.
-lib_log_is_enabled()
-{
-	test $LIB_LOG_ENABLE -eq 1 && return 0
+	Print command:
+	    $CMD [OPTIONS] [-e|--enable] MESSAGE
 	
-	return 1
-}
-
-# Abilita il log.
-lib_log_enable()
-{
-	export LIB_LOG_ENABLE=1
-}
-
-# Disabilita il log.
-lib_log_disable()
-{
-	export LIB_LOG_ENABLE=0
-}
-
-# Se l'output del log è un file, visualizza l'history del log.
-lib_log_print()
-{
-	if [ -f "$LIB_LOG_OUT" ]; then
+	Outout command:
+	    $CMD [OPTIONS] -o|--output
+	    $CMD [OPTIONS] -o|--output FILE|DEVICE
+	
+	View command:
+	    $CMD [OPTIONS] -l|--view
+	
+	Reset command:
+	    $CMD [OPTIONS] -R|--reset
+	
+	
+DESCRIPTION
+	Il comando $CMD gestisce le operazioni di log del framework LSF.
+	
+	
+GENERIC OPTIONS
+	-e, --enable
+	    Abilita il sistema di logging.
+	
+	-d, --disable
+	    Disabilita il sistema di logging.
+	
+	-E, --is-enabled
+	    Verifica che il sistama di logging sia abilitato o meno.
+	    Ritorna 0 se abilitato, 1 altrimenti.
+	
+	-o|--output
+	    Se non vengono forniti paramentri, stampa a video il file o il device di log.
+	    Se viene passato un paramentro, imposta il nuovo output per il log.
+	
+	-l|--view
+	    Se l'output è un file, stampa il contenuto del file di log.
+	
+	-R|--reset
+	    Se l'output è un file, cancella il contentuo del file di log.
+	
+	-h, --help
+	    Stampa questa messaggio e esce.
+	
+	-v, --verbose
+	    Stampa informazioni dettagliate.
+	
+	-V, --no-verbose
+	    Non stampa informazioni dettagliate.
+	
+END
+) | less
+		
+		return 0
+	}
+	
+	
+	local ARGS=$(getopt -o hoEedlRvV -l help,output,is-enabled,enable,disable,view,reset,verbose,no-verbose -- "$@")
+	eval set -- $ARGS
+	
+	local CMD="PRINT"
+	local VERBOSE=0
+	
+	while true ; do
+		case "$1" in
+		-o|--output)         CMD="OUTPUT"                          ; shift    ;;
+		-R|--reset)          CMD="RESET"                           ; shift    ;;
+		-l|--view)           CMD="VIEW"                            ; shift    ;;
+		-e|--enable)         CMD="ON"                              ; shift    ;;
+		-d|--disable)        CMD="OFF"                             ; shift    ;;
+		-E|--is-enabled)     test $LIB_LOG_ENABLE -eq 1 && return 0; return  1;;
+		-v|--verbose)        VERBOSE=1                             ; shift    ;;
+		-V|--no-verbose)     VERBOSE=0                             ; shift    ;;
+		-h|--help)           __lib_log_usage "$FUNCNAME"           ; return  0;;
+		--) shift; break;;
+		esac
+	done
+	
+	__lib_log_out()
+	{
+		if [ -n "$1" ]; then
+			case $1 in
+			1|out|stdout) LIB_LOG_OUT="/dev/stdout";;
+			2|err|stderr) LIB_LOG_OUT="/dev/stderr";;
+			*) LIB_LOG_OUT=$(__lib_get_absolute_path "$1");;
+			esac
+			
+			
+			if [ -w "$LIB_LOG_OUT" ]; then
+				export LIB_LOG_OUT
+				return 0
+			fi
+			
+			return 1
+		fi
+		
+		echo "$LIB_LOG_OUT"
+		
+		return 0
+	}
+	
+	__lib_log_enable()
+	{
+		[ $VERBOSE -eq 1 ] && echo "Log abilitato."
+		export LIB_LOG_ENABLE=1
+	}
+	
+	__lib_log_disable()
+	{
+		[ $VERBOSE -eq 1 ] && echo "Log disabilitato."
+		export LIB_LOG_ENABLE=0
+	}
+	
+	__lib_log_print()
+	{
+		[ $# -eq 0 ] && return
+		
+		if [ ! -f "$LIB_LOG_OUT" ]; then
+			local LIB_LOG_DIR=$(dirname "$LIB_LOG_OUT")
+			
+			if [ ! -d "$LIB_LOG_DIR" ]; then
+				[ $VERBOSE -eq 1 ] &&
+				echo "La directory '$LIB_LOG_DIR' non esiste."
+				
+				mkdir -p "$LIB_LOG_DIR"
+				
+				if [ $? -eq 0 ]; then
+					[ $VERBOSE -eq 1 ] &&
+					echo "La directory '$LIB_LOG_DIR' e stata creata."
+					
+					! test -e "$LIB_LOG_OUT" && touch "$LIB_LOG_OUT" || return 2
+					
+					return 0
+				fi
+				
+				return 1
+			fi
+		fi
+		
+		
+		if [ $LIB_LOG_ENABLE -eq 1 ]; then
+			echo -e $(date +"%Y-%m-%d %H:%M:%S") $(id -nu) $* >> ${LIB_LOG_OUT}
+		fi
+	}
+	
+	__lib_log_view()
+	{
+		[ $VERBOSE -eq 1 ] &&
+		echo "Contenuto del file di log: '$LIB_LOG_OUT'."
+			
+		[ -f "$LIB_LOG_OUT" ] && 
 		less "$LIB_LOG_OUT"
-	fi
+		
+		return $?
+	}
+	
+	__lib_log_reset()
+	{
+		if [ -f "$LIB_LOG_OUT" ]; then
+			[ $VERBOSE -eq 1 ] &&
+			echo "Reset del file di log: '$LIB_LOG_OUT'."
+			echo "" > "$LIB_LOG_OUT"
+			
+			return $?
+		fi
+		
+		return 0
+	}
+	
+	__lib_log_exit()
+	{
+		unset __lib_log_enable
+		unset __lib_log_disable
+		unset __lib_log_out
+		unset __lib_log_print
+		unset __lib_log_view
+		unset __lib_log_reset
+		unset __lib_log_exit
+		
+		return $1
+	}
+	
+	case "$CMD" in
+	ON)       __lib_log_enable    ;;
+	OFF)      __lib_log_disable   ;;
+	RESET)    __lib_log_reset     ;;
+	VIEW)     __lib_log_view      ;;
+	OUTPUT)   __lib_log_out   "$1";;
+	PRINT|*)  __lib_log_print "$@";;
+	esac
+	
+	__lib_log_exit $?
 }
 
-# Se l'output del log è un file, cancella l'history del log.
-lib_log_reset()
+
+
+### PATH SECTION ###############################################################
+
+# Toolkit per la variabile LIB_PATH
+lib_path()
 {
-	if [ -f "$LIB_LOG_OUT" ]; then
-		echo "" > "$LIB_LOG_OUT"
-	fi
+	__lib_path_usage()
+	{
+		local CMD="$1"
+		
+		(cat << END
+NAME
+	$CMD - Toolkit per la variabile LIB_PATH.
+
+SYNOPSIS
+	$CMD [OPTIONS] [-g|--get] [i1:i2:i3]   con 1 < in < D+1, D=# path
+	
+	$CMD [OPTIONS] -s|--set PATH[:PATH...]
+	
+	$CMD [OPTIONS] -a|--absolute-path -s|--set
+	
+	$CMD [OPTIONS] -a|--add PATH [PATH...]
+	
+	$CMD [OPTIONS] -r|--remove PATH [PATH...]
+	
+	$CMD [OPTIONS] -l|--list
+	
+	$CMD [OPTIONS] -R|--reset
+	
+	$CMD -h|--help
+	
+DESCRIPTION
+	Il comando $CMD gestisce e manipola la variabile d'ambiente LIB_PATH del framework LSF.
+	
+	
+GENERIC OPTIONS
+	
+	-v, --verbose
+	    Stampa informazioni dettagliate.
+	
+	-V, --no-verbose
+	    Non stampa informazioni dettagliate.
+	
+	-A, --absolute-path
+	    Converte i path relativi in assoluti.
+	
+COMMAND OPTIONS
+	-g, --get
+	    Restituisce il valore della variabile d'ambiente LIB_PATH.
+	
+	-s, --set
+	    Imposta il valore della variabile d'ambiente LIB_PATH.
+	
+	-a, --add
+	    Aggiunge un path o una lista di path alla variabile d'ambiente LIB_PATH.
+	
+	-r, --remove
+	    Rimuove un path o una lista di path dalla variabile d'ambiente LIB_PATH.
+	
+	-R, --reset
+	    Rimuove tutti i path dalla variabile d'ambiente LIB_PATH.
+	
+	-l, --list
+	    Stampa la lista di path della variabile d'ambiente LIB_PATH.
+	
+	-h, --help
+	    Stampa questa messaggio e esce.
+	
+END
+		) | less
+		
+		return 0
+	}
+	
+	
+	local ARGS=$(getopt -o hgsarRlvVA -l help,get,set,add,remove,reset,list,verbose,no-verbose,absolute-path -- "$@")
+	eval set -- $ARGS
+	
+	local CMD="GET"
+	local VERBOSE=0
+	local ABS_PATH=0
+	
+	while true ; do
+		case "$1" in
+		-g|--get)           CMD="GET"                              ; shift    ;;
+		-s|--set)           CMD="SET"                              ; shift    ;;
+		-a|--add)           CMD="ADD"                              ; shift    ;;
+		-r|--remove)        CMD="REMOVE"                           ; shift    ;;
+		-R|--reset)         CMD="RESET"                            ; shift    ;;
+		-l|--list)          CMD="LIST"                             ; shift    ;;
+		-A|--absolute_path) ABS_PATH=1                             ; shift    ;;
+		-v|--verbose)       VERBOSE=1                              ; shift    ;;
+		-V|--no-verbose)    VERBOSE=0                              ; shift    ;;
+		-h|--help)          __lib_path_usage "$FUNCNAME"           ; return  0;;
+		--) shift; break;;
+		esac
+	done
+
+	# Restituisce il valore della variabile LIB_PATH, se non viene passato alcun
+	# parametro.
+	# Se come parametro viene passata una sequenza numerica separata da ':',vengono
+	# retituiti i path relativi alle posizioni.
+	#
+	# ES.
+	# > lib_path_get
+	#   .:lib:/home/user/lsf/lib
+	# > lib_path_get 2:3
+	#   lib:/home/user/lsf/lib
+	#
+	__lib_path_get()
+	{
+		[ $VERBOSE -eq 1 ] &&
+		echo "LIB_PATH: Get $*"
+		
+		[ -z "$LIB_PATH" ] && return
+		
+		local LP=""
+		local lib=
+		
+		if [ -z "$*" ]; then
+			if [ $ABS_PATH -eq 0 ]; then
+				LP="$LIB_PATH"
+			else
+				for lib in $(echo -e ${LIB_PATH//:/\\n}); do
+					LP="${LP}:$(__lib_get_absolute_path "$lib")"
+				done
+			fi
+		else
+			
+			for path_num in $(echo $* | tr : ' '); do
+				
+				lib=$(echo $LIB_PATH | awk -F: -v PN=$path_num '{print $PN}')
+				
+				[ $ABS_PATH -eq 1 ] && lib=$(__lib_get_absolute_path "$lib")
+				
+				LP=${LP}:${lib}
+			done
+		fi
+		
+		LP=${LP#:}
+		LP=${LP%:}
+		
+		echo $LP 
+	}
+
+	# Stampa la lista dei path della variabile LIB_PATH, separati dal carattere di
+	# newline.
+	__lib_path_list()
+	{
+		[ $VERBOSE -eq 1 ] &&
+		echo "LIB_PATH: List"
+		
+		if [ $ABS_PATH -eq 0 ]; then
+			echo -e ${LIB_PATH//:/\\n}
+		else
+			local lib
+			for lib in $(echo -e ${LIB_PATH//:/\\n}); do
+				__lib_get_absolute_path "$lib"
+			done
+		fi
+	}
+
+	# Imposta la variabile LIB_PATH.
+	__lib_path_set()
+	{
+		
+		local libs="$1"
+		local lib=""
+		
+		[ -z "$libs" -a $ABS_PATH -eq 1 ] && libs="$LIB_PATH"
+		
+		[ -z "$libs" ] && return 1
+		
+		[ $VERBOSE -eq 1 ] &&
+		echo "LIB_PATH: Set path list"
+		
+		LIB_PATH=""
+		
+		for lib in $(echo "$libs" | tr : ' '); do
+			
+			[ $ABS_PATH -eq 1 ] && lib=$(__lib_get_absolute_path "$lib")
+			
+			[ $VERBOSE -eq 1 ] &&
+			echo "LIB_PATH: Add path '$lib'"
+			
+			if [ -n "$LIB_PATH" ]; then
+				LIB_PATH="$LIB_PATH:${lib%\/}"
+			else
+				LIB_PATH="${lib%\/}"
+			fi
+		done
+		
+		export LIB_PATH
+	}
+
+	# Aggiunge un path alla lista contenuta nella variabile LIB_PATH.
+	__lib_path_add()
+	{
+		for lib in $*; do
+			
+			[ $ABS_PATH -eq 1 ] && lib=$(__lib_get_absolute_path "$lib")
+			
+			[ $VERBOSE -eq 1 ] &&
+			echo "LIB_PATH: Add path '$lib'"
+			
+			if [ -n "$LIB_PATH" ]; then
+				LIB_PATH="${lib%\/}:$LIB_PATH"
+			else
+				LIB_PATH="${lib%\/}"
+			fi
+		done
+	
+		export LIB_PATH
+	}
+
+	# Rimuove un path dalla lista contenuta nella variabile LIB_PATH.
+	__lib_path_remove()
+	{
+		for lib in $*; do
+			
+			[ $ABS_PATH -eq 1 ] && lib=$(__lib_get_absolute_path "$lib")
+			
+			[ $VERBOSE -eq 1 ] &&
+			echo "LIB_PATH: Remove path '$lib'"
+			
+			lib="${lib%\/}"
+			
+			LIB_PATH=$(echo $LIB_PATH |
+					   awk -v LIB="$lib/?" '{gsub(LIB, ""); print}' |
+					   awk '{gsub(":+",":"); print}' |
+					   awk '{gsub("^:|:$",""); print}')
+		done
+	
+		export LIB_PATH
+	}
+	
+	__lib_path_reset()
+	{
+		[ $VERBOSE -eq 1 ] &&
+			echo "LIB_PATH: Reset"
+			
+		export LIB_PATH=""
+	}
+	
+	
+	__lib_path_exit()
+	{
+		unset __lib_path_get
+		unset __lib_path_set
+		unset __lib_path_add
+		unset __lib_path_list
+		unset __lib_path_remove
+		unset __lib_path_reset
+		unset __lib_path_exit
+		
+		return $1
+	}
+	
+	case "$CMD" in
+	RESET)  __lib_path_reset      ;;
+	LIST)   __lib_path_list       ;;
+	ADD)    __lib_path_add    "$@";;
+	REMOVE) __lib_path_remove "$@";;
+	SET)    __lib_path_set    "$@";;
+	GET|*)  __lib_path_get    "$@";;
+	esac
+	
+	__lib_path_exit $?
 }
 
 
 
-
-
-
-### LIBRARY SECTION ############################################################
+### LIBRARY NAMING SECTION #####################################################
 
 # Restituisce il nome di una libreria o di un modulo a partire dal file o dalla
 # cartella.
@@ -366,6 +776,9 @@ lib_name()
 }
 
 
+
+### LIBRARY ARCHIVE SECTION ####################################################
+
 # Costruisce un archivio o ne visualizza il contenuto.
 lib_archive()
 {
@@ -374,30 +787,30 @@ lib_archive()
 	{
 		local CMD="$1"
 		
-		cat << END
+		(cat << END
 NAME
 	$CMD - Crea e gestice gli archivi di libreria.
 
 SYNOPSIS
 	Create command:
-		$CMD [OPTIONS] -c|--create|--build [-d|--dir DIR] ARCHIVE_FILE
-		$CMD [OPTIONS] -c|--create|--build  -d|--dir DIR  [DIR.$ARC_EXT]
+	    $CMD [OPTIONS] -c|--create|--build [-d|--dir DIR] ARCHIVE_FILE
+	    $CMD [OPTIONS] -c|--create|--build  -d|--dir DIR  [DIR.$ARC_EXT]
 	
 	Check command:
-		$CMD [OPTIONS] -C|--check   ARCHIVE_FILE
-		$CMD [OPTIONS] [NAMING_OPTIONS] -y|--verify  ARCHIVE_NAME@
+	    $CMD [OPTIONS] -C|--check   ARCHIVE_FILE
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -y|--verify  ARCHIVE_NAME@
 	
 	List command:
-		$CMD [OPTIONS] -l|--list  ARCHIVE_FILE
-		$CMD [OPTIONS] [NAMING_OPTIONS] -L|--ls    ARCHIVE_NAME@
+	    $CMD [OPTIONS] -l|--list  ARCHIVE_FILE
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -L|--ls    ARCHIVE_NAME@
 	
 	Search command:
-		$CMD [OPTIONS] -s|--search LIB_FILE  ARCHIVE_FILE
-		$CMD [OPTIONS] [NAMING_OPTIONS] -f|--find   ARCHIVE_NAME@LIB_NAME
+	    $CMD [OPTIONS] -s|--search LIB_FILE  ARCHIVE_FILE
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -f|--find   ARCHIVE_NAME@LIB_NAME
 	
 	Extract command:
-		$CMD [OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -x|--extract  ARCHIVE_FILE
-		$CMD [OPTIONS] [EXTRACT OPTIONS] [NAMING_OPTIONS] [-d|--dir DIR] -u|--unpack   ARCHIVE_NAME@
+	    $CMD [OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -x|--extract  ARCHIVE_FILE
+	    $CMD [OPTIONS] [EXTRACT OPTIONS] [NAMING_OPTIONS] [-d|--dir DIR] -u|--unpack   ARCHIVE_NAME@
 	
 	
 DESCRIPTION
@@ -406,52 +819,60 @@ DESCRIPTION
 	
 GENERIC OPTIONS
 	-h, --help
-		Stampa questa messaggio e esce.
+	    Stampa questa messaggio e esce.
 	
 	-q, --quiet
-		Non stampa nulla sullo standard output.
+	    Non stampa nulla sullo standard output.
 	
 	-Q, --no-quiet
-		Stampa infomazioni essenziali.
+	    Stampa infomazioni essenziali.
 	
 	-v, --verbose
-		Stampa informazioni dettagliate.
+	    Stampa informazioni dettagliate.
 	
 	-V, --no-verbose
-		Non stampa informazioni dettagliate.
+	    Non stampa informazioni dettagliate.
 	
 COMMAND OPTIONS
 	-c, --create, --build
-		Crea un nuovo archivio di libreria
+	    Crea un nuovo archivio di libreria
 	
 	-C, --check
-		Controlla se il file passato come parametro è un archivio di librerie
+	    Controlla se il file passato come parametro è un archivio di librerie
 	
 	-y, --verify
-		Equivale a: --naming --check o in breve -nC
+	    Equivale a: --naming --check o in breve -nC
 	
 	-l, --list
-		Stampa la lista dei file e delle directory contenute nell'archivio di librerie
+	    Stampa la lista dei file e delle directory contenute nell'archivio di librerie
 	
 	-L, --ls
-		Equivale a: --naming --list  o in breve -nl
+	    Equivale a: --naming --list  o in breve -nl
 	
 	-s, --search
-		Verifica se il file o la directory specificata come parametro è contenuto
-		all'interno dell'archivio di libreria.
+	    Verifica se il file o la directory specificata come parametro è contenuto
+	    all'interno dell'archivio di libreria.
 	
 	-f, --find
-		Equivale a: --naming --search o in breve -ns
+	    Equivale a: --naming --search o in breve -ns
 	
 	-x, --extract
-		Estrae il contenuto dell'archivio di librerie nella directory specificata.
+	    Estrae il contenuto dell'archivio di librerie nella directory specificata.
 	
 	-u, --unpack
-		Equivale a: --naming --extract o in brave -nx
+	    Equivale a: --naming --extract o in brave -nx
 	
 CREATE OPTIONS
 	-d, --dir
 
+SEARCH OPTIONS
+	-w, --realpath
+	    
+	
+	-W, --no-realpath)
+	    
+	
+	
 EXTRACT OPTIONS
 	-d, --dir
 	-t, --temp-dir
@@ -465,34 +886,36 @@ EXTRACT OPTIONS
 	
 NAMING OPTIONS
 	-n, --naming
-		
+	    
 	
 	-N, --no-naming
-		
+	    
 	
 	-p, --add-libpath
-		Aggiuge temporaneamente una nuova lista di path di libreria a quelli presenti
-		nella variabile d'ambiente LIB_PATH.
+	    Aggiuge temporaneamente una nuova lista di path di libreria a quelli presenti
+	    nella variabile d'ambiente LIB_PATH.
 	
 	-P, --libpath
-		Imposta temporaneamente una nuova lista di path di libreria, invece di quelli 
-		presenti nella variabile d'ambiente LIB_PATH.
+	    Imposta temporaneamente una nuova lista di path di libreria, invece di quelli 
+	    presenti nella variabile d'ambiente LIB_PATH.
 	
 
 END
+		) | less
 		return 0
 	}
 	
-	local ARGS=$(getopt -o CyclLhs:fxud:nNvVqQrRtTFp:P: -l check,verify,create,build,list,ls,search:,find,extract,unpack,dir:,help,naming,no-naming,temp-dir,no-temp-dir,track,no-track,clean-dir,no-clean-dir,quiet,no-quiet,verbose,no-verbose,force,no-force,clean,clean-temp,clean-track,libpath:,add-libpath: -- "$@")
+	local ARGS=$(getopt -o CyclLhs:fxud:nNvVqQrRtTFp:P:w -l check,verify,create,build,list,ls,search:,find,extract,unpack,dir:,help,naming,no-naming,temp-dir,no-temp-dir,track,no-track,clean-dir,no-clean-dir,quiet,no-quiet,verbose,no-verbose,force,no-force,clean,clean-temp,clean-track,libpath:,add-libpath:,realpath -- "$@")
 	eval set -- $ARGS
 	
+	#echo "ARCHIVE ARGS=$ARGS" > /dev/stderr
 	
-	local ARCHIVE_NAME=""
-	local LIB=""
+	local LIB_FILE=""
 	local DIR=""
 	local NAMING=0
 	local TMP=0
 	local TRACK=0
+	local REALPATH=0
 	local FORCE=0
 	local QUIET=0
 	local VERBOSE=0
@@ -501,56 +924,52 @@ END
 	local CLEAN_DIR=0
 	local CLEAN_TEMP=0
 	local CLEAN_TRACK=0
-	local LIB_PATH_OPT=
+	local libpath=
 	local tar_verbose=
 	local libpath=
-
+	local FIND_OPTS=
 	
 	while true ; do
 		case "$1" in
-		-c|--create|--build) CMD="CREATE"                     ; shift  ;;
-		-C|--check)          CMD="CHECK"                      ; shift  ;;
-		-y|--verify)         CMD="CHECK"; NAMING=1            ; shift  ;;
-		-l|--list)           CMD="LIST"                       ; shift  ;;
-		-L|--ls)             CMD="LIST"; NAMING=1             ; shift  ;;
-		-x|--extract)        CMD="EXTRACT"                    ; shift  ;;
-		-u|--unpack)         CMD="EXTRACT"; NAMING=1          ; shift  ;;
-		-s|--search)         CMD="SEARCH"; LIB="$2"           ; shift 2;;
-		-f|--find)           CMD="SEARCH"; NAMING=1           ; shift  ;;
-		-n|--naming)         NAMING=1                         ; shift  ;;
-		-N|--no-naming)      NAMING=0                         ; shift  ;;
-		-p|--add-libpath)    LIB_PATH_OPT="$1 $2"             ; shift 2;;
-		-P|--libpath)        LIB_PATH_OPT="$1 $2"             ; shift 2;;
+		-c|--create|--build) CMD="CREATE"                          ; shift    ;;
+		-C|--check)          CMD="CHECK"                           ; shift    ;;
+		-y|--verify)         CMD="CHECK"; NAMING=1                 ; shift    ;;
+		-l|--list)           CMD="LIST"                            ; shift    ;;
+		-L|--ls)             CMD="LIST"; NAMING=1                  ; shift    ;;
+		-x|--extract)        CMD="EXTRACT"                         ; shift    ;;
+		-u|--unpack)         CMD="EXTRACT"; NAMING=1               ; shift    ;;
+		-s|--search)         CMD="SEARCH"; LIB_FILE="$2"           ; shift   2;;
+		-f|--find)           CMD="SEARCH"; NAMING=1                ; shift    ;;
+		-n|--naming)         NAMING=1                              ; shift    ;;
+		-N|--no-naming)      NAMING=0                              ; shift    ;;
+		-p|--add-libpath)    libpath="${2}:${LIB_PATH}"              ; shift 2;;
+		-P|--libpath)        libpath="$2"                            ; shift 2;;
 		--clean-temp)        CMD="CLEAN";
-		                     CLEAN_TEMP=1                     ; shift  ;;
+		                     CLEAN_TEMP=1                          ; shift    ;;
 		--clean-track)       CMD="CLEAN";
-		                     CLEAN_TRACK=1                    ; shift  ;;
+		                     CLEAN_TRACK=1                         ; shift    ;;
 		--clean)             CMD="CLEAN";
 		                     CLEAN_TEMP=1;
-		                     CLEAN_TRACK=1                    ; shift  ;;
-		-d|--dir)            DIR="$2"                         ; shift 2;;
-		-t|--temp-dir)       TMP=1                            ; shift  ;;
-		--no-temp-dir)       TMP=0                            ; shift  ;;
-		-T|--track)          TRACK=1                          ; shift  ;;
-		--no-track)          TRACK=0                          ; shift  ;;
-		-r|--clean-dir)      CLEAN_DIR=1                      ; shift  ;;
-		-R|--no-clean-dir)   CLEAN_DIR=0                      ; shift  ;;
-		-F|--force)          FORCE=1                          ; shift  ;;
-		--no-force)          FORCE=0                          ; shift  ;;
-		-q|--quiet)          QUIET=1                          ; shift  ;;
-		-Q|--no-quiet)       QUIET=0                          ; shift  ;;
-		-v|--verbose)        VERBOSE=1                        ; shift  ;;
-		-V|--no-verbose)     VERBOSE=0                        ; shift  ;;
-		-h|--help) __lib_archive_usage "$FUNCNAME"; return 0;;
+		                     CLEAN_TRACK=1                         ; shift    ;;
+		-d|--dir)            DIR="$2"                              ; shift   2;;
+		-t|--temp-dir)       TMP=1                                 ; shift    ;;
+		--no-temp-dir)       TMP=0                                 ; shift    ;;
+		-T|--track)          TRACK=1                               ; shift    ;;
+		--no-track)          TRACK=0                               ; shift    ;;
+		-r|--clean-dir)      CLEAN_DIR=1                           ; shift    ;;
+		-R|--no-clean-dir)   CLEAN_DIR=0                           ; shift    ;;
+		-F|--force)          FORCE=1                               ; shift    ;;
+		--no-force)          FORCE=0                               ; shift    ;;
+		-w|--realpath)       REALPATH=1                            ; shift    ;;
+		-W|--no-realpath)    REALPATH=0                            ; shift    ;;
+		-q|--quiet)          QUIET=1   ;FIND_OPTS="$FIND_OPTS $1"  ; shift    ;;
+		-Q|--no-quiet)       QUIET=0   ;FIND_OPTS="$FIND_OPTS $1"  ; shift    ;;
+		-v|--verbose)        VERBOSE=1 ;FIND_OPTS="$FIND_OPTS $1"  ; shift    ;;
+		-V|--no-verbose)     VERBOSE=0 ;FIND_OPTS="$FIND_OPTS $1"  ; shift    ;;
+		-h|--help) __lib_archive_usage "$FUNCNAME"                 ; return  0;;
 		--) shift; break;;
 		esac
 	done
-	
-	if [ $QUIET -eq 0 -a $VERBOSE -eq 1 ]; then
-		tar_verbose="-vv"
-	elif [ $QUIET -eq 0 -o $VERBOSE -eq 1 ]; then
-		tar_verbose="-v"
-	fi
 	
 	if [ -z "$CMD" ]; then
 		echo "$FUNCNAME: nessun comando specificato."
@@ -565,6 +984,9 @@ END
 		echo "-f --find"
 		echo "-x --extract"
 		echo "-u --unpack"
+		echo "--clean"
+		echo "--clean-temp"
+		echo "--clean-track"
 		echo
 		echo "Usa $FUNCNAME -h o $FUNCNAME --help per ulteriori informazioni."
 		return 1
@@ -669,17 +1091,29 @@ END
 		
 		
 		[ $VERBOSE -eq 1 ] &&
-		echo -n "Ricerca della libreria '$LIB' nell'archivio '$(basename "$1")': "
+		echo -n "Ricerca della libreria '$LIB' nell'archivio '$1': "
 		
 		local libfile=""
 		for libfile in $(__lib_archive_list "$ARCHIVE_NAME"); do
 			if [ "$2" == "$libfile" ]; then
-				[ $VERBOSE -eq 1 ] && echo "trovato!";
-				[ $QUIET -eq 1 ] || echo "\n$ARCHIVE_NAME:$LIB";
+				[ $VERBOSE -eq 1 ] && echo "trovato!"
+				if [ $QUIET -eq 0 ]; then
+					if [ $REALPATH -eq 0 ]; then
+						echo "$ARCHIVE_NAME:$LIB"
+					else
+						echo "${LIB_ARC_MAP[$ARCHIVE_NAME]}:$LIB"
+					fi
+				fi
 				return 0
 			elif [ "$2.$LIB_EXT" == "$libfile" ]; then
-				[ $VERBOSE -eq 1 ] && echo "trovato!";
-				[ $QUIET -eq 1 ] || echo "$ARCHIVE_NAME:$LIB.$LIB_EXT";
+				[ $VERBOSE -eq 1 ] && echo "trovato!"
+				if [ $QUIET -eq 0 ]; then
+					if [ $REALPATH -eq 0 ]; then
+						echo "$ARCHIVE_NAME:$LIB.$LIB_EXT"
+					else
+						echo "${LIB_ARC_MAP[$ARCHIVE_NAME]}:$LIB.$LIB_EXT"
+					fi
+				fi
 				return 0
 			fi
 		done
@@ -692,19 +1126,26 @@ END
 	
 	__lib_archive_extract()
 	{
-		[ $# -gt 1 ] && __lib_is_archive -q "$1"  || return 1
+		[ $# -gt 1 ] && __lib_is_archive -q "$2"  || return 1
 		
-		local ARCHIVE_NAME=$(__lib_get_absolute_path "$1")
-		local DIR="$2"
+		local DIR="$1"
+		local ARCHIVE_NAME=$(__lib_get_absolute_path "$2")
+		local LIB="$3"
+		
+		[ "$DIR" == "--" ] && DIR=
+		#echo "Extract:" > /dev/stderr
+		#echo "DIR=$DIR" > /dev/stderr
+		#echo "ARC_NAME=$ARC_NAME" > /dev/stderr
+		#echo "LIB=$lIB" > /dev/stderr
 		
 		local old_mod_time=0
-		local new_mod_time=$(stat -c %Y $1)
+		local new_mod_time=$(stat -c %Y $ARCHIVE_NAME)
 		local exit_code=1
 		
 		if [ $TRACK -eq 1 -a -z "$DIR" ]; then
 			
 			[ $VERBOSE -eq 1 ] &&
-			echo "Verifica se l'archivio '$(basename "$1")' è già stato estratto..."
+			echo "Verifica se l'archivio '$2' è già stato estratto..."
 			
 			DIR="${LIB_ARC_MAP[$ARCHIVE_NAME]}"
 			
@@ -735,7 +1176,11 @@ END
 					elif [ $FORCE -eq 0 ]; then
 						
 						[ $VERBOSE -eq 1 ] &&
-						echo "Estrazione dell'archivio non necessaria."
+						echo "Estrazione di file dall'archivio non necessaria."
+						
+						if [ $QUIET -eq 0 ]; then
+							__lib_list_dir "$DIR" #| awk -v DIR="$DIR" '{printf "%s/%s\n", DIR, $0}'
+						fi
 						
 						return 0
 					fi
@@ -755,7 +1200,7 @@ END
 		fi
 		
 		if [ -z "$DIR" ]; then
-			DIR=$(basename "$1" | awk -v S=".$ARC_EXT" '{gsub(S,""); print}')
+			DIR=$(basename "$ARCHIVE_NAME" | awk -v S=".$ARC_EXT" '{gsub(S,""); print}')
 		fi
 		
 		if [ ! -d "$DIR" ]; then
@@ -764,7 +1209,7 @@ END
 			echo "La directory '$DIR' non esiste e verrà creata."
 			
 			mkdir -p "$DIR"
-		elif [ $CLEAN_DIR -eq 1 ]; then
+		elif [ $CLEAN_DIR -eq 1 -a -d "$DIR" ]; then
 			
 			[ $? -eq 0 -a $VERBOSE -eq 1 ] &&
 			echo "Rimozione del contenuto della cartella associata all'archivio."
@@ -772,11 +1217,16 @@ END
 			rm -r $DIR/*
 		fi
 		
-		[ $VERBOSE -eq 1 -o $QUIET -eq 0 ] &&
-		echo -e "Estrazione dell'archivio '$(basename "$1")' nella directory: $DIR\n"
-		
+		if [ $VERBOSE -eq 1 ]; then
+			if [ -z "$LIB" ]; then
+				echo -en "Estrazione dell'"
+			else
+				echo -en "Estrazione della libreria '$LIB' dall'"
+			fi
+			echo -e "archivio '$2' nella directory: $DIR\n"
+		fi
 		# Estazione dell'archivio
-		tar $tar_verbose -xzf "$ARCHIVE_NAME" -C $DIR
+		tar -xzvf "$ARCHIVE_NAME" -C "$DIR" "$LIB" 2> /dev/null | awk -v DIR="$DIR" '{printf "%s/%s\n", DIR, $0}'
 		
 		local exit_code=$?
 		
@@ -816,15 +1266,17 @@ END
 			
 			local tmp_dir=
 			
-			for tmp_dir in $(ls /tmp/lsf-* 2> /dev/null); do
-				[ $VERBOSE -eq 1 ] &&
-				echo "Remove directory: $tmp_dir"
-				rm -r $tmp_dir 2> /dev/null
+			for tmp_dir in $(ls -1d /tmp/lsf-* 2> /dev/null); do
+				
+				rm -r "$tmp_dir" 2> /dev/null
+				[ $VERBOSE -eq 1 ] && (
+				[ $? -eq 0 ] && echo -n "[OK] " || echo -n "[KO] "
+				echo "Remove directory: $tmp_dir")
 			done
 		fi
 	}
 	
-	___exit()
+	__lib_archive_exit()
 	{
 		unset __lib_is_archive
 		unset __lib_archive_list
@@ -832,55 +1284,48 @@ END
 		unset __lib_archive_search
 		unset __lib_archive_extract
 		unset __lib_archive_clean
-		unset ___exit
+		unset __lib_archive_exit
 		
-		return ${1:-0}
+		return $1
 	}
 	
-	local ARCHIVE_FILE="$1"
+	local ARC_FILE="$1"
+	
+	#echo "ARC_FILE=$ARC_FILE" > /dev/stderr
 	
 	if [ $NAMING -eq 1 ]; then
 		
-		local arcname=$(lib_find $LIB_PATH_OPT "$1")
-		LIB=$(echo $1 | awk '{gsub("^.*@:?",""); print}')
+		local ARC_NAME=$(echo ${ARC_FILE} | awk '{gsub("@.*$",""); print}')
+		local LIB_NAME=$(echo ${ARC_FILE} | awk '{gsub("^.*@:?",""); print}')
 		
-		[ $VERBOSE -eq 1 ] &&
-		echo -n "Ricerca della libreria '$LIB' nell'archivio '$(basename "$1"| awk '{gsub("@.*$",""); print}').$ARC_EXT': "
+		#echo "ARC_NAME=$ARC_NAME" > /dev/stderr
+		#echo "LIB_FILE=$LIB_NAME" > /dev/stderr
 		
+		[ -z "$ARC_NAME" ] || ARC_FILE="${ARC_NAME//://}.$ARC_EXT"
+		[ -z "$LIB_NAME" ] || LIB_FILE="${LIB_NAME//://}.$LIB_EXT"
 		
+		for libdir in ${libpath//:/ }; do
 		
-		if [ "$CMD" == "SEARCH" ]; then
-			if [ -z "$arcname" ]; then
-				[ $VERBOSE -eq 1 ] && echo "non trovato!"
-			else
-				[ $VERBOSE -eq 1 ] && echo "trovato!"
-				[ $QUIET -eq 0 ] && echo $arcname
-				return 0
+			if [ -f "${libdir}/$ARC_FILE" ]; then
+				ARC_FILE="${libdir}/$ARC_FILE"
+				break
 			fi
-		fi
+		done
 		
-		[ -n "$arcname" ] || return 1
-		
-		LIB="$(echo "$arcname" | awk -F : '{ print $2 }')"
-		ARCHIVE_FILE="$(echo "$arcname" | awk -F : '{ print $1 }')"
+		#echo "ARC_FILE=$ARC_FILE" > /dev/stderr
+		#echo "LIB_FILE=$LIB_FILE" > /dev/stderr
 	fi
 	
 	case "$CMD" in
-	"CHECK")   __lib_is_archive "$ARCHIVE_FILE";
-	           ___exit $?; return $?;;
-	"LIST")    __lib_archive_list    "$ARCHIVE_FILE";
-	           ___exit $?; return $?;;
-	"CREATE")  __lib_archive_create  "${DIR:=.}" "$ARCHIVE_FILE";
-	           ___exit $?; return $?;;
-	"SEARCH")  __lib_archive_search  "$ARCHIVE_FILE" "$LIB";
-	           ___exit $?; return $?;;
-	"EXTRACT") __lib_archive_extract "$ARCHIVE_FILE" "$DIR";
-	           ___exit $?; return $?;;
-	"CLEAN")   __lib_archive_clean;
-	           ___exit $?; return $?;;
+	CHECK)   __lib_is_archive      "$ARC_FILE";;
+	LIST)    __lib_archive_list    "$ARC_FILE";;
+	CREATE)  __lib_archive_create  "${DIR:=.}" "$ARC_FILE";;
+	SEARCH)  __lib_archive_search  "$ARC_FILE" "$LIB_FILE";;
+	EXTRACT) __lib_archive_extract "${DIR:-}" "$ARC_FILE" "$LIB_FILE";;
+	CLEAN)   __lib_archive_clean;;
 	esac
 	
-	return 1
+	__lib_archive_exit $?
 }
 
 
@@ -910,36 +1355,36 @@ DESCRIPTION
 OPTIONS
 	
 	-f, --file
-		Verifica se il file di libreria esiste, senza eseguire operazioni di naming.
-		Se il file non esiste, ritorna un exit code pari a 1, altrimenti ritorna 0
-		e ne stampa il path sullo standard output (se l'optione quiet non è specificata).
+	    Verifica se il file di libreria esiste, senza eseguire operazioni di naming.
+	    Se il file non esiste, ritorna un exit code pari a 1, altrimenti ritorna 0
+	    e ne stampa il path sullo standard output (se l'optione quiet non è specificata).
 	
 	-d, --dir
-		Verifica se la directory specificata dal path esiste, senza eseguire
-		operazioni di naming.
-		Se la directory non esiste, ritorna un exit code pari a 1, altrimenti ritorna 0
-		e ne stampa il path sullo standard output (se l'optione quiet non è specificata).
+	    Verifica se la directory specificata dal path esiste, senza eseguire
+	    operazioni di naming.
+	    Se la directory non esiste, ritorna un exit code pari a 1, altrimenti ritorna 0
+	    e ne stampa il path sullo standard output (se l'optione quiet non è specificata).
 	
 	-a, --archive  ARCHIVE_PATH[:LIB_PATH]
-		Verifica se l'archivio specificato, o il file contenuto in esso, esiste, senza eseguire
-		operazioni di naming.
-		Se l'archivio, o il file in esso specificato, non esiste, ritorna un exit code pari a 1, 
-		altrimenti ritorna 0 e ne stampa il path sullo standard output 
-		(se l'optione quiet non è specificata).
-		
+	    Verifica se l'archivio specificato, o il file contenuto in esso, esiste, senza eseguire
+	    operazioni di naming.
+	    Se l'archivio, o il file in esso specificato, non esiste, ritorna un exit code pari a 1, 
+	    altrimenti ritorna 0 e ne stampa il path sullo standard output 
+	    (se l'optione quiet non è specificata).
+	
 	-p, --add-libpath
-		Aggiuge temporaneamente una nuova lista di path di libreria a quelli presenti
-		nella variabile d'ambiente LIB_PATH.
+	    Aggiuge temporaneamente una nuova lista di path di libreria a quelli presenti
+	    nella variabile d'ambiente LIB_PATH.
 	
 	-P, --libpath
-		Imposta temporaneamente una nuova lista di path di libreria, invece di quelli 
-		presenti nella variabile d'ambiente LIB_PATH.
+	    Imposta temporaneamente una nuova lista di path di libreria, invece di quelli 
+	    presenti nella variabile d'ambiente LIB_PATH.
 	
 	-q, --quiet
-		Non stampa il path sullo standard output.
+	    Non stampa il path sullo standard output.
 	
 	-Q, --no-quiet
-		Se trova il file, lo stampa sullo standard output.
+	    Se trova il file, lo stampa sullo standard output.
 	
 	
 LIBRARY NAMING
@@ -1015,14 +1460,16 @@ EXAMPLES
 	    (return 1)
 	
 END
-) | less
+		) | less
+		return 0
 }
 
 	[ $# -eq 0 -o -z "$*" ] && return 1
 	
 	local ARGS=$(getopt -o hqQf:d:a:p:P:vV -l help,quiet,no-quiet,file:,dir:,archive:,add-libpath:,libpath:,verbose,no-verbose -- "$@")
-	
 	eval set -- $ARGS
+	
+	#echo "FIND ARGS=$ARGS" > /dev/stderr
 	
 	local QUIET=0
 	local libpath="$LIB_PATH"
@@ -1032,7 +1479,7 @@ END
 	
 	while true ; do
 		case "$1" in
-		-q|--quiet)        QUIET=1                    ; shift  ;;
+		-q|--quiet)        QUIET=1; opts="$opts $1"   ; shift  ;;
 		-Q|--no-quiet)     QUIET=0                    ; shift  ;;
 		-p|--add-libpath)  libpath="${2}:${LIB_PATH}" ; shift 2;;
 		-P|--libpath)      libpath="$2"               ; shift 2;;
@@ -1044,9 +1491,9 @@ END
 			[ -d "$2" ] || return 1
 			[ $QUIET -eq 1 ] || __lib_get_absolute_path "$2"
 			return 0;;
-		-a|--archive) ARCHIVE_MODE=1                  ; shift  ;;
-		-v|--verbose)        VERBOSE=1; opts="-v"     ; shift  ;;
-		-V|--no-verbose)     VERBOSE=0                ; shift  ;;
+		-a|--archive)        ARCHIVE_MODE=1             ; shift  ;;
+		-v|--verbose)        VERBOSE=1; opts="$opts $1" ; shift  ;;
+		-V|--no-verbose)     VERBOSE=0                  ; shift  ;;
 		-h|--help) __lib_find_usage $FUNCNAME; return 0;;
 		--) shift;;
 		*) break;;
@@ -1066,7 +1513,7 @@ END
 			SUB_LIB="$(echo "$lib" | awk -v S="$regex" '{gsub(S,""); print}')"
 			SUB_LIB="${SUB_LIB#/}"
 			
-			lib_archive $opts --no-quiet --search "$SUB_LIB" $LIB
+			lib_archive --no-quiet $opts --search "$SUB_LIB" $LIB
 			
 			return $?
 			
@@ -1099,7 +1546,7 @@ END
 			[ $QUIET -eq 1 ] || __lib_get_absolute_path ${libdir}/$LIB.$LIB_EXT
 			return 0
 		else
-			lib_archive $opts --no-quiet --search "$SUB_LIB" "${libdir}/$LIB"
+			lib_archive --no-quiet $opts --search "$SUB_LIB" "${libdir}/$LIB"
 			
 			return $?
 		fi
@@ -1108,33 +1555,6 @@ END
 	return 1
 }
 
-# Restituisce un exit code pari a 0 se la libreria passata come parametro è
-# presente nel path, altrimenti 1.
-lib_is_installed()
-{
-	lib_find --quiet "$1"
-}
-
-# Restituisce un exit code pari a 0 se la libreria passata come parametro è
-# stata importata, altrimenti 1.
-lib_is_loaded()
-{
-	[ -n "$1" ] || return 1
-	
-	local lib=
-	
-	if [ "$1" == "-f" ]; then
-		lib=$(lib_find -f $2)
-	else
-		lib=$(lib_find $1)
-	fi
-	
-	[ -n "$lib" ] || return 1
-	
-	echo "$(__lib_list_files)" | grep -E -q -e "$lib" > /dev/null
-	
-	return $?
-}
 
 # Applica alla lista di librerie passate come parametri la funzione specificata,
 # restituendo l'exit code relativo all'esecuzione di quest'ultima.
@@ -1169,6 +1589,8 @@ lib_apply()
 	local ARGS=$(getopt -o h,F:fda -l help,lib-function:,file,dir,archive -- "$@")
 	eval set -- $ARGS
 	
+	local LIB_FILE=
+	local SUB_LIB=
 	local FIND_OPT=""
 	local LIB_FUN=""
 	local exit_code=
@@ -1188,6 +1610,20 @@ lib_apply()
 	for library in "$@"; do
 		LIB_FILE=$(lib_find $FIND_OPT $library)
 		
+		if [ "$FIND_OPT" == "-a" -o "$FIND_OPT" == "--archive" ]; then
+			
+			local lib="$LIB_FILE"
+			local regex="^.*.$ARC_EXT"
+			
+			LIB_FILE="$(echo "$lib" | grep -o -E -e "$regex")"
+			SUB_LIB="$(echo "$lib" | awk -v S="$regex" '{gsub(S,""); print}')"
+			SUB_LIB="${SUB_LIB#/}"
+			
+			lib_archive --quiet --clean-dir --track --temp-dir --extract "$LIB_FILE"
+			
+			LIB_FILE="${LIB_ARC_MAP[$LIB_FILE]}/$SUB_LIB"
+		fi
+		
 		$LIB_FUN "$library" "$LIB_FILE" 
 		
 		exit_code=$?
@@ -1196,29 +1632,197 @@ lib_apply()
 	return $exit_code
 }
 
-lib_is_enabled()
+
+lib_test()
 {
-	__lib_is_enabled()
+	__lib_test_usage()
 	{
-		local library="$1"
-		local libfile="$2"
+		local CMD="$1"
 		
-		if [ -n "$libfile" ]; then
-			test -x "$libfile" && return 0
-			return 1
-		fi
+		(cat << END
+NAME
+	$CMD - Test.
+
+SYNOPSIS
+	$CMD [OPTIONS] -e|--is-enabled   LIB
+	
+	$CMD [OPTIONS] -E|--is-disabled  LIB
+	
+	$CMD [OPTIONS] -i|--is-installed LIB
+	
+	$CMD [OPTIONS] -l|--is-loaded    LIB
+	
+	$CMD [OPTIONS] -f|--is-file      LIB_FILE
+	
+	$CMD [OPTIONS] -d|--is-dir       LIB_DIRECTORY
+	
+	$CMD [OPTIONS] -a|--is-file      LIB_ARCHIVE
+	
+	$CMD -h|--help
+	
+DESCRIPTION
+	Il comando $CMD gestisce e manipola la variabile d'ambiente LIB_PATH del framework LSF.
+	
+	
+GENERIC OPTIONS
+	
+	-e, --is-enabled
+	    Verifica se una libreria è abilitata.
+	
+	-E, --is-disabled
+	    Verifica se una libreria è disabilitata.
+	
+	-i, --is-installed
+	    Verifica se una libreria è installata in una delle directory di LIB_PATH.
+	
+	-l, --is-loaded
+	    Verifica se una libreria è stata importata nell'ambiente corrente.
+	
+	-f, --is-file
+	    Verifica se la libreria è un file.
+	
+	-d, --is-dir
+	    Verifica se la libreria è una directory.
+	
+	-a, --is-archive
+	    Verifica se la libreria è un archivio.
+	
+	-v, --verbose
+	    Stampa informazioni dettagliate.
+	
+	-V, --no-verbose
+	    Non stampa informazioni dettagliate.
+	
+	-A, --absolute-path
+	    Converte i path relativi in assoluti.
+	
+	-h, --help
+	    Stampa questa messaggio e esce.
+	
+END
+		) | less
 		
-		return 2
+		return 0
 	}
 	
-	lib_apply --lib-function __lib_is_enabled $@
+	[ $# -eq 0 ] && return 1
 	
-	local exit_code=$?
 	
-	unset __lib_is_enabled
+	local FIND_OPT=""
+	local QUIET=0
+	local VERBOSE=0
 	
-	return $exit_code
+	__lib_is_enabled()
+	{
+		__is_enabled()
+		{
+			local library="$1"
+			local libfile="$2"
+		
+			if [ -n "$libfile" ]; then
+				test -x "$libfile" && return 0
+				return 1
+			fi
+		
+			return 2
+		}
+	
+		lib_apply --lib-function __is_enabled $@
+	
+		local exit_code=$?
+	
+		unset __is_enabled
+	
+		return $exit_code
+	}
+	
+	# Restituisce un exit code pari a 0 se la libreria passata come parametro è
+	# presente nel path, altrimenti 1.
+	__lib_is_installed()
+	{
+		[ -n "$1" ] || return 1
+		
+		return 0
+	}
+	
+	# Restituisce un exit code pari a 0 se la libreria passata come parametro è
+	# stata importata, altrimenti 1.
+	__lib_is_loaded()
+	{
+		[ -n "$1" ] || return 1
+		
+		echo "$(__lib_list_files)" | grep -E -q -e "$lib"
+		
+		return $?
+	}
+	
+	___exit()
+	{
+		unset __lib_is_enabled
+		unset __lib_is_installed
+		unset __lib_is_loaded
+		
+		return $1
+	}
+	
+	local ARGS=$(getopt -o heEilfdaqQvV -l help,is-enabled,is-disabled,is-installed,is-loaded,is-file,is-dir,is-archive,quiet,no-quiet,verbose,no-verbose -- "$@")
+	eval set -- $ARGS
+	
+	local TEST="EXIST"
+	
+	while true ; do
+		case "$1" in
+		-e|--is-enabled)    TEST="ENABLED"            ; shift;;
+		-E|--is-disabled)   TEST="DISABLED"           ; shift;;
+		-i|--is-installed)  TEST="INSTALLED"          ; shift;;
+		-e|--is-loaded)     TEST="LOADED"             ; shift;;
+		-f|--file)          FIND_OPT="$1"             ; shift;;
+		-d|--dir)           FIND_OPT="$1"             ; shift;;
+		-a|--archive)       FIND_OPT="$1"             ; shift;;
+		-q|--quiet)         QUIET=1                   ; shift;;
+		-Q|--no-quiet)      QUIET=0                   ; shift;;
+		-v|--verbose)       VERBOSE=1                 ; shift;;
+		-V|--no-verbose)    VERBOSE=0                 ; shift;;
+		-h|--help)        __lib_test_usage $FUNCNAME; ___exit $?; return  0;;
+		--) shift;;
+		*) break;;
+		esac
+	done
+	
+	
+	local LIB="$(lib_find --quiet --no-verbose $FIND_OPT "$1")"
+	
+	local found=$?
+	
+	
+	case "$CMD" in
+	ENABLED)     __lib_is_enabled   "$LIB"; ___exit $?; return $?;;
+	DISABLED)  ! __lib_is_enabled   "$LIB"; ___exit $?; return $?;;
+	INSTALLED)   __lib_is_installed "$LIB"; ___exit $?; return $?;;
+	LOADED)      __lib_is_loaded    "$LIB"; ___exit $?; return $?;;
+	EXIST)       return $found;;
+	esac
+	
+	return 1
+
+#	while true ; do
+#		case "$1" in
+#		-e|--is-enabled)    
+#		-E|--is-disabled) ! lib_is_enabled      "$2"; ___exit $?; return $?;;
+#		-i|--is-installed)  lib_is_installed    "$2"; ___exit $?; return $?;;
+#		-e|--is-loaded)     lib_is_loaded       "$2"; ___exit $?; return $?;;
+#		-f|--file)          test -f             "$2"; ___exit $?; return $?;;
+#		-d|--dir)           test -d             "$2"; ___exit $?; return $?;;
+#		-a|--archive)       lib_archive --check "$2"; ___exit $?; return $?;;
+#		-h|--help)        __lib_test_usage $FUNCNAME; ___exit $?; return  0;;
+#		--) shift;;
+#		*) break;;
+#		esac
+#	done
+	
+	return 1
 }
+
 
 # Abilita una libreria per l'import.
 lib_enable()
@@ -1244,6 +1848,8 @@ lib_enable()
 	
 	return $exit_code
 }
+
+
 
 # Disabilita una libreria per l'import.
 lib_disable()
@@ -1313,87 +1919,87 @@ SYNOPSIS
 	
 DESCRIPTION
 	Il comando $CMD... 
-		
+	
 OPTIONS
 	
 	-f, --file
-		Importa il file di libreria, specificandone il path, senza eseguire operazioni di naming.
-		Se il file non esiste, ritorna un codice di errore.
+	    Importa il file di libreria, specificandone il path, senza eseguire operazioni di naming.
+	    Se il file non esiste, ritorna un codice di errore.
 	
 	-d, --dir
-		Importa gli script contenuti nella cartella specificata dal path,
-		senza eseguire operazioni di naming.
-		Se l'optione 'include' non è specificata, importa solo gli script abilitati,
-		altrimenti importa tutti gli script con estensione '.$LIB_EXT'.
-		(see: LIBRARY NAMING section of lib_find)
+	    Importa gli script contenuti nella cartella specificata dal path,
+	    senza eseguire operazioni di naming.
+	    Se l'optione 'include' non è specificata, importa solo gli script abilitati,
+	    altrimenti importa tutti gli script con estensione '.$LIB_EXT'.
+	    (see: LIBRARY NAMING section of lib_find)
 	
 	-a, --archive
-		Importa gli script contenuti nella cartella specificata dal path,
-		senza eseguire operazioni di naming.
-		Se l'optione 'include' non è specificata, importa solo gli script abilitati,
-		altrimenti importa tutti gli script con estensione '.$LIB_EXT'.
-		(see: LIBRARY NAMING section of lib_find)
+	    Importa gli script contenuti nella cartella specificata dal path,
+	    senza eseguire operazioni di naming.
+	    Se l'optione 'include' non è specificata, importa solo gli script abilitati,
+	    altrimenti importa tutti gli script con estensione '.$LIB_EXT'.
+	    (see: LIBRARY NAMING section of lib_find)
 	
 	-r, --recursive
-		Se la libreria è una cartella, importa ricorsivamente gli script nella cartella
-		e nelle sue sottocartelle.
+	    Se la libreria è una cartella, importa ricorsivamente gli script nella cartella
+	    e nelle sue sottocartelle.
 	
 	-i, --include
-		Importa una libreria senza controllare se è abilitata o meno.
-		(see: LIBRARY ACTIVATION section)
+	    Importa una libreria senza controllare se è abilitata o meno.
+	    (see: LIBRARY ACTIVATION section)
 	
 	-c, --check
-		Evita di importare la libreria se questa è gia stata precedentemente importata
-		nell'ambiente corrente. Qualora il sorgente della libreria è stato modificato
-		dopo l'import, questa viene importata nuovamente sovrascrivento la precedente
-		definizione.
+	    Evita di importare la libreria se questa è gia stata precedentemente importata
+	    nell'ambiente corrente. Qualora il sorgente della libreria è stato modificato
+	    dopo l'import, questa viene importata nuovamente sovrascrivento la precedente
+	    definizione.
 	
 	-C, --no-check
-		Importa la libreria anche se questa è già stata importata precedentemente.
+	    Importa la libreria anche se questa è già stata importata precedentemente.
 	
 	-F, --force
-		Forza l'import della libreria, non effettuando alcun controllo.
-		Equivale a: --include --no-check
+	    Forza l'import della libreria, non effettuando alcun controllo.
+	    Equivale a: --include --no-check
 	
 	-q, --quiet
-		Disabilita la stampa dei messaggi nel log. (see: lib_log funtions)
+	    Disabilita la stampa dei messaggi nel log. (see: lib_log funtions)
 	
 	-Q, --no-quiet
-		Abilita la stampa dei messaggi nel log. (see: lib_log funtions)
+	    Abilita la stampa dei messaggi nel log. (see: lib_log funtions)
 	
 	-D, --dummy
-		Esegue tutte le operazioni di checking, ma non importa la libreria.
+	    Esegue tutte le operazioni di checking, ma non importa la libreria.
 	
 	-p, --add-libpath
-		Aggiuge temporaneamente una nuova lista di path di libreria a quelli presenti
-		nella variabile d'ambiente LIB_PATH.
+	    Aggiuge temporaneamente una nuova lista di path di libreria a quelli presenti
+	    nella variabile d'ambiente LIB_PATH.
 	
 	-P, --libpath
-		Imposta temporaneamente una nuova lista di path di libreria, invece di quelli 
-		presenti nella variabile d'ambiente LIB_PATH.
+	    Imposta temporaneamente una nuova lista di path di libreria, invece di quelli 
+	    presenti nella variabile d'ambiente LIB_PATH.
 	
 	-h, --help
-		Stampa questo messaggio ed esce.
+	    Stampa questo messaggio ed esce.
 	
 	
 	Command list:
 	
 	-A, --all
-		Importa tutte le librerie abilitate presenti nei path della variabile
-		d'ambiente LIB_PATH.
+	    Importa tutte le librerie abilitate presenti nei path della variabile
+	    d'ambiente LIB_PATH.
 	
 	-u, --update
-		Se necessario, ricarica tutte le librerie importate se sono stati modificati
-		i sorgenti.
+	    Se necessario, ricarica tutte le librerie importate se sono stati modificati
+	    i sorgenti.
 	
 	-l, --list
-		Stampa l'elenco dei nomi di libreria importati nell'ambiente corrente.
+	    Stampa l'elenco dei nomi di libreria importati nell'ambiente corrente.
 	
 	-L, --list-files
-		Stampa l'elenco dei nomi dei file di libreria importati nell'ambiente corrente.
+	    Stampa l'elenco dei nomi dei file di libreria importati nell'ambiente corrente.
 	
 	-R, --list-clear
-		Svuota la lista delle librerie attuamelmente importate.
+	    Svuota la lista delle librerie attuamelmente importate.
 	
 	
 LIBRARY ACTIVATION
@@ -1409,16 +2015,16 @@ EXAMPLES
 	~ > lib_path_add $HOME/lib2
 	
 	~ > ls -R lib1
-		lib1/:
-		a.lib b.lib dir1
-		lib1/dir1:
-		c.lib dir2
-		lib1/dir1/dir2
-		d.lib f.lib 
-		ls -R lib2
-		lib2/:
-		g.lib
-		
+	    lib1/:
+	    a.lib b.lib dir1
+	    lib1/dir1:
+	    c.lib dir2
+	    lib1/dir1/dir2
+	    d.lib f.lib 
+	    ls -R lib2
+	    lib2/:
+	    g.lib
+	
 	~ > $CMD a
 	    importa il file: lib1/a.lib
 	
