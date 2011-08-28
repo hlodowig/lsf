@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-LFS_VERSINFO=([0]="0" [1]="8" [2]="2" [3]="0" [4]="alpha" [5]="all")
+LFS_VERSINFO=([0]="0" [1]="8" [2]="3" [3]="0" [4]="alpha" [5]="all")
 
 
 
@@ -37,57 +37,6 @@ export LIB_FILE_LIST="${LIB_FILE_LIST:-""}"
 
 # Mappa che associa ad un archivio una directory temporanea
 declare -gxA LIB_ARC_MAP
-
-
-### TMP ####
-
-lib_is_installed()
-{
-	lib_find --quiet "$1"
-}
-
-lib_is_loaded()
-{
-	[ -n "$1" ] || return 1
-	
-	local lib=
-	
-	if [ "$1" == "-f" ]; then
-		lib=$(lib_find -f $2)
-	else
-		lib=$(lib_find $1)
-	fi
-	
-	[ -n "$lib" ] || return 1
-	
-	echo "$(__lib_list_files)" | grep -E -q -e "$lib" > /dev/null
-	
-	return $?
-}
-
-lib_is_enabled()
-{
-	__lib_is_enabled()
-	{
-		local library="$1"
-		local libfile="$2"
-		
-		if [ -n "$libfile" ]; then
-			test -x "$libfile" && return 0
-			return 1
-		fi
-		
-		return 2
-	}
-	
-	lib_apply --lib-function __lib_is_enabled $@
-	
-	local exit_code=$?
-	
-	unset __lib_is_enabled
-	
-	return $exit_code
-}
 
 
 ### UTILITY FUNCTIONS ##########################################################
@@ -266,9 +215,10 @@ lib_log()
 	{
 		local CMD="$1"
 		
+		
 		(cat << END
 NAME
-	$CMD - Log Manager di LSF.
+	${CMD:=lib_log} - Log Manager di LSF.
 
 SYNOPSIS
 	Enable/Disable command:
@@ -277,11 +227,11 @@ SYNOPSIS
 	    $CMD [OPTIONS] -E|--is-enabled
 	
 	Print command:
-	    $CMD [OPTIONS] [-e|--enable] MESSAGE
+	    $CMD [OPTIONS] [-e|--enable] <message>
 	
 	Outout command:
 	    $CMD [OPTIONS] -o|--output
-	    $CMD [OPTIONS] -o|--output FILE|DEVICE
+	    $CMD [OPTIONS] -o|--output <file>|<device>
 	
 	View command:
 	    $CMD [OPTIONS] -l|--view
@@ -347,7 +297,7 @@ END
 		-E|--is-enabled)     test $LIB_LOG_ENABLE -eq 1 && return 0; return  1;;
 		-v|--verbose)        VERBOSE=1                             ; shift    ;;
 		-V|--no-verbose)     VERBOSE=0                             ; shift    ;;
-		-h|--help)           __lib_log_usage "$FUNCNAME"           ; return  0;;
+		-h|--help)           __lib_log_usage $FUNCNAME             ; return  0;;
 		--) shift; break;;
 		esac
 	done
@@ -481,7 +431,7 @@ lib_path()
 		
 		(cat << END
 NAME
-	$CMD - Toolkit per la variabile LIB_PATH.
+	${CMD:=lib_path} - Toolkit per la variabile LIB_PATH.
 
 SYNOPSIS
 	$CMD [OPTIONS] [-g|--get] [i1:i2:i3]   con 1 < in < D+1, D=# path
@@ -749,30 +699,140 @@ END
 # Se l'argomento è nullo o il file o cartella non esiste
 lib_name()
 {
-	[ $# -gt 0 ] || [ -e "$1" ] || return 1
+	__lib_name_usage()
+	{
+		local CMD="$1"
+
+		(cat <<END
+NAME
+	${CMD:=lib_name} - Trova la libreria e applica una funzione specifica su di essa.
+
+SYNOPSIS
+	$CMD  <lib_path>
 	
 	
+DESCRIPTION
+	Il comando $CMD converte il path delle libreria (file, directory, archivio),
+	nel nome associato secondo le regole di naming. 
+	
+	
+OPTIONS
+	-p, --add-libpath
+	    Aggiuge temporaneamente una nuova lista di path di libreria a quelli presenti
+	    nella variabile d'ambiente LIB_PATH.
+	
+	-P, --libpath
+	    Imposta temporaneamente una nuova lista di path di libreria, invece di quelli 
+	    presenti nella variabile d'ambiente LIB_PATH.
+	
+	-h| --help
+	    Stampa questo messaggio ed esce.
+	
+NAMING
+	_____________________________________________________
+	
+	Conversion Sintax:
+	
+	- Library File:
+	    <lib_file_name>.$LIB_EXT  ==>  <lib_file_name>
+	    
+	- Library Directory:
+	    <lib_dir_name>  ==>  <lib_dir_name>[:|/]
+	
+	- Library Archive:
+	    <lib_arc_name>.$ARC_EXT  ==>  <lib_arc_name>@
+	_____________________________________________________
+	
+	EXAMPLE:
+	
+	> LIB_PATH=lib
+	
+	> ls lib
+	  core/ 
+	  core.lsa 
+	  core.lsf
+	> lib_name lib/core.lsf
+	  core
+	> lib_name lib/core.lsa
+	  core@
+	> lib_name lib/core
+	  core:
+	  
+	  # Per riferirsi al contenuto di un archivio
+	> lib_name lib/core/archive.lsa:/cui/term.lsf
+	  core:archive@:cui:term
+	  
+END
+		
+		) | less
+		
+		return 0
+	}
+	
+	[ $# -eq 0 -o -z "$*" ] && return 1
+	
+	local ARGS=$(getopt -o hp:P:vV -l help,add-libpath:,libpath:,verbose,no-verbose -- "$@")
+	eval set -- $ARGS
+	
+	#echo "NAME ARGS=$ARGS" > /dev/stderr
+	
+	local libpath="$LIB_PATH"
+	local VERBOSE=0
+	
+	while true ; do
+		case "$1" in
+		-p|--add-libpath)  libpath="${2}:${LIB_PATH}" ; shift  2;;
+		-P|--libpath)      libpath="$2"               ; shift  2;;
+		-v|--verbose)      VERBOSE=1                  ; shift   ;;
+		-V|--no-verbose)   VERBOSE=0                  ; shift   ;;
+		-h|--help)         __lib_name_usage $FUNCNAME ; return 0;;
+		--) shift;;
+		*) break;;
+		esac
+	done
+	
+	local LIB_NAME=""
 	local lib="$1"
 	local sublib=""
 	
 	if echo "$lib" | grep -q "\.$ARC_EXT"; then
+		
 		local regex="^.*.$ARC_EXT"
-		lib="$(echo "$1" | grep -o -E -e "$regex")"
-		sublib="$(echo "$1" | awk -v S="$regex" '{gsub(S,""); print}')"
+		
+		sublib="$(echo "$lib" | awk -v S="$regex" '{gsub(S,""); print}')"
+		lib="$(echo "$lib" | grep -o -E -e "$regex")"
 	fi
 	
 	
 	lib=$(__lib_get_absolute_path "$lib")
+	
 	local dirs=""
-	for libdir in ${LIB_PATH//:/ }; do
+	
+	for libdir in ${libpath//:/ }; do
+		
 		local dir=$(__lib_get_absolute_path $libdir)
+		
 		[ "$lib" == $dir ] && return 3
+		
 		dirs="$dirs|$dir"
+		
+		dirs=${dirs#|}
 	done
 	
-	echo ${lib}${sublib} | awk -v S=".$ARC_EXT" '{gsub(S,"@"); print}' |
-	awk -v S="^($dirs)/|(.$LIB_EXT|/)$" '{gsub(S,""); print}' |
-	tr / :
+	CMD="echo \"${lib}${sublib}\" | awk '{ gsub(\"^($dirs)/\",\"\"); print}' | 
+	       awk '{ gsub(\"(:|/)+\",\"/\");      print }' | 
+	       awk '{ gsub(\"[.]$ARC_EXT\",\"@\"); print }' |
+	       awk '! /[.]$LIB_EXT\$/ { printf \"%s/\n\", \$0 }
+	              /[.]$LIB_EXT\$/ { gsub(\"[.]$LIB_EXT\$\",\"\"); print}' |
+	       tr / :"
+	
+	LIB_NAME=$(eval "$CMD")
+	
+	if [ $VERBOSE -eq 1 ]; then
+		echo "Il nome associato al file di libreria '$1' è il seguente:"
+	fi
+	
+	echo $LIB_NAME
 }
 
 
@@ -789,7 +849,7 @@ lib_archive()
 		
 		(cat << END
 NAME
-	$CMD - Crea e gestice gli archivi di libreria.
+	${CMD:=lib_archive} - Crea e gestice gli archivi di libreria.
 
 SYNOPSIS
 	Create command:
@@ -1011,8 +1071,6 @@ END
 		-R|--no-clean-dir)   CLEAN_DIR=0                           ; shift    ;;
 		-F|--force)          FORCE=1                               ; shift    ;;
 		--no-force)          FORCE=0                               ; shift    ;;
-		-w|--realpath)       REALPATH=1                            ; shift    ;;
-		-W|--no-realpath)    REALPATH=0                            ; shift    ;;
 		-q|--quiet)          QUIET=1   ;FIND_OPTS="$FIND_OPTS $1"  ; shift    ;;
 		-Q|--no-quiet)       QUIET=0   ;FIND_OPTS="$FIND_OPTS $1"  ; shift    ;;
 		-v|--verbose)        VERBOSE=1 ;FIND_OPTS="$FIND_OPTS $1"  ; shift    ;;
@@ -1472,7 +1530,7 @@ lib_find()
 
 	(cat <<END
 NAME
-	$CMD - Restituisce il path della libreria passato come parametro.
+	${CMD:=lib_find} - Restituisce il path della libreria passato come parametro.
 
 SYNOPSIS
 	$CMD [OPTIONS] [DIR:...][ARCHIVE@:][DIR:...]LIB_NAME
@@ -1681,7 +1739,7 @@ END
 #
 # library function definition:
 #
-# function_name() <lib_id> <lib_file> { ... }
+# function_name() { ... }
 #
 # ES.
 # > lib_set lib
@@ -1706,6 +1764,64 @@ lib_apply()
 {
 	[ $# -eq 0 ] && return 1
 	
+	__lib_apply_usage()
+	{
+		local CMD="$1"
+
+		(cat <<END
+NAME
+	${CMD:=lib_apply} - Trova la libreria e applica una funzione specifica su di essa.
+
+SYNOPSIS
+	$CMD [OPTIONS] [dir:...][archive_name@[:]][dir:...]<lib_name>
+	
+	$CMD [OPTIONS] -f|--file    <lib_file_path>
+	
+	$CMD [OPTIONS] -d|--dir     <lib_dir_path>
+	
+	$CMD [OPTIONS] -a|--archive <lib_arc_path>
+	
+	
+DESCRIPTION
+	Il comando $CMD trova il path associato ad una libreria, sia essa file o cartella o archivio,
+	e applica a suddetti file una funzione definita dall'utente e passata come parametro.
+	
+	
+OPTIONS
+	-F, --lib-function
+	    Funzione applicata alla libreria se viene trovata.
+	    Sono disponibili due variabili: LIB_NAME e LIB_FILE (quest'ultimo passato come parametro).
+	
+	-E, --lib-error-function
+	    Funzione applicata alla libreria se non viene trovata.
+	    Sono disponibili due variabili: LIB_FILE e LIB_NAME (quest'ultimo passato come parametro)
+	
+	-f, --file
+	    Verifica se il file di libreria esiste, senza eseguire operazioni di naming.
+	    Se il file non esiste, viene applicata la funzione specificata, altrimenti la funzione
+	    di error.
+	
+	-d, --dir
+	    Verifica se la directory specificata dal path esiste, senza eseguire
+	    operazioni di naming.
+	    Se la directory non esiste, viene applicata la funzione specificata, 
+	    altrimenti la funzione di error.
+	
+	-a, --archive  
+	    Verifica se l'archivio specificato dal path esiste, senza eseguire
+	    operazioni di naming.
+	    Se la directory non esiste, viene applicata la funzione specificata, 
+	    altrimenti la funzione di error.
+	
+	-h| --help
+	    Stampa questo messaggio ed esce.
+	
+END
+		) | less
+		
+		return 0
+	}
+	
 	local ARGS=$(getopt -o h,F:E:fdaqQ -l help,lib-function:,lib-error-function:,file,dir,archive,quiet,no-quiet -- "$@")
 	eval set -- $ARGS
 	
@@ -1715,6 +1831,24 @@ lib_apply()
 	local FIND_OPT=""
 	local exit_code=
 	local QUIET=0
+	
+	local IS_ARC=0
+	local LIB_FUN="__lib_apply_default_lib_function"
+	local ERR_FUN="__lib_apply_default_lib_error_function"
+	
+	
+	while true ; do
+		case "$1" in
+		-F|--lib-function)       LIB_FUN="$2"   ; shift  2;;
+		-E|--lib-error-function) ERR_FUN="$2"   ; shift  2;;
+		-f|--file)               FIND_OPT="$1"  ; shift   ;;
+		-d|--dir)                FIND_OPT="$1"  ; shift   ;;
+		-a|--archive) IS_ARC=1;  FIND_OPT="$1"  ; shift   ;;
+		-h|--help) __lib_apply_usage $FUNCNAME  ; return 0;;
+		--) shift;;
+		*) break;;
+		esac
+	done
 	
 	__lib_apply_default_lib_function()
 	{
@@ -1736,24 +1870,6 @@ lib_apply()
 		
 		return 1
 	}
-	
-	local IS_ARC=0
-	local LIB_FUN="__lib_apply_default_lib_function"
-	local ERR_FUN="__lib_apply_default_lib_error_function"
-	
-	
-	while true ; do
-		case "$1" in
-		-F|--lib-function)       LIB_FUN="$2"   ; shift 2;;
-		-E|--lib-error-function) ERR_FUN="$2"   ; shift 2;;
-		-f|--file)               FIND_OPT="$1"  ; shift  ;;
-		-d|--dir)                FIND_OPT="$1"  ; shift  ;;
-		-a|--archive) IS_ARC=1;  FIND_OPT="$1"  ; shift  ;;
-		-h|--help)               return 0;;
-		--) shift;;
-		*) break;;
-		esac
-	done
 	
 	[ -z "LIB_FUN" ] && return
 	
@@ -1798,6 +1914,9 @@ lib_apply()
 		fi
 	done
 	
+	unset __lib_apply_default_lib_function
+	unset __lib_apply_default_lib_error_function
+	
 	return $exit_code
 }
 
@@ -1810,22 +1929,46 @@ lib_test()
 		
 		(cat << END
 NAME
-	$CMD - Test.
+	${CMD:=lib_test} - Test.
 
 SYNOPSIS
-	$CMD [OPTIONS] -e|--is-enabled   LIB
+	$CMD [OPTIONS] -e|--is-enabled               <lib_name>
 	
-	$CMD [OPTIONS] -i|--is-installed LIB
+	$CMD [OPTIONS] -e|--is-enabled -f|--file     <lib_file_path>
 	
-	$CMD [OPTIONS] -l|--is-loaded    LIB
+	$CMD [OPTIONS] -e|--is-enabled -d|--dir      <lib_dir_path>
 	
-	$CMD [OPTIONS] -f|--is-file      LIB_FILE
+	$CMD [OPTIONS] -e|--is-enabled -a|--archive  <lib_arc_path>
 	
-	$CMD [OPTIONS] -d|--is-dir       LIB_DIRECTORY
 	
-	$CMD [OPTIONS] -a|--is-file      LIB_ARCHIVE
+	$CMD [OPTIONS] -i|--is-installed               <lib_name>
+	
+	$CMD [OPTIONS] -i|--is-installed -f|--file     <lib_file_path>
+	
+	$CMD [OPTIONS] -i|--is-installed -d|--dir      <lib_dir_path>
+	
+	$CMD [OPTIONS] -i|--is-installed -a|--archive  <lib_arc_path>
+	
+	
+	$CMD [OPTIONS] -l|--is-loaded               <lib_name>
+	
+	$CMD [OPTIONS] -l|--is-loaded -f|--file     <lib_file_path>
+	
+	$CMD [OPTIONS] -l|--is-loaded -d|--dir      <lib_dir_path>
+	
+	$CMD [OPTIONS] -l|--is-loaded -a|--archive  <lib_arc_path>
+	
+	
+	
+	$CMD [OPTIONS] -f|--file|--is-file        <lib_file_path>
+	
+	$CMD [OPTIONS] -d|--dir|--is-dir          <lib_dir_path>
+	
+	$CMD [OPTIONS] -a|--archive|--is-archive  <lib_arc_path>
+	
 	
 	$CMD -h|--help
+	
 	
 DESCRIPTION
 	Il comando $CMD gestisce e manipola la variabile d'ambiente LIB_PATH del framework LSF.
@@ -2020,7 +2163,7 @@ lib_import()
 		local CMD=$1
 		(cat << END
 NAME
-	$CMD - Importa librerie nell'ambiente corrente.
+	${CMD:=lib_import} - Importa librerie nell'ambiente corrente.
 
 SYNOPSIS
 	$CMD

@@ -77,7 +77,7 @@ alias lib_archive_extract="lib_archive --extract"
 alias lib_archive_unpack="lib_archive --unpack"
 
 
-### LOG ALIASES ################################################################
+### PATH ALIASES ################################################################
 
 # Restituisce il valore della variabile LIB_PATH, se non viene passato alcun
 # parametro.
@@ -131,6 +131,39 @@ alias lib_log_view="lib_log --view"
 
 # Se l'output del log è un file, cancella l'history del log.
 alias lib_log_reset="lib_log --reset"
+
+
+### TEST ALIASES ###############################################################
+
+alias lib_is_file="lib_test --is-file"
+
+alias lib_is_dir="lib_test --is-dir"
+
+alias lib_is_archive="lib_test --is-archive"
+
+alias lib_is_enabled="lib_test -is-enabled"
+
+alias lib_is_enabled_file="lib_test --is-enabled --file"
+
+alias lib_is_enabled_dir="lib_test --is-enabled --dir"
+
+alias lib_is_enabled_archive="lib_test --is-enabled --archive"
+
+alias lib_is_installed="lib_test --is-installed"
+
+alias lib_is_installed_file="lib_test --is-installed --file"
+
+alias lib_is_installed_dir="lib_test --is-installed --dir"
+
+alias lib_is_installed_archive="lib_test --is-installed --archive"
+
+alias lib_is_loaded="lib_test --is-loaded"
+
+alias lib_is_loaded_file="lib_test --is-loaded --file"
+
+alias lib_is_loaded_dir="lib_test --is-loaded --dir"
+
+alias lib_is_loaded_archive="lib_test --is-loaded --archive"
 
 
 ### CODE ALIASES ###############################################################

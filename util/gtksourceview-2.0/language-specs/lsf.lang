@@ -504,10 +504,8 @@
       <keyword>list</keyword>
       <keyword>list_apply</keyword>
       <keyword>log</keyword>
-      <keyword>is_enabled</keyword>
-      <keyword>is_installed</keyword>
-      <keyword>is_loaded</keyword>
       <keyword>path</keyword>
+      <keyword>test</keyword>
     </context>
     
     <context id="lsf-command-alias" style-ref="lsf-command-alias">
@@ -547,6 +545,21 @@
       <keyword>path_add</keyword>
       <keyword>path_remove</keyword>
       <keyword>path_reset</keyword>
+      <keyword>is_enabled</keyword>
+      <keyword>is_enabled_file</keyword>
+      <keyword>is_enabled_dir</keyword>
+      <keyword>is_enabled_archive</keyword>
+      <keyword>is_installed</keyword>
+      <keyword>is_installed_file</keyword>
+      <keyword>is_installed_dir</keyword>
+      <keyword>is_installed_archive</keyword>
+      <keyword>is_loaded</keyword>
+      <keyword>is_loaded_file</keyword>
+      <keyword>is_loaded_dir</keyword>
+      <keyword>is_loaded_archive</keyword>
+      <keyword>is_file</keyword>
+      <keyword>is_dir</keyword>
+      <keyword>is_archive</keyword>
     </context>
 
     <context id="lsf-command-code" style-ref="lsf-command-code">

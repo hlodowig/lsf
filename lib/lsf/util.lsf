@@ -13,22 +13,7 @@ lib_include cui:tabulator
 # Stampa il contenuto del file relativa ad una libreria.
 lib_cat()
 {
-	__lib_cat()
-	{
-		local libfile="$2"
-		
-		if [ -n "$libfile" ]; then
-			cat $libfile
-		fi
-	}
-	
-	lib_apply --lib-function __lib_cat $@
-	
-	local exit_code=$?
-	
-	unset __lib_cat
-	
-	return $exit_code
+	lib_apply --lib-function cat $@
 }
 
 lib_make_script()
