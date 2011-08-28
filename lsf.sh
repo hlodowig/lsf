@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-LFS_VERSINFO=([0]="0" [1]="8" [2]="1" [3]="0" [4]="alpha" [5]="all")
+LFS_VERSINFO=([0]="0" [1]="8" [2]="2" [3]="0" [4]="alpha" [5]="all")
 
 
 
