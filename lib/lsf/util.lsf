@@ -151,7 +151,7 @@ lib_list_dir()
 			echo -en "[-] [LIB] "
 		fi
 		
-		if lib_is_loaded -f $library; then
+		if lib_test --is-loaded --file $library; then
 			echo -en "[*] "
 		else
 			echo -en "[O] "

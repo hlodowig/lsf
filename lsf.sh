@@ -793,26 +793,38 @@ NAME
 
 SYNOPSIS
 	Create command:
-	    $CMD [OPTIONS] -c|--create|--build [-d|--dir DIR] ARCHIVE_FILE
-	    $CMD [OPTIONS] -c|--create|--build  -d|--dir DIR  [DIR.$ARC_EXT]
+	    $CMD [OPTIONS] -c|--create|--build [-d|--dir .]            [lib.$ARC_EXT]
+	    $CMD [OPTIONS] -c|--create|--build [-d|--dir .]            ARCHIVE_NAME.$ARC_EXT
+	    $CMD [OPTIONS] -c|--create|--build [-d|--dir ARCHIVE_NAME] ARCHIVE_NAME
+	    $CMD [OPTIONS] -c|--create|--build [-d|--dir DIR]          ARCHIVE_NAME[.$ARC_EXT]
+	    $CMD [OPTIONS] -c|--create|--build  -d|--dir DIR           [DIR.$ARC_EXT]
+	    
+	    $CMD [OPTIONS] -c|--create|--build ARCHIVE_NAME[.$ARC_EXT]:DIR
+	    $CMD [OPTIONS] -c|--create|--build ARCHIVE_NAME.$ARC_EXT(:|/):DIR
+	
 	
 	Check command:
-	    $CMD [OPTIONS] -C|--check   ARCHIVE_FILE
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -C|--check   ARCHIVE_FILE[.$ARC_EXT]
+	    
 	    $CMD [OPTIONS] [NAMING_OPTIONS] -y|--verify  ARCHIVE_NAME@
 	
+	
 	List command:
-	    $CMD [OPTIONS] -l|--list  ARCHIVE_FILE
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -l|--list  ARCHIVE_FILE[.$ARC_EXT]
 	    $CMD [OPTIONS] [NAMING_OPTIONS] -L|--ls    ARCHIVE_NAME@
 	
+	
 	Search command:
-	    $CMD [OPTIONS] -s|--search -m|--library LIB_FILE  ARCHIVE_FILE
-	    $CMD [OPTIONS] -s|--search ARCHIVE_FILE[:|/]LIB_FILE
-	    $CMD [OPTIONS] [NAMING_OPTIONS] -f|--find   ARCHIVE_NAME@[:]LIB_NAME
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -s|--search -m|--library LIB_FILE  ARCHIVE_FILE
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -s|--search  ARCHIVE_FILE[:|/]LIB_FILE
+	    
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -f|--find    ARCHIVE_NAME@[:]LIB_NAME
 	
 	Extract command:
-	    $CMD [OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -x|--extract [-m|--library LIB_FILE] ARCHIVE_FILE
-	    $CMD [OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -x|--extract  ARCHIVE_FILE[[:|/]LIB_FILE]
-	    $CMD [OPTIONS] [EXTRACT OPTIONS] [NAMING_OPTIONS] [-d|--dir DIR] -u|--unpack   ARCHIVE_NAME@
+	    $CMD [OPTIONS] [NAMING_OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -x|--extract [-m|--library LIB_FILE]  ARCHIVE_FILE
+	    $CMD [OPTIONS] [NAMING_OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -x|--extract  ARCHIVE_FILE[[:|/]LIB_FILE]
+	    
+	    $CMD [OPTIONS] [NAMING_OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -u|--unpack   ARCHIVE_NAME@
 	
 	
 DESCRIPTION
@@ -822,6 +834,14 @@ DESCRIPTION
 GENERIC OPTIONS
 	-h, --help
 	    Stampa questa messaggio e esce.
+	
+	-p, --add-libpath
+	    Aggiuge temporaneamente una nuova lista di path di libreria a quelli presenti
+	    nella variabile d'ambiente LIB_PATH.
+	
+	-P, --libpath
+	    Imposta temporaneamente una nuova lista di path di libreria, invece di quelli 
+	    presenti nella variabile d'ambiente LIB_PATH.
 	
 	-q, --quiet
 	    Non stampa nulla sullo standard output.
@@ -864,57 +884,81 @@ COMMAND OPTIONS
 	-u, --unpack
 	    Equivale a: --naming --extract o in brave -nx
 	
+	--clear-temp
+	    Cancella tutte le cartelle temporanee in /tmp/lst-*
+	
+	--clear-track
+	    Svuota la mappa per il tracking degli archivi estratti.
+	
+	--clear
+	    Equivale a: --clear-temp --clear-track
+	
 CREATE OPTIONS
-	-d, --dir
-
+	-d, --dir DIR
+	    Imposta la directory ch
+	
 SEARCH OPTIONS
-	-w, --realpath
-	    
-	
-	-W, --no-realpath)
-	    
-	
+	-m, --library LIB_PATH
+	    Imposta la libreria da ricercare all'interno dell'archivio.
 	
 EXTRACT OPTIONS
-	-d, --dir
+	-d, --dir DIR
+	    Imposta la directory di estrazione per l'archivio.
+	
 	-t, --temp-dir
-	--no-temp-dir
+	    Abilita la creazione automatica di una directory temporanea di estrazione.
+	    Le directory temporanee seguono il seguente pattern: /tmp/lsf-[PID]-XXXXXXXX.
+	
+	--no-temp-dir (default)
+	    Disabilita la creazione automatica di una directory temporanea di estrazione.
+	
 	-T, --track
-	--no-track
+	    Abilita la modalità di tracciamento.
+	    Il comando salva nella variabile d'ambieante LIB_ARC_MAP la coppia 
+	    archivio e directory di estrazione, considerando i path assoluti.
+	
+	--no-track  (default)
+	    Disabilità la modalità di tracciamento.
+	
 	-r, --clean-dir
-	-R, --no-clean-dir
+	    Rimuove il contenuto della cartella, prima di effettuare l'estrazione.
+	
+	-R, --no-clean-dir (default)
+	    Non rimuove il contenuto della cartella, prima di effettuare l'estrazione.
+	
 	-F, --force
-	    --no-force
+	    Anche se la modalità di tracking è attiva, forza l'estrazione dell'archivio.
+	
+	--no-force (default)
+	    Non forza l'estrazione quando l'archivio è già stato tracciato come estratto.
 	
 NAMING OPTIONS
 	-n, --naming
-	    
+	    Abilita la modalità di naming.
+	    Converte il nome di una libreria nei corrispondente path.
+	    @see lib_name --help: NAMING SECTION
 	
-	-N, --no-naming
-	    
+	-N, --no-naming   (default)
+	    Disabilita la modalità di naming.
 	
-	-p, --add-libpath
-	    Aggiuge temporaneamente una nuova lista di path di libreria a quelli presenti
-	    nella variabile d'ambiente LIB_PATH.
+	-a, --auto-naming (default)
+	    Abilita automaticamente la modalità naming se nel parametro di input compare '@'.
 	
-	-P, --libpath
-	    Imposta temporaneamente una nuova lista di path di libreria, invece di quelli 
-	    presenti nella variabile d'ambiente LIB_PATH.
+	-A|--no-auto-naming)
+	    Disabilita la modalità automatica di naming.
 	
-
 END
 		) | less
 		return 0
 	}
 	
-	local ARGS=$(getopt -o CyclLhsfxud:nNvVqQrRtTFp:P:wWm: -l check,verify,create,build,list,ls,search,find,extract,unpack,dir:,help,naming,no-naming,temp-dir,no-temp-dir,track,no-track,clean-dir,no-clean-dir,quiet,no-quiet,verbose,no-verbose,force,no-force,clean,clean-temp,clean-track,libpath:,add-libpath:,realpath,library: -- "$@")
+	local ARGS=$(getopt -o CyclLhsfxud:nNvVqQrRtTFp:P:m:aA -l check,verify,create,build,list,ls,search,find,extract,unpack,dir:,help,naming,no-naming,temp-dir,no-temp-dir,track,no-track,clean-dir,no-clean-dir,quiet,no-quiet,verbose,no-verbose,force,no-force,clean,clean-temp,clean-track,libpath:,add-libpath:,library:,auto-naming,no-auto-naming -- "$@")
 	eval set -- $ARGS
 	
 	#echo "ARCHIVE ARGS=$ARGS" > /dev/stderr
 	
 	local LIB_FILE=""
 	local DIR=""
-	local NAMING=0
 	local TMP=0
 	local TRACK=0
 	local REALPATH=0
@@ -930,6 +974,8 @@ END
 	local tar_verbose=
 	local libpath=
 	local FIND_OPTS=
+	local NAMING=0
+	local AUTO_NAMING=1
 	
 	while true ; do
 		case "$1" in
@@ -945,6 +991,8 @@ END
 		-m|--library)        LIB_FILE="$2"                         ; shift   2;;
 		-n|--naming)         NAMING=1                              ; shift    ;;
 		-N|--no-naming)      NAMING=0                              ; shift    ;;
+		-a|--auto-naming)    AUTO_NAMING=1                         ; shift    ;;
+		-A|--no-auto-naming) AUTO_NAMING=0                         ; shift    ;;
 		-p|--add-libpath)    libpath="${2}:${LIB_PATH}"            ; shift   2;;
 		-P|--libpath)        libpath="$2"                          ; shift   2;;
 		--clean-temp)        CMD="CLEAN";
@@ -1003,33 +1051,28 @@ END
 		local DIR="$1"
 		local ARCHIVE_FILE="$2"
 		
-		if [ -z "$ARCHIVE_FILE" -a "$DIR" != "." ]; then
-			ARCHIVE_FILE="$(basename "$DIR")"
-		else
-			ARCHIVE_FILE="lib"
-		fi
 		
-		if ! echo $ARCHIVE_FILE | grep -q ".$ARC_EXT$"; then
-			ARCHIVE_FILE="$ARCHIVE_FILE.$ARC_EXT"
-		fi
-		
-		[ $VERBOSE -eq 1 ] && echo "Creazione archivio di librerie: $ARCHIVE_FILE"
+		[ $QUIET -eq 0 -o $VERBOSE -eq 1 ] && 
+		(echo "Creazione archivio di librerie: $ARCHIVE_FILE"
+		 echo "Library directory: $DIR")
 		
 		ARCHIVE_FILE="$(__lib_get_absolute_path "$ARCHIVE_FILE")"
 		
 		if [ ! -d "$DIR" ]; then
-			if [ $VERBOSE -eq 1 ]; then
+			if [ $QUIET -eq 0 -o $VERBOSE -eq 1 ]; then
 				echo "La directory '$DIR' non esiste."
 				echo "Creazione archivio fallita!"
 			fi
 			return 2
 		fi
 		
-		(cd "$DIR" && tar -czf "$ARCHIVE_FILE" *);
+		local tar_opts=
+		[ $VERBOSE -eq 1 ] && tar_opts="-v"
+		(cd "$DIR" && tar $tar_opts -czf "$ARCHIVE_FILE" * 2> /dev/null);
 		
 		local exit_code=$?
 		
-		if [ $VERBOSE -eq 1 ]; then
+		if [ $QUIET -eq 0 -o $VERBOSE -eq 1 ]; then
 			if [ $exit_code -eq 0 ]; then
 				echo "Creazione archivio completata con successo!"
 			else
@@ -1044,7 +1087,10 @@ END
 	{
 		[ $# -eq 0 ] && return 1
 		
-		local verbose=$VERBOSE
+		local verbose=0
+		
+		[ $QUIET -eq 0 -o $VERBOSE -eq 1 ] && verbose=1
+		[ $QUIET -eq 1 ]                   && verbose=0
 		
 		if [ "$1" == "-q" ]; then
 			verbose=0
@@ -1101,20 +1147,30 @@ END
 			if [ "$2" == "$libfile" ]; then
 				[ $VERBOSE -eq 1 ] && echo "trovato!"
 				if [ $QUIET -eq 0 ]; then
-					if [ $REALPATH -eq 0 ]; then
-						echo "$ARCHIVE_NAME:$LIB"
-					else
+					if [ $REALPATH -eq 1 -a -n "${LIB_ARC_MAP[$ARCHIVE_NAME]}" ]; then
 						echo "${LIB_ARC_MAP[$ARCHIVE_NAME]}:$LIB"
+					else
+						echo "$ARCHIVE_NAME:$LIB"
 					fi
 				fi
 				return 0
 			elif [ "$2.$LIB_EXT" == "$libfile" ]; then
 				[ $VERBOSE -eq 1 ] && echo "trovato!"
 				if [ $QUIET -eq 0 ]; then
-					if [ $REALPATH -eq 0 ]; then
-						echo "$ARCHIVE_NAME:$LIB.$LIB_EXT"
-					else
+					if [ $REALPATH -eq 1 -a -n "${LIB_ARC_MAP[$ARCHIVE_NAME]}" ]; then
 						echo "${LIB_ARC_MAP[$ARCHIVE_NAME]}:$LIB.$LIB_EXT"
+					else
+						echo "$ARCHIVE_NAME:$LIB.$LIB_EXT"
+					fi
+				fi
+				return 0
+			elif [ "$2.$ARC_EXT" == "$libfile" ]; then
+				[ $VERBOSE -eq 1 ] && echo "trovato!"
+				if [ $QUIET -eq 0 ]; then
+					if [ $REALPATH -eq 1 -a -n "${LIB_ARC_MAP[$ARCHIVE_NAME]}" ]; then
+						echo "${LIB_ARC_MAP[$ARCHIVE_NAME]}:$LIB.$ARC_EXT"
+					else
+						echo "$ARCHIVE_NAME:$LIB.$ARC_EXT"
 					fi
 				fi
 				return 0
@@ -1158,8 +1214,6 @@ END
 					
 					[ $VERBOSE -eq 1 ] &&
 					echo "La directory '$DIR' è stata rimossa."
-					
-					DIR=""
 					
 					unset LIB_ARC_MAP[$ARCHIVE_NAME]
 				else
@@ -1229,7 +1283,8 @@ END
 			echo -e "archivio '$2' nella directory: $DIR\n"
 		fi
 		# Estazione dell'archivio
-		tar -xzvf "$ARCHIVE_NAME" -C "$DIR" "$LIB" 2> /dev/null | awk -v DIR="$DIR" '{printf "%s/%s\n", DIR, $0}'
+		tar -xzvf "$ARCHIVE_NAME" -C "$DIR" "$LIB" 2> /dev/null | 
+		awk -v DIR="$DIR" 'BEGIN {print DIR } {printf "%s/%s\n", DIR, $0}'
 		
 		local exit_code=$?
 		
@@ -1292,20 +1347,38 @@ END
 		return $1
 	}
 	
-	local ARC_FILE="$1"
 	
-	#echo "ARC_FILE=$ARC_FILE" > /dev/stderr
+	#echo -e "Input: $1\n" > /dev/stderr
+	
+	if [ $NAMING -eq 0 -a $AUTO_NAMING -eq 1 ]; then
+		echo $1 | grep -q "@" && NAMING=1
+	fi
+	
+	
+	local ARC_FILE="$1"
 	
 	if [ $NAMING -eq 1 ]; then
 		
-		local ARC_NAME=$(echo ${ARC_FILE} | awk '{gsub("@.*$",""); print}')
-		local LIB_NAME=$(echo ${ARC_FILE} | awk '{gsub("^.*@:?",""); print}')
+		#echo "Naming: enabled"
 		
-		#echo "ARC_NAME=$ARC_NAME" > /dev/stderr
-		#echo "LIB_NAME=$LIB_NAME" > /dev/stderr
+		local ARC_NAME=$(echo ${ARC_FILE} | awk '{gsub(":","/"); gsub("@.*$",""); printf "%s@\n", $0}')
+		local LIB_NAME=$(echo ${ARC_FILE} | awk -v A="^$ARC_NAME" '{  gsub(A,""); print }')
 		
-		[ -z "$ARC_NAME" ] || ARC_FILE="${ARC_NAME//://}.$ARC_EXT"
-		[ -z "$LIB_NAME" ] || LIB_FILE="${LIB_NAME//://}.$LIB_EXT"
+		#echo "- ARC_NAME=$ARC_NAME" > /dev/stderr
+		#echo "- LIB_NAME=$LIB_NAME" > /dev/stderr
+		
+		[ -n "$ARC_NAME" ] && ARC_FILE="${ARC_NAME/@/.$ARC_EXT}"
+		
+		if [ -n "$LIB_NAME" ]; then
+			LIB_FILE=$(echo ${LIB_NAME//://} | awk -v E=".$ARC_EXT/" '
+		               {  gsub("@", E); 
+		                  gsub("//","/");
+		                  gsub("^/",""); 
+		                  print
+		               }' | awk -v AE="[.]$ARC_EXT[/]$" -v AES=".$ARC_EXT" -v LE="$LIB_EXT" '
+		               ! /[/]$/ { printf "%s.%s\n", $0, LE } 
+		                 /[/]$/ { gsub(AE,AES); print      }')
+		fi 
 		
 		for libdir in ${libpath//:/ }; do
 		
@@ -1315,25 +1388,73 @@ END
 			fi
 		done
 	else
-		local regex="^.*.$ARC_EXT"
+		
+		#echo "Naming: disabled"
+		
+		local regex="^[^:]+(.$ARC_EXT|:)"
 		local lib_file=
 		
-		lib_file="$(echo "$ARC_FILE" | awk -v S="${regex}(:|/)?" '{gsub(S,""); print}')"
+		lib_file="$(echo "$ARC_FILE" | awk -v S="${regex}/?" '{gsub(S,""); print}')"
 		lib_file="${lib_file#/}"
 		[ -z "$LIB_FILE" ] && LIB_FILE="$lib_file"
 		
 		ARC_FILE="$(echo "$ARC_FILE" | grep -o -E -e "$regex")"
+		ARC_FILE=${ARC_FILE%:}
 	fi
 	
-	#echo "ARC_FILE=$ARC_FILE" > /dev/stderr
-	#echo "LIB_FILE=$LIB_FILE" > /dev/stderr
+	#echo "- ARC_FILE=$ARC_FILE" > /dev/stderr
+	#echo "- LIB_FILE=$LIB_FILE" > /dev/stderr
+	#echo "- DIR=$DIR" > /dev/stderr
+	#echo
+	
+	if echo $LIB_FILE | grep -q -E -e ".+[.]$ARC_EXT.+$"; then
+		
+		[ $QUIET -eq 0 -o $VERBOSE -eq 1 ] && (
+ 		echo "WARNING: LIB_FILE=$LIB_FILE"
+ 		echo "         Scanning of archive content in archive not yet implemented!")
+		return 3
+	fi
+	
+	if [ "$CMD" == "CREATE" ]; then
+		
+		[ -z "$DIR" -a -n "$LIB_FILE" -a -e "$LIB_FILE" ] &&
+		DIR="$LIB_FILE"
+		
+		[ -z "$ARC_FILE" -a -n "$DIR" ] && 
+		ARC_FILE="$(basename "$DIR").$ARC_EXT"
+	fi
+	
+	if [ -z "$ARC_FILE" -a "$CMD" != "SEARCH" ]; then
+		[ -z "$DIR" -a -n "$LIB_FILE" ] &&
+		ARC_FILE="$LIB_FILE.$ARC_EXT"
+		LIB_FILE=""
+	fi
+	
+	if [ "$CMD" == "CREATE" ]; then
+		ARC_FILE="${ARC_FILE:=lib.$ARC_EXT}"
+		DIR="${DIR:=.}"
+	fi
+	
+	if [ -n "$ARC_FILE" ]; then
+		if ! echo $ARC_FILE | grep -q ".$ARC_EXT$"; then
+			ARC_FILE="$ARC_FILE.$ARC_EXT"
+		fi
+	else
+		ARC_FILE="lib.$ARC_EXT"
+	fi
+	
+	#echo "Output:"
+	#echo "- ARC_FILE=$ARC_FILE" > /dev/stderr
+	#echo "- LIB_FILE=$LIB_FILE" > /dev/stderr
+	#echo "- DIR=$DIR" > /dev/stderr
+	#return
 	
 	case "$CMD" in
 	CHECK)   __lib_is_archive      "$ARC_FILE";;
 	LIST)    __lib_archive_list    "$ARC_FILE";;
 	CREATE)  __lib_archive_create  "${DIR:=.}" "$ARC_FILE";;
 	SEARCH)  __lib_archive_search  "$ARC_FILE" "$LIB_FILE";;
-	EXTRACT) __lib_archive_extract "${DIR:-}" "$ARC_FILE" "$LIB_FILE";;
+	EXTRACT) __lib_archive_extract "${DIR:=--}" "$ARC_FILE" "$LIB_FILE";;
 	CLEAN)   __lib_archive_clean;;
 	esac
 	
@@ -1585,38 +1706,96 @@ lib_apply()
 {
 	[ $# -eq 0 ] && return 1
 	
-	local ARGS=$(getopt -o h,F:fda -l help,lib-function:,file,dir,archive -- "$@")
+	local ARGS=$(getopt -o h,F:E:fdaqQ -l help,lib-function:,lib-error-function:,file,dir,archive,quiet,no-quiet -- "$@")
 	eval set -- $ARGS
 	
 	local LIB_FILE=
+	local LIB_NAME=
 	local SUB_LIB=
 	local FIND_OPT=""
-	local LIB_FUN=""
 	local exit_code=
+	local QUIET=0
+	
+	__lib_apply_default_lib_function()
+	{
+		if [ $QUIET -eq 0 ]; then
+			echo -e "$LIB_NAME:\n$LIB_FILE"
+		fi
+		
+		test -n "$1"
+	
+	}
+	
+	__lib_apply_default_lib_error_function()
+	{
+		[ $# -eq 0 ] && return 0
+		
+		if [ $QUIET -eq 0 ]; then
+			echo "Library '$1' not found!"
+		fi
+		
+		return 1
+	}
+	
+	local IS_ARC=0
+	local LIB_FUN="__lib_apply_default_lib_function"
+	local ERR_FUN="__lib_apply_default_lib_error_function"
+	
 	
 	while true ; do
 		case "$1" in
-		-F|--lib-function) LIB_FUN="$2"   ; shift 2;;
-		-f|--file)         FIND_OPT="$1"  ; shift  ;;
-		-d|--dir)          FIND_OPT="$1"  ; shift  ;;
-		-a|--archive)      FIND_OPT="$1"  ; shift  ;;
-		-h|--help)         return 0;;
+		-F|--lib-function)       LIB_FUN="$2"   ; shift 2;;
+		-E|--lib-error-function) ERR_FUN="$2"   ; shift 2;;
+		-f|--file)               FIND_OPT="$1"  ; shift  ;;
+		-d|--dir)                FIND_OPT="$1"  ; shift  ;;
+		-a|--archive) IS_ARC=1;  FIND_OPT="$1"  ; shift  ;;
+		-h|--help)               return 0;;
 		--) shift;;
 		*) break;;
 		esac
 	done
 	
-	for library in "$@"; do
-		LIB_FILE=$(lib_find $FIND_OPT $library)
+	[ -z "LIB_FUN" ] && return
+	
+	exit_code=0
+	
+	for LIB_NAME in "$@"; do
+		LIB_FILE=$(lib_find $FIND_OPT $LIB_NAME)
 		
-		if [ "$FIND_OPT" == "-a" -o "$FIND_OPT" == "--archive" ]; then
+		if [ -n "$LIB_FILE" ]; then
 			
-			LIB_FILE=$(lib_archive --clean-dir --track --temp-dir --extract "$LIB_FILE") 
+			if [ $IS_ARC -eq 1 ]; then
+				LIB_FILE=$(lib_archive --no-verbose --no-quiet --clean-dir --track --temp-dir --extract "$LIB_FILE" | 
+				           awk 'NR==1 {print}') 
+				
+				# WARNING: Il comando lib_archive viene eseguito un una subshell
+				# per cui modifiche alla variabile LIB_ARC_MAP non verranno salvate.
+			fi
+		
+			# esecuzione della user function
+			$LIB_FUN "$LIB_FILE"
+			
+			exit_code=$((exit_code+$?))
+			
+			if [ $IS_ARC -eq 1 ]; then
+				# rimozione dei file temporanei creati, se non erano stati
+				# precedentemente mappati
+				local path=
+				local found=0
+				for path in ${LIB_ARC_MAP[@]}; do
+					if [ "$LIB_FILE" == "$path" ]; then
+						found=1
+						break
+					fi
+				done
+			
+				[ $found -eq 0 ] && rm -rf $LIB_FILE 2> /dev/null 
+			fi
+		else
+			[ -n "$ERR_FUN" ] && $ERR_FUN "$LIB_NAME"
+			
+			exit_code=$((exit_code+1))
 		fi
-		
-		$LIB_FUN "$library" "$LIB_FILE" 
-		
-		exit_code=$?
 	done
 	
 	return $exit_code
@@ -1635,8 +1814,6 @@ NAME
 
 SYNOPSIS
 	$CMD [OPTIONS] -e|--is-enabled   LIB
-	
-	$CMD [OPTIONS] -E|--is-disabled  LIB
 	
 	$CMD [OPTIONS] -i|--is-installed LIB
 	
@@ -1658,9 +1835,6 @@ GENERIC OPTIONS
 	
 	-e, --is-enabled
 	    Verifica se una libreria è abilitata.
-	
-	-E, --is-disabled
-	    Verifica se una libreria è disabilitata.
 	
 	-i, --is-installed
 	    Verifica se una libreria è installata in una delle directory di LIB_PATH.
@@ -1704,34 +1878,16 @@ END
 	
 	__lib_is_enabled()
 	{
-		__is_enabled()
-		{
-			local library="$1"
-			local libfile="$2"
-		
-			if [ -n "$libfile" ]; then
-				test -x "$libfile" && return 0
-				return 1
-			fi
-		
-			return 2
-		}
-	
-		lib_apply --lib-function __is_enabled $@
-	
-		local exit_code=$?
-	
-		unset __is_enabled
-	
-		return $exit_code
+		[ -z "$1" ] && return 2
+		test -x "$1"
 	}
 	
 	# Restituisce un exit code pari a 0 se la libreria passata come parametro è
 	# presente nel path, altrimenti 1.
 	__lib_is_installed()
 	{
-		[ -n "$1" ] || return 1
-		
+		[ -z "$1" ] && return 1
+		#test -e "$1"
 		return 0
 	}
 	
@@ -1739,11 +1895,8 @@ END
 	# stata importata, altrimenti 1.
 	__lib_is_loaded()
 	{
-		[ -n "$1" ] || return 1
-		
-		echo "$(__lib_list_files)" | grep -E -q -e "$lib"
-		
-		return $?
+		[ -z "$1" ] && return 2
+		echo "$(__lib_list_files)" | grep -E -q -e "$1"
 	}
 	
 	__lib_test_exit()
@@ -1756,43 +1909,43 @@ END
 		return $1
 	}
 	
-	local ARGS=$(getopt -o heEilfdaqQvV -l help,is-enabled,is-disabled,is-installed,is-loaded,is-file,is-dir,is-archive,quiet,no-quiet,verbose,no-verbose -- "$@")
+	local ARGS=$(getopt -o heilfdaqQvV -l help,is-enabled,is-installed,is-loaded,file,dir,archive,is-file,is-dir,is-archive,quiet,no-quiet,verbose,no-verbose -- "$@")
 	eval set -- $ARGS
 	
 	local TEST="EXIST"
 	
 	while true ; do
 		case "$1" in
-		-e|--is-enabled)    TEST="ENABLED"            ; shift;;
-		-E|--is-disabled)   TEST="DISABLED"           ; shift;;
-		-i|--is-installed)  TEST="INSTALLED"          ; shift;;
-		-e|--is-loaded)     TEST="LOADED"             ; shift;;
-		-f|--file)          FIND_OPT="$1"             ; shift;;
-		-d|--dir)           FIND_OPT="$1"             ; shift;;
-		-a|--archive)       FIND_OPT="$1"             ; shift;;
-		-q|--quiet)         QUIET=1                   ; shift;;
-		-Q|--no-quiet)      QUIET=0                   ; shift;;
-		-v|--verbose)       VERBOSE=1                 ; shift;;
-		-V|--no-verbose)    VERBOSE=0                 ; shift;;
-		-h|--help)        __lib_test_usage $FUNCNAME; ___exit $?; return  0;;
+		-e|--is-enabled)    TEST="ENABLED"             ; shift;;
+		-i|--is-installed)  TEST="INSTALLED"           ; shift;;
+		-l|--is-loaded)     TEST="LOADED"              ; shift;;
+		-f|--file)          FIND_OPT="$1"              ; shift;;
+		-d|--dir)           FIND_OPT="$1"              ; shift;;
+		-a|--archive)       FIND_OPT="$1"              ; shift;;
+		--is-file)          TEST="EXIST";FIND_OPT="-f" ; shift;;
+		--is-dir)           TEST="EXIST";FIND_OPT="-d" ; shift;;
+		--is-archive)       TEST="EXIST";FIND_OPT="-a" ; shift;;
+		-q|--quiet)         QUIET=1                    ; shift;;
+		-Q|--no-quiet)      QUIET=0                    ; shift;;
+		-v|--verbose)       VERBOSE=1                  ; shift;;
+		-V|--no-verbose)    VERBOSE=0                  ; shift;;
+		-h|--help)          __lib_test_usage $FUNCNAME ;
+		                    __lib_test_exit  $?        ; return  0;;
 		--) shift;;
 		*) break;;
 		esac
 	done
 	
+	local FUN=
+	local LIB="$1"
 	
-	local LIB="$(lib_find --quiet --no-verbose $FIND_OPT "$1")"
-	
-	local found=$?
-	
-	
-	case "$CMD" in
-	ENABLED)     __lib_is_enabled   "$LIB";;
-	DISABLED)  ! __lib_is_enabled   "$LIB";;
-	INSTALLED)   __lib_is_installed "$LIB";;
-	LOADED)      __lib_is_loaded    "$LIB";;
-	EXIST)       return $found;;
+	case "$TEST" in
+	ENABLED)           FUN="__lib_is_enabled";;
+	LOADED)            FUN="__lib_is_loaded";;
+	EXIST|INSTALLED)   FUN="__lib_is_installed";;
 	esac
+	
+	lib_apply --lib-function $FUN -E "" $FIND_OPT "$LIB"
 	
 	__lib_test_exit $?
 }
@@ -1803,22 +1956,20 @@ lib_enable()
 {
 	__lib_enable()
 	{
-		local library="$1"
-		local libfile="$2"
+		[ -n "$1" ] || return 1
 		
-		if [ -n "$libfile" ]; then
-			lib_log "Enable library: $library"
-			chmod a+x $libfile
-		else
-			lib_log "Library '$library' not found!"
-		fi
+		lib_log "Enable library: $LIB_NAME"
+		chmod a+x $1
 	}
 	
-	lib_apply --lib-function __lib_enable $@
+	__lib_not_found() { lib_log "Library '$1' not found!"; }
+	
+	lib_apply --lib-function __lib_enable --lib-error-function __lib_not_found $@
 	
 	local exit_code=$?
 	
 	unset __lib_enable
+	unset __lib_not_found
 	
 	return $exit_code
 }
@@ -1830,22 +1981,20 @@ lib_disable()
 {
 	__lib_disable()
 	{
-		local library="$1"
-		local libfile="$2"
+		[ -n "$1" ] || return 1
 		
-		if [ -n "$libfile" ]; then
-			lib_log "Disable library: $library"
-			chmod a-x $libfile
-		else
-			lib_log "Library '$library' not found!"
-		fi
+		lib_log "Disable library: $LIB_NAME"
+		chmod a-x $1
 	}
 	
-	lib_apply --lib-function __lib_disable $@
+	__lib_not_found() { lib_log "Library '$1' not found!"; }
+	
+	lib_apply --lib-function __lib_disable --lib-error-function __lib_not_found $@
 	
 	local exit_code=$?
 	
 	unset __lib_disable
+	unset __lib_not_found
 	
 	return $exit_code
 }
@@ -2140,7 +2289,7 @@ END
 	if [ -f "$LIB_FILE" ]; then  # se la libreria è un file o un'archivio
 		
 		if [ $CHECK -eq 0 ] ||
-		   ! $(lib_is_loaded -f "$LIB_FILE") ||
+		   ! $(lib_test --is-loaded --file "$LIB_FILE") ||
 		   [ $(stat -c %Y "$LIB_FILE") -gt $(__lib_list_files_get_mod_time "$LIB_FILE") ]; 
 		then
 			if [ $DUMMY -eq 1 ]; then
