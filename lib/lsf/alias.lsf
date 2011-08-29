@@ -165,6 +165,9 @@ alias lib_is_loaded_dir="lib_test --is-loaded --dir"
 
 alias lib_is_loaded_archive="lib_test --is-loaded --archive"
 
+### DEPEND ALIASES #############################################################
+
+alias lib_rdepend="lib_depend --inverse"
 
 ### CODE ALIASES ###############################################################
 

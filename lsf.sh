@@ -436,13 +436,11 @@ NAME
 SYNOPSIS
 	$CMD [OPTIONS] [-g|--get] [i1:i2:i3]   con 1 < in < D+1, D=# path
 	
-	$CMD [OPTIONS] -s|--set PATH[:PATH...]
+	$CMD [OPTIONS] -s|--set <path>[:<path>...]
 	
-	$CMD [OPTIONS] -A|--absolute-path -s|--set
+	$CMD [OPTIONS] -a|--add <path> [<path>...]
 	
-	$CMD [OPTIONS] -a|--add PATH [PATH...]
-	
-	$CMD [OPTIONS] -r|--remove PATH [PATH...]
+	$CMD [OPTIONS] -r|--remove <path> [<path>...]
 	
 	$CMD [OPTIONS] -l|--list
 	
@@ -708,7 +706,7 @@ NAME
 	${CMD:=lib_name} - Trova la libreria e applica una funzione specifica su di essa.
 
 SYNOPSIS
-	$CMD  <lib_path>
+	$CMD  <lib_path>|<dir_path|<archive_path>
 	
 	
 DESCRIPTION
@@ -853,38 +851,38 @@ NAME
 
 SYNOPSIS
 	Create command:
-	    $CMD [OPTIONS] -c|--create|--build [-d|--dir .]            [lib.$ARC_EXT]
-	    $CMD [OPTIONS] -c|--create|--build [-d|--dir .]            ARCHIVE_NAME.$ARC_EXT
-	    $CMD [OPTIONS] -c|--create|--build [-d|--dir ARCHIVE_NAME] ARCHIVE_NAME
-	    $CMD [OPTIONS] -c|--create|--build [-d|--dir DIR]          ARCHIVE_NAME[.$ARC_EXT]
-	    $CMD [OPTIONS] -c|--create|--build  -d|--dir DIR           [DIR.$ARC_EXT]
+	    $CMD [OPTIONS] -c|--create|--build [-d|--dir .]             [lib.$ARC_EXT]
+	    $CMD [OPTIONS] -c|--create|--build [-d|--dir .]              <archive_name>.$ARC_EXT
+	    $CMD [OPTIONS] -c|--create|--build [-d|--dir <archive_name>] <archive_name>
+	    $CMD [OPTIONS] -c|--create|--build [-d|--dir <dir>]          <archive_name>[.$ARC_EXT]
+	    $CMD [OPTIONS] -c|--create|--build  -d|--dir <dir>          [<dir>.$ARC_EXT]
 	    
-	    $CMD [OPTIONS] -c|--create|--build ARCHIVE_NAME[.$ARC_EXT]:DIR
-	    $CMD [OPTIONS] -c|--create|--build ARCHIVE_NAME.$ARC_EXT(:|/):DIR
+	    $CMD [OPTIONS] -c|--create|--build <archive_name>[.$ARC_EXT]:<dir>
+	    $CMD [OPTIONS] -c|--create|--build <archive_name>.$ARC_EXT(:|/):<dir>
 	
 	
 	Check command:
-	    $CMD [OPTIONS] [NAMING_OPTIONS] -C|--check   ARCHIVE_FILE[.$ARC_EXT]
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -C|--check   <archive_file>[.$ARC_EXT]
 	    
-	    $CMD [OPTIONS] [NAMING_OPTIONS] -y|--verify  ARCHIVE_NAME@
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -y|--verify  <archive_name>@
 	
 	
 	List command:
-	    $CMD [OPTIONS] [NAMING_OPTIONS] -l|--list  ARCHIVE_FILE[.$ARC_EXT]
-	    $CMD [OPTIONS] [NAMING_OPTIONS] -L|--ls    ARCHIVE_NAME@
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -l|--list  <archive_file>[.$ARC_EXT]
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -L|--ls    <archive_name>@
 	
 	
 	Search command:
-	    $CMD [OPTIONS] [NAMING_OPTIONS] -s|--search -m|--library LIB_FILE  ARCHIVE_FILE
-	    $CMD [OPTIONS] [NAMING_OPTIONS] -s|--search  ARCHIVE_FILE[:|/]LIB_FILE
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -s|--search -m|--library <lib_file>  <archive_file>
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -s|--search  <archive_file>[:|/]<lib_file>
 	    
-	    $CMD [OPTIONS] [NAMING_OPTIONS] -f|--find    ARCHIVE_NAME@[:]LIB_NAME
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -f|--find    <archive_name>@[:]<lib_name>
 	
 	Extract command:
-	    $CMD [OPTIONS] [NAMING_OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -x|--extract [-m|--library LIB_FILE]  ARCHIVE_FILE
-	    $CMD [OPTIONS] [NAMING_OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -x|--extract  ARCHIVE_FILE[[:|/]LIB_FILE]
+	    $CMD [OPTIONS] [NAMING_OPTIONS] [EXTRACT OPTIONS] [-d|--dir <dir>] -x|--extract [-m|--library <lib_file>]  <archive_file>
+	    $CMD [OPTIONS] [NAMING_OPTIONS] [EXTRACT OPTIONS] [-d|--dir <dir>] -x|--extract  <archive_file>[[:|/]<lib_file>]
 	    
-	    $CMD [OPTIONS] [NAMING_OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -u|--unpack   ARCHIVE_NAME@
+	    $CMD [OPTIONS] [NAMING_OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -u|--unpack  <archive_name>@
 	
 	
 DESCRIPTION
@@ -1533,11 +1531,11 @@ NAME
 	${CMD:=lib_find} - Restituisce il path della libreria passato come parametro.
 
 SYNOPSIS
-	$CMD [OPTIONS] [DIR:...][ARCHIVE@:][DIR:...]LIB_NAME
+	$CMD [OPTIONS] [dir:...][archive@:][dir:...]<lib_name>
 	
-	$CMD [OPTIONS] -f|--file LIBRARY_FILE_PATH
+	$CMD [OPTIONS] -f|--file <lib_file>
 	
-	$CMD [OPTIONS] -d|--dir LIBRARY_DIR_PATH
+	$CMD [OPTIONS] -d|--dir <lib_dir>
 	
 DESCRIPTION
 	Il comando $CMD trova il path associato ad una libreria, sia essa file o cartella.
@@ -2097,17 +2095,79 @@ END
 # Abilita una libreria per l'import.
 lib_enable()
 {
+	__lib_enable_usage()
+	{
+		local CMD="$1"
+		
+		(cat <<END
+NAME
+	${CMD:=lib_enable} - Abilita una libreria per l'importazione.
+	
+SYNOPSIS
+	$CMD [OPTIONS] <lib_name>
+	
+	$CMD [OPTIONS] -f|--file    <lib_file_path>
+	
+	$CMD [OPTIONS] -d|--dir     <lib_dir_path>
+	
+	$CMD [OPTIONS] -a|--archive <lib_arc_path>
+	
+	
+DESCRIPTION
+	Il comando $CMD abilita una libreria (file, directory o archivio) per l'importazione.
+	
+	
+OPTIONS
+	-f, --file
+	    Il parametro è il path di un file di libreria.
+	
+	-d, --dir
+	    Il parametro è il path di una directory di libreria.
+	
+	-a, --archive  
+	    Il parametro è il path di un archivio di libreria.
+	
+	-q, --quiet
+	    Disabilita la stampa di messaggi nel log.
+	
+	-Q, --no-quiet
+	    Abilita la stampa di messaggi nel log.
+	
+	-h| --help
+	    Stampa questo messaggio ed esce.
+END
+		) | less
+	}
+	
+	local ARGS=$(getopt -o hqQ -l help,quiet,no-quiet -- "$@")
+	eval set -- $ARGS
+	
+	local QUIET=0
+	
+	while true ; do
+		case "$1" in
+		-q|--quiet)     QUIET=1                      ; shift   ;;
+		-Q|--no-quiet)  QUIET=0                      ; shift   ;;
+		-h|--help)    __lib_enable_usage $FUNCNAME   ; return 0;;
+		--) shift;;
+		*) break;;
+		esac
+	done
+	
 	__lib_enable()
 	{
 		[ -n "$1" ] || return 1
 		
-		lib_log "Enable library: $LIB_NAME"
 		chmod a+x $1
+		
+		[ $QUIET -eq 0 ] &&
+		lib_log "Enable library: $LIB_NAME"
+		
 	}
 	
-	__lib_not_found() { lib_log "Library '$1' not found!"; }
+	__lib_not_found() { [ $QUIET -eq 0 ] && lib_log "Library '$1' not found!"; }
 	
-	lib_apply --lib-function __lib_enable --lib-error-function __lib_not_found $@
+	lib_apply --lib-function __lib_enable --lib-error-function __lib_not_found $*
 	
 	local exit_code=$?
 	
@@ -2122,17 +2182,76 @@ lib_enable()
 # Disabilita una libreria per l'import.
 lib_disable()
 {
+	__lib_disable_usage()
+	{
+		local CMD="$1"
+		
+		(cat <<END
+NAME
+	${CMD:=lib_disable} - Disabilita una libreria per l'importazione.
+	
+SYNOPSIS
+	$CMD [OPTIONS] <lib_name>
+	
+	$CMD [OPTIONS] -f|--file     <lib_file_path>
+	
+	$CMD [OPTIONS] -d|--dir      <lib_dir_path>
+	
+	$CMD [OPTIONS] -a|--archive  <lib_arc_path>
+	
+	
+DESCRIPTION
+	Il comando $CMD disabilita una libreria (file, directory o archivio) per l'importazione.
+	
+	
+OPTIONS
+	-f, --file
+	    Il parametro è il path di un file di libreria.
+	
+	-d, --dir
+	    Il parametro è il path di una directory di libreria.
+	
+	-a, --archive  
+	    Il parametro è il path di un archivio di libreria.
+	
+	-q, --quiet
+	    Disabilita la stampa di messaggi nel log.
+	
+	-Q, --no-quiet
+	    Abilita la stampa di messaggi nel log.
+	
+	-h| --help
+	    Stampa questo messaggio ed esce.
+END
+		) | less
+	}
+	
+	local ARGS=$(getopt -o hqQ -l help,quiet,no-quiet -- "$@")
+	eval set -- $ARGS
+	
+	while true ; do
+		case "$1" in
+		-q|--quiet)     QUIET=1                      ; shift   ;;
+		-Q|--no-quiet)  QUIET=0                      ; shift   ;;
+		-h|--help)    __lib_disable_usage $FUNCNAME  ; return 0;;
+		--) shift;;
+		*) break;;
+		esac
+	done
+	
 	__lib_disable()
 	{
 		[ -n "$1" ] || return 1
 		
-		lib_log "Disable library: $LIB_NAME"
 		chmod a-x $1
+		
+		[ $QUIET -eq 0 ] &&
+		lib_log "Disable library: $LIB_NAME"
 	}
 	
-	__lib_not_found() { lib_log "Library '$1' not found!"; }
+	__lib_not_found() { [ $QUIET -eq 0 ] && lib_log "Library '$1' not found!"; }
 	
-	lib_apply --lib-function __lib_disable --lib-error-function __lib_not_found $@
+	lib_apply --lib-function __lib_disable --lib-error-function __lib_not_found $*
 	
 	local exit_code=$?
 	
@@ -2168,11 +2287,11 @@ NAME
 SYNOPSIS
 	$CMD
 	
-	$CMD [OPTIONS] LIBRARY_NAME...
+	$CMD [OPTIONS] <lib_name>
 	
-	$CMD [OPTIONS] -f|--file LIBRARY_FILE
+	$CMD [OPTIONS] -f|--file <lib_file>
 	
-	$CMD [OPTIONS] [-r|--recursive] -d|--dir LIBRARY_DIR
+	$CMD [OPTIONS] [-r|--recursive] -d|--dir <lib_dir>
 	
 	
 	$CMD -i|--include    ( alias lib_include )
@@ -2547,7 +2666,9 @@ SYNOPSIS
 	
 	$CMD [-r|--recursive] -a|--archive-function <arc_fun> [DIR ...]
 	
+	
 	$CMD [-r|--recursive] [-f <arc_fun>] [-l <lib_fun>] [-d <dir_fun>] [-a <arc_fun>] [DIR ...]
+	
 	
 	$CMD -h|--help
 	
@@ -2603,6 +2724,8 @@ END
 		esac
 	done
 	
+	[ -z "$LIB_FUN" ] && [ -z "$DIR_FUN" ] && [ -z "$ARC_FUN" ] && retunr 2
+	 
 	__already_visited()
 	{
 		[ -n "$libset" ] || return 2
@@ -2689,6 +2812,65 @@ END
 # @see lib_list_apply
 lib_list()
 {
+	__lib_list_usage()
+	{
+		local CMD="$1"
+		
+		(cat << END
+NAME
+	${CMD:=lib_test} - Stampa la lista delle librerie in una directory.
+	
+SYNOPSIS
+	$CMD [OPTIONS]
+	
+	$CMD [OPTIONS] <dir...>
+	
+	
+	$CMD -h|--help
+	
+	
+DESCRIPTION
+	Il comando $CMD stampa la lista delle librerie abilitate e importate in una directory,
+	se non viene passato alcun paramentro, usa le directory della variabile LIB_PATH.
+	
+OPTIONS
+	-n, --libname
+	    Stampa i nomi delle librerie
+	
+	-f, --filename
+	    Stampa i path dei file di libreria
+	
+	-l, --format-list
+	    Stampa la lista formattata
+	
+	-L, --no-format-list
+	    Stampa la lista non formattata
+	
+	-r, --recursive
+	    Naviga la ricorsivamente le cartelle
+	
+	-m, --list-dir
+	    Stampa anche informazioni sulle directory di libreria
+	
+	-M, --no-list-dir
+	    Non stampa informazioni sulle directory di libreria
+	
+	-e, --only-enabled
+	    Stampa solamente le librerie abilitate
+	
+	-d, --only-disabled
+	    Stampa solamente le librerie disabilitate
+	
+	-h, --help
+	    Stampa questo messaggio ed esce
+	
+	
+END
+		) | less
+		
+		return 0
+	}
+	
 	local ARGS=$(getopt -o rednfhlLmM -l recursive,help,only-enabled,only-disable,filename,libname,format-list,no-format-list,list-dir,no-list-dir -- "$@")
 	eval set -- $ARGS
 	
@@ -2703,16 +2885,16 @@ lib_list()
 	
 	while true ; do
 		case "$1" in
-		-n|--libname)        NAME=1                              ; shift ;;
-		-f|--filename)       NAME=0                              ; shift ;;
-		-l|--format-list)    FORMAT=1                            ; shift ;;
-		-L|--no-format-list) FORMAT=0                            ; shift ;;
-		-r|--recursive)      OPTIONS="--recursive"               ; shift ;;
-		-m|--list-dir)       LIST_DIR="--dir-function __lib_fun" ; shift ;;
-		-M|--no-list-dir)    LIST_DIR=""                         ; shift ;;
-		-e|--only-enabled)   ONLY_ENABLED=1                      ; shift ;;
-		-d|--only-disabled)  ONLY_DISABLED=1                     ; shift ;;
-		-h|--help) echo "$FUNCNAME <options> [-r|--recursive] <dir>"; return 0;;
+		-n|--libname)        NAME=1                              ; shift   ;;
+		-f|--filename)       NAME=0                              ; shift   ;;
+		-l|--format-list)    FORMAT=1                            ; shift   ;;
+		-L|--no-format-list) FORMAT=0                            ; shift   ;;
+		-r|--recursive)      OPTIONS="--recursive"               ; shift   ;;
+		-m|--list-dir)       LIST_DIR="--dir-function __lib_fun" ; shift   ;;
+		-M|--no-list-dir)    LIST_DIR=""                         ; shift   ;;
+		-e|--only-enabled)   ONLY_ENABLED=1                      ; shift   ;;
+		-d|--only-disabled)  ONLY_DISABLED=1                     ; shift   ;;
+		-h|--help) __lib_list_usage $FUNCNAME                    ; return 0;;
 		--) shift;;
 		*) break;;
 		esac
@@ -2754,6 +2936,69 @@ lib_list()
 # Restituisce le dipendenze di una libreria
 lib_depend()
 {
+	__lib_depend_usage()
+	{
+		local CMD="$1"
+		
+		(cat << END
+NAME
+	${CMD:=lib_test} - Stampa la lista delle dipendenze di una librerie.
+	
+SYNOPSIS
+	$CMD [OPTIONS]  <lib_name>
+	
+	$CMD [OPTIONS] -f|--file  <lib_file>
+	
+	
+	$CMD [OPTIONS] -i|--inverse|--reverse  <lib_name>
+	
+	$CMD [OPTIONS] -i|--inverse|--reverse -f|--file  <lib_file>
+	
+	
+	$CMD -h|--help
+	
+	
+DESCRIPTION
+	Il comando $CMD stampa la lista delle dipendenze di una librerie.
+	
+OPTIONS
+	-f, --file 
+	    La libreria è passato come path del file associato.
+	
+	-n, --libname
+	    Stampa i nomi delle librerie (default)
+	
+	-m, --filename
+	    Stampa i path dei file delle librerie
+	
+	-r, --recursive
+	    Attiva la ricerca ricorsiva delle dipendenze (default)
+	
+	-R, --no-recursive
+	    Disattiva la ricerca ricorsava delle dipendeze.
+	
+	-i, --inverse, --reverse
+	    Abilità la modalità di ricerca inversa delle dipendenze.
+	
+	-I, --no-inverse, --no-reverse
+	    Disabilità la modalità di ricerca inversa delle dipendenze. (default)
+	
+	-v, --verbose
+	    Abilita la modalità verbosa dei messaggi.
+	
+	-V, --no-verbose
+	    Disabilita la modalità verbosa dei messaggi. (defalut)
+	
+	-h, --help
+	    Stampa questo messaggio ed esce
+	
+	
+END
+		) | less
+		
+		return 0
+	}
+	
 	local ARGS=$(getopt -o hiIfmnhrRvV -l help,inverse,reverse,no-inverse,no-reverse,file,filename,libname,verbose,recursive,no-recursive,verbose,no-verbose -- "$@")
 	eval set -- $ARGS
 	
@@ -2765,25 +3010,16 @@ lib_depend()
 	
 	while true ; do
 		case "$1" in
-		-f|--file)                    FIND_OPT="$1"   ; shift ;;
-		-n|--libname)                 NAME=1          ; shift ;;
-		-m|--filename)                NAME=0          ; shift ;;
-		-r|--recursive)               RECURSIVE=1     ; shift ;;
-		-R|--no-recursive)            RECURSIVE=0     ; shift ;;
-		-i|--inverse|--reverse)       REVERSE=1       ; shift ;;
-		-I|--no-inverse|--no-reverse) REVERSE=0       ; shift ;;
-		-v|--verbose)                 VERBOSE=1       ; shift ;;
-		-V|--no-verbose)              VERBOSE=0       ; shift ;;
-		-h|--help) 
-			echo "$FUNCNAME [-nmvV] [-r|--recursive] LIB_NAME"; 
-			echo "$FUNCNAME [-nmvV] [-r|--recursive] -f|--file LIB_FILE"; 
-			echo "$FUNCNAME [-nmvV] -R|--no-recursive LIB_NAME"; 
-			echo "$FUNCNAME [-nmvV] -R|--no-recursive -f|--file LIB_FILE"; 
-			echo "$FUNCNAME [-nmvV] -i|--reverse|--inverse LIB_NAME"; 
-			echo "$FUNCNAME [-nmvV] -i|--reverse|--inverse -f|--file LIB_FILE"; 
-			echo "$FUNCNAME [-nmvV] [-I|--no-reverse|--no-inverse] LIB_NAME"; 
-			echo "$FUNCNAME [-nmvV] [-I|--no-reverse|--no-inverse] -f|--file LIB_FILE"; 
-			return 0;;
+		-f|--file)                    FIND_OPT="$1"   ; shift   ;;
+		-n|--libname)                 NAME=1          ; shift   ;;
+		-m|--filename)                NAME=0          ; shift   ;;
+		-r|--recursive)               RECURSIVE=1     ; shift   ;;
+		-R|--no-recursive)            RECURSIVE=0     ; shift   ;;
+		-i|--inverse|--reverse)       REVERSE=1       ; shift   ;;
+		-I|--no-inverse|--no-reverse) REVERSE=0       ; shift   ;;
+		-v|--verbose)                 VERBOSE=1       ; shift   ;;
+		-V|--no-verbose)              VERBOSE=0       ; shift   ;;
+		-h|--help) __lib_depend_usage $FUNCNAME       ; return 0;;
 		--) shift;;
 		*) break;;
 		esac
