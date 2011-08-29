@@ -438,7 +438,7 @@ SYNOPSIS
 	
 	$CMD [OPTIONS] -s|--set PATH[:PATH...]
 	
-	$CMD [OPTIONS] -a|--absolute-path -s|--set
+	$CMD [OPTIONS] -A|--absolute-path -s|--set
 	
 	$CMD [OPTIONS] -a|--add PATH [PATH...]
 	
@@ -1250,10 +1250,10 @@ END
 		local LIB="$3"
 		
 		[ "$DIR" == "--" ] && DIR=
-		#echo "Extract:" > /dev/stderr
-		#echo "DIR=$DIR" > /dev/stderr
+		#echo "Extract:"           > /dev/stderr
+		#echo "DIR=$DIR"           > /dev/stderr
 		#echo "ARC_NAME=$ARC_NAME" > /dev/stderr
-		#echo "LIB=$lIB" > /dev/stderr
+		#echo "LIB=$lIB"           > /dev/stderr
 		
 		local old_mod_time=0
 		local new_mod_time=$(stat -c %Y $ARCHIVE_NAME)
@@ -1767,11 +1767,11 @@ lib_apply()
 	__lib_apply_usage()
 	{
 		local CMD="$1"
-
+		
 		(cat <<END
 NAME
 	${CMD:=lib_apply} - Trova la libreria e applica una funzione specifica su di essa.
-
+	
 SYNOPSIS
 	$CMD [OPTIONS] [dir:...][archive_name@[:]][dir:...]<lib_name>
 	
@@ -1920,7 +1920,7 @@ END
 	return $exit_code
 }
 
-
+# Implementa una serie di operatori booleani.
 lib_test()
 {
 	__lib_test_usage()
@@ -2464,7 +2464,7 @@ END
 					
 					local tmp_dir="${LIB_ARC_MAP[$LIB_FILE]}"
 					
-					lib_path_add "$tmp_dir"
+					lib_path --add "$tmp_dir"
 					
 					if [ -n "$SUB_LIB" ]; then
 						
@@ -2475,7 +2475,7 @@ END
 						$FUNCNAME --recursive $LIB_PATH_OPT $OPTIONS --dir  "$tmp_dir"
 					fi
 					
-					lib_path_remove "$tmp_dir"
+					lib_path --remove "$tmp_dir"
 				fi
 			fi
 		fi
@@ -2530,28 +2530,80 @@ alias lib_update="lib_import -u"
 
 lib_list_apply()
 {
-	local ARGS=$(getopt -o rhd:l: -l recursive,help,dir-function:,lib-function: -- "$@")
+	__lib_list_apply_usage()
+	{
+		local CMD="$1"
+		
+		(cat << END
+NAME
+	${CMD:=lib_test} - Applica una funzione definita dall'utente per file, directory, e archivi, navigando le cartelle specificate.
+	
+SYNOPSIS
+	$CMD [-r|--recursive] -f|--function         <fun>     [DIR ...]
+	
+	$CMD [-r|--recursive] -l|--lib-function     <lib_fun> [DIR ...]
+	
+	$CMD [-r|--recursive] -d|--dir-function     <dir_fun> [DIR ...]
+	
+	$CMD [-r|--recursive] -a|--archive-function <arc_fun> [DIR ...]
+	
+	$CMD [-r|--recursive] [-f <arc_fun>] [-l <lib_fun>] [-d <dir_fun>] [-a <arc_fun>] [DIR ...]
+	
+	$CMD -h|--help
+	
+	
+DESCRIPTION
+	Il comando $CMD applica una funzione definita dall'utente per file, directory, e archivi,
+	navigando le cartelle specificate.
+	
+OPTIONS
+	-f, --function <fun_name>
+	    Imposta una generica user function per file di libreria, directory e archivi.
+	
+	-l, --lib-function <lib_name>
+	    Imposta una generica user function per file di libreria.
+	
+	-d, --dir-function <dir_name>
+	    Imposta una generica user function per directory di libreria.
+	
+	-a, --archive-function <archive_name>
+	    Imposta una generica user function per archivi di libreria.
+	
+	-r, --recursive
+	    Naviga ricorsivamente le directory.
+	
+END
+		) | less
+		
+		return 0
+	}
+	
+	
+	local ARGS=$(getopt -o rhf:d:l:a: -l recursive,help,function:,dir-function:,lib-function:,archive-function -- "$@")
 	eval set -- $ARGS
+	
+	#echo "ARGS=$ARGS"
 	
 	local DIR_FUN=""
 	local LIB_FUN=""
+	local ARC_FUN=""
 	local RECURSIVE=0
 	local libset=""
 	
 	while true ; do
 		case "$1" in
-		-d|--dir-function)  DIR_FUN="$2"; shift 2;;
-		-l|--lib-function)  LIB_FUN="$2"; shift 2;;
-		-r|--recursive)     RECURSIVE=1 ; shift  ;;
-		-h|--help)
-			echo "$FUNCNAME [-r|--recursive] [-d|--dir-function] <dir_fun> [-l|--lib-function] <lib_fun> [DIR ...]";
-			 return 0;;
+		-f|--function) LIB_FUN="$2";DIR_FUN="$2";ARC_FUN="$2 "; shift  2;;
+		-d|--dir-function)     DIR_FUN="$2"                   ; shift  2;;
+		-l|--lib-function)     LIB_FUN="$2"                   ; shift  2;;
+		-a|--archive-function) ARC_FUN="$2"                   ; shift  2;;
+		-r|--recursive)        RECURSIVE=1                    ; shift   ;;
+		-h|--help)       __lib_list_apply_usage "$FUNCNAME"   ; return 0;;
 		--) shift;;
 		*) break;;
 		esac
 	done
 	
-	__find()
+	__already_visited()
 	{
 		[ -n "$libset" ] || return 2
 		
@@ -2569,18 +2621,34 @@ lib_list_apply()
 		local libdir=""
 		local libname=""
 		
-		[ -z "$DIR" ] || __find "$DIR" && return 1
+		! lib_test -d "$DIR" || __already_visited "$DIR" && return 1
 		
 		[ -z "$DIR_FUN" ] || $DIR_FUN "$DIR"
-		libset="$libset;$DIR"		
+		libset="$libset;$DIR"
 		
-		if [ `ls -A1 "$DIR" | wc -l` -gt 0 ]; then
-			for library in $DIR/*.$LIB_EXT; do
-				__find $library && continue
-				
-				[ -z "$LIB_FUN" ] || $LIB_FUN "$library"
-				libset="$libset;$library"
-			done
+		if [ $(ls -A1 "$DIR" | wc -l) -gt 0 ]; then
+		
+			if [ -n "$LIB_FUN" ]; then
+				for library in $DIR/*.$LIB_EXT; do
+					! lib_test --file "$library"  || 
+					__already_visited $library && 
+					continue
+					
+					$LIB_FUN "$library"
+					libset="$libset;$library"
+				done
+			fi
+			
+			if [ -n "$ARC_FUN" ]; then
+				for library in $DIR/*.$ARC_EXT; do
+					 ! lib_test --archive "$library"  || 
+					 __already_visited $library && 
+					 continue
+					
+					$ARC_FUN "$library"
+					libset="$libset;$library"
+				done
+			fi
 			
 			if [ $RECURSIVE -eq 1 ]; then
 				for libdir in $DIR/*; do
@@ -2595,20 +2663,20 @@ lib_list_apply()
 		fi
 	}
 	
-	if [ $# -eq 0 ]; then
-		local OPTIONS=""
-		[ -z "$DIR_FUN" ] || OPTIONS="-d $DIR_FUN"
-		[ -z "$LIB_FUN" ] || OPTIONS="$OPTIONS -l $LIB_FUN "
-		
-		$FUNCNAME $OPTIONS -r ${LIB_PATH//:/ }
-	else
-		for DIR in $*; do
-		
-			test -d "$DIR" || continue
+	local paths="$*"
 	
-			__list_lib $DIR	
-		done
+	if [ $# -eq 0 ]; then
+		
+		paths="${LIB_PATH//:/ }"
+		RECURSIVE=1
 	fi
+	
+	for DIR in $paths; do
+		
+		test -d "$DIR" || continue
+		
+		__list_lib $DIR
+	done
 	
 	unset __list_lib
 }
@@ -2623,6 +2691,7 @@ lib_list()
 {
 	local ARGS=$(getopt -o rednfhlLmM -l recursive,help,only-enabled,only-disable,filename,libname,format-list,no-format-list,list-dir,no-list-dir -- "$@")
 	eval set -- $ARGS
+	
 	
 	local OPTIONS=""
 	local ONLY_ENABLED=0
@@ -2831,11 +2900,52 @@ lib_depend()
 # Esce dall'ambiente corrente rimuovendo tutte le definizioni del framework
 lib_exit()
 {
+	__lib_exit_usage()
+	{
+		local CMD="$1"
+		
+		(cat << END
+NAME
+	${CMD:=lib_test} - Rimuove le definizioni di funzioni, variabili e alias di LSF.
+	
+SYNOPSIS
+	$CMD [-|--verbose]
+	
+	$CMD -h|--help
+	
+	
+DESCRIPTION
+	Il comando $CMD rimuove le definizioni di funzioni, variabili e alias del framework LSF.
+	
+OPTIONS
+	-v, --verbose
+	    Stampa messagi dettagliati sulle operazioni di rimozione nel log.
+	
+	-h, --help
+	    Stampa questo messaggio ed esce.
+	
+END
+		) | less
+		
+		return 0
+	}
+	
+	local ARGS=$(getopt -o rhf:d:l:a: -l recursive,help,function:,dir-function:,lib-function:,archive-function -- "$@")
+	eval set -- $ARGS
+	
+	#echo "ARGS=$ARGS"
+	
 	local VERBOSE=0
 	
-	if [ "$1" = "-v" -o "$1" = "--verbose" ]; then
-		VERBOSE=1
-	fi
+	while true ; do
+		case "$1" in
+		-v|--verbose)  VERBOSE=1                    ; shift   ;;
+		-h|--help)     __lib_exit_usage "$FUNCNAME" ; return 0;;
+		--) shift;;
+		*) break;;
+		esac
+	done
+	
 	
 	for al in $(alias | grep -E "lib_.*" | 
 		awk '/^[[:blank:]]*(alias)[[:blank:]]*[a-zA-Z0-9_]+=/ {gsub("[[:blank:]]*|alias|=.*",""); print}'); do
@@ -2844,7 +2954,7 @@ lib_exit()
 		[ $VERBOSE -eq 1 ] && echo "unalias $al"
 	done
 	
-	for fun in $(set | grep -E "lib_.* \(\)" | awk '{gsub(" \\(\\)",""); print}'); do
+	for fun in $(set | grep -E "^_{0,3}lib_.* \(\)" | awk '{gsub(" \\(\\)",""); print}'); do
 		
 		unset $fun
 		[ $VERBOSE -eq 1 ] && echo "unset $fun"
