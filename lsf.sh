@@ -65,21 +65,21 @@ lsf_version()
 __lib_list_dir()
 {
 	[ $# -eq 0 -a ! -d "$1" ] && return 1
-	local dir="$1"
+	local dir="${1%/}"
 	local file=
 	
 	
 	if [ "$dir" != "." ]; then
-		echo "$dir"
+		echo "$dir" | awk -v PWD="$PWD/" '{gsub(PWD,""); print}'
 		dir="$dir/*"
 	else
 		dir="*"
 	fi
 	
 	for file in $dir; do
-		[ -f $file ] && echo $file
+		[ -f "$file" ] && echo "$file" | awk -v PWD="$PWD/" '{gsub(PWD,""); print}'
 		
-		[ -d $file ] && $FUNCNAME $file 
+		[ -d "$file" ] && $FUNCNAME "$file"
 	done
 }
 
@@ -854,7 +854,7 @@ SYNOPSIS
 	    $CMD [OPTIONS] -c|--create|--build [-d|--dir .]             [lib.$ARC_EXT]
 	    $CMD [OPTIONS] -c|--create|--build [-d|--dir .]              <archive_name>.$ARC_EXT
 	    $CMD [OPTIONS] -c|--create|--build [-d|--dir <archive_name>] <archive_name>
-	    $CMD [OPTIONS] -c|--create|--build [-d|--dir <dir>]          <archive_name>[.$ARC_EXT]
+	    $CMD [OPTIONS] -c|--create|--build  -d|--dir <dir>           <archive_name>[.$ARC_EXT]
 	    $CMD [OPTIONS] -c|--create|--build  -d|--dir <dir>          [<dir>.$ARC_EXT]
 	    
 	    $CMD [OPTIONS] -c|--create|--build <archive_name>[.$ARC_EXT]:<dir>
@@ -883,6 +883,11 @@ SYNOPSIS
 	    $CMD [OPTIONS] [NAMING_OPTIONS] [EXTRACT OPTIONS] [-d|--dir <dir>] -x|--extract  <archive_file>[[:|/]<lib_file>]
 	    
 	    $CMD [OPTIONS] [NAMING_OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -u|--unpack  <archive_name>@
+	
+	Clear command:
+	    $CMD --clean
+	    $CMD --clean-temp
+	    $CMD --clean-track
 	
 	
 DESCRIPTION
@@ -1010,7 +1015,7 @@ END
 		return 0
 	}
 	
-	local ARGS=$(getopt -o CyclLhsfxud:nNvVqQrRtTFp:P:m:aA -l check,verify,create,build,list,ls,search,find,extract,unpack,dir:,help,naming,no-naming,temp-dir,no-temp-dir,track,no-track,clean-dir,no-clean-dir,quiet,no-quiet,verbose,no-verbose,force,no-force,clean,clean-temp,clean-track,libpath:,add-libpath:,library:,auto-naming,no-auto-naming -- "$@")
+	local ARGS=$(getopt -o CyclLhsfxud:nNvVqQrRtTFp:P:m:aAD -l check,verify,create,build,list,ls,search,find,extract,unpack,dir:,help,naming,no-naming,temp-dir,no-temp-dir,track,no-track,clean-dir,no-clean-dir,quiet,no-quiet,verbose,no-verbose,force,no-force,clean,clean-temp,clean-track,libpath:,add-libpath:,library:,auto-naming,no-auto-naming,diff -- "$@")
 	eval set -- $ARGS
 	
 	#echo "ARCHIVE ARGS=$ARGS" > /dev/stderr
@@ -1046,6 +1051,7 @@ END
 		-u|--unpack)         CMD="EXTRACT"; NAMING=1               ; shift    ;;
 		-s|--search)         CMD="SEARCH"                          ; shift    ;;
 		-f|--find)           CMD="SEARCH"; NAMING=1                ; shift    ;;
+		-D|--diff)           CMD="DIFF"                            ; shift    ;;
 		-m|--library)        LIB_FILE="$2"                         ; shift   2;;
 		-n|--naming)         NAMING=1                              ; shift    ;;
 		-N|--no-naming)      NAMING=0                              ; shift    ;;
@@ -1086,6 +1092,7 @@ END
 		echo "-C --check"
 		echo "-y --verify"
 		echo "-l --list"
+		echo "-D --diff"
 		echo "-L --ls"
 		echo "-s --search"
 		echo "-f --find"
@@ -1159,9 +1166,9 @@ END
 		
 		if [ $verbose -eq 1 ]; then
 			if [ $exit_code -eq 0 ]; then
-				echo "Il file '$(basename "$1")' è un archivio di libreria"
+				echo "Il file '$1' è un archivio di libreria"
 			else
-				echo "Il file '$(basename "$1")' non è un archivio di libreria"
+				echo "Il file '$1' non è un archivio di libreria"
 			fi
 		fi
 		
@@ -1175,10 +1182,41 @@ END
 		local ARCHIVE_NAME=$(__lib_get_absolute_path "$1")
 		
 		if [ $VERBOSE -eq 1 ]; then
-			echo "Librerie dell'archivio '$(basename "$1")':"
+			echo "Librerie dell'archivio '$1':"
 		fi
 		
 		tar -tzf "$ARCHIVE_NAME" | awk '{gsub("^[.]?/?",""); print}'
+	}
+	
+	__lib_archive_diff_list()
+	{
+		[ $# -gt 1 ] || return 1
+		
+		(cd "$2" && tar -dzf "$1" "$3" 2>&1 | awk '{gsub ("tar: ",""); print}' | awk -F: '{print $1}' | sort | uniq)
+	}
+	
+	__lib_archive_diff()
+	{
+		[ $# -gt 1 ] && __lib_is_archive -q "$1"  || return 1
+		
+		local ARCHIVE_NAME=$(__lib_get_absolute_path "$1")
+		
+		(cd "$2" && tar -dzf "$ARCHIVE_NAME" "$3" > /dev/null 2>&1)
+		local exit_code=$?
+		
+		
+		if [ $exit_code -eq 0 ]; then
+			[ $QUIET -eq 0 -a $VERBOSE -eq 1 ] &&
+			echo "Librerie contenute nella directory '$2' non differisco da quelle dell'archivio '$1'."
+		else
+			if [ $QUIET -eq 0 ]; then
+				[ $VERBOSE -eq 1 ] &&
+				echo "Librerie contenute nella directory '$2' che differisco da quelle dell'archivio '$1':"
+				__lib_archive_diff_list "$ARCHIVE_NAME" "$2" "$3"
+			fi
+		fi
+		
+		return $exit_code
 	}
 	
 	__lib_archive_search()
@@ -1276,9 +1314,12 @@ END
 					[ $VERBOSE -eq 1 ] &&
 					echo "Directory trovata: $DIR"
 					
-					old_mod_time=$(stat -c %Y "$DIR")
+					local diff_list=$(__lib_archive_diff_list "$ARCHIVE_NAME" "$DIR" "$LIB")
 					
-					if [ ${new_mod_time} -gt ${old_mod_time:=0} ]; then
+					#old_mod_time=$(stat -c %Y "$DIR")
+					
+					#if [ ${new_mod_time} -gt ${old_mod_time:=0} ]; then
+					if [ -n "$diff_list" ]; then
 						
 						[ $VERBOSE -eq 1 ] &&
 						echo "L'archivio è stato modificato, la directory non è valida!"
@@ -1395,6 +1436,8 @@ END
 		unset __lib_is_archive
 		unset __lib_archive_list
 		unset __lib_archive_create
+		unset __lib_archive_diff
+		unset __lib_archive_diff_list
 		unset __lib_archive_search
 		unset __lib_archive_extract
 		unset __lib_archive_clean
@@ -1508,6 +1551,7 @@ END
 	case "$CMD" in
 	CHECK)   __lib_is_archive      "$ARC_FILE";;
 	LIST)    __lib_archive_list    "$ARC_FILE";;
+	DIFF)    __lib_archive_diff "$ARC_FILE" "${DIR:=.}" "$LIB_FILE";;
 	CREATE)  __lib_archive_create  "${DIR:=.}" "$ARC_FILE";;
 	SEARCH)  __lib_archive_search  "$ARC_FILE" "$LIB_FILE";;
 	EXTRACT) __lib_archive_extract "${DIR:=--}" "$ARC_FILE" "$LIB_FILE";;
@@ -2389,7 +2433,7 @@ OPTIONS
 	
 LIBRARY ACTIVATION
 
-	see: lib_enable, lib_disable, lib_is_enabled
+	see: lib_enable, lib_disable, lib_test --is-enabled
 	
 
 EXAMPLES
@@ -2574,21 +2618,34 @@ END
 					# già stata associata all'archivio ne crea una nuova e ne 
 					# tiene traccia.
 					
-					local opts=""
+					local opts="--quiet"
 					
-					[ $QUIET   -eq 1 ] && opts="--quiet"
+					#[ $QUIET   -eq 1 ] && opts="--quiet"
 					[ $VERBOSE -eq 1 ] && opts="$opts --verbose"
 					
-					lib_archive $opts --clean-dir --track --temp-dir --extract "$LIB_FILE"
+					local lib_opts=
+					
+					[ -n "$SUB_LIB" ] && lib_opts="--library "$SUB_LIB""
+					
+					lib_archive $opts --clean-dir --track --temp-dir --extract "$LIB_FILE" $lib_opts
 					
 					local tmp_dir="${LIB_ARC_MAP[$LIB_FILE]}"
 					
 					lib_path --add "$tmp_dir"
 					
 					if [ -n "$SUB_LIB" ]; then
+						local type_opt=
+						
+						if   echo "$SUB_LIB" | grep -q ".$LIB_EXT$"; then
+							type_opt="--file"
+						elif echo "$SUB_LIB" | grep -q ".$ARC_EXT$"; then
+							type_opt="--archive"
+						else
+							type_opt="--dir"
+						fi
 						
 						# importa un file dell'archivio
-						$FUNCNAME $LIB_PATH_OPT $OPTIONS --file  "${tmp_dir}/${SUB_LIB}"
+						$FUNCNAME $LIB_PATH_OPT $OPTIONS $type_opt  "${tmp_dir}/${SUB_LIB}"
 					else
 						# importa tutto l'archivio
 						$FUNCNAME --recursive $LIB_PATH_OPT $OPTIONS --dir  "$tmp_dir"
