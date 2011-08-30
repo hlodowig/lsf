@@ -117,6 +117,29 @@ fs_get_relative_path()
 }
 
 
+# Lista il contentuo di una directory, stampando path relativi rispetto alla
+# cartella corrente.
+fs_list_dir()
+{
+	[ $# -eq 0 -a ! -d "$1" ] && return 1
+	local dir="${1%/}"
+	local file=
+	
+	
+	if [ "$dir" != "." ]; then
+		echo "$dir" | awk -v PWD="$PWD/" '{gsub(PWD,""); print}'
+		dir="$dir/*"
+	else
+		dir="*"
+	fi
+	
+	for file in $dir; do
+		[ -f "$file" ] && echo "$file" | awk -v PWD="$PWD/" '{gsub(PWD,""); print}'
+		
+		[ -d "$file" ] && $FUNCNAME "$file" 
+	done
+}
+
 fs_chext() 
 {
 	string_sub "$1" "$2"
