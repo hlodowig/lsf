@@ -1307,8 +1307,8 @@ END
 		#echo "ARC_NAME=$ARC_NAME" > /dev/stderr
 		#echo "LIB=$lIB"           > /dev/stderr
 		
-		local old_mod_time=0
-		local new_mod_time=$(stat -c %Y $ARCHIVE_NAME)
+		#local old_mod_time=0
+		#local new_mod_time=$(stat -c %Y $ARCHIVE_NAME)
 		local exit_code=1
 		
 		if [ $TRACK -eq 1 -a -z "$DIR" ]; then
@@ -1323,7 +1323,7 @@ END
 				if [ ! -d "$DIR" ]; then
 					
 					[ $VERBOSE -eq 1 ] &&
-					echo "La directory '$DIR' è stata rimossa."
+					echo "La directory '$DIR' è stata rimossa o il file non è una directory."
 					
 					unset LIB_ARC_MAP[$ARCHIVE_NAME]
 				else
@@ -1379,7 +1379,15 @@ END
 			echo "La directory '$DIR' non esiste e verrà creata."
 			
 			mkdir -p "$DIR"
-		elif [ $CLEAN_DIR -eq 1 -a -d "$DIR" ]; then
+			
+			if [ $? -ne 0 ]; then
+				[ $VERBOSE -eq 1 ] &&
+				echo "Impossibile creare la directory '$DIR' per l'estrazione."
+			
+				return
+			fi
+			
+		elif [ $CLEAN_DIR -eq 1 ]; then
 			
 			[ $? -eq 0 -a $VERBOSE -eq 1 ] &&
 			echo "Rimozione del contenuto della cartella associata all'archivio."
