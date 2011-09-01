@@ -70,14 +70,14 @@ __lib_list_dir()
 	
 	
 	if [ "$dir" != "." ]; then
-		echo "$dir" | awk -v PWD="$PWD/" '{gsub(PWD,""); print}'
+		echo "$dir" #| awk -v PWD="$PWD/" '{gsub(PWD,""); print}'
 		dir="$dir/*"
 	else
 		dir="*"
 	fi
 	
 	for file in $dir; do
-		[ -f "$file" ] && echo "$file" | awk -v PWD="$PWD/" '{gsub(PWD,""); print}'
+		[ -f "$file" ] && echo "$file" #| awk -v PWD="$PWD/" '{gsub(PWD,""); print}'
 		
 		[ -d "$file" ] && $FUNCNAME "$file"
 	done
@@ -470,6 +470,9 @@ COMMAND OPTIONS
 	-s, --set
 	    Imposta il valore della variabile d'ambiente LIB_PATH.
 	
+	-f, --find
+	    Verifica se un path appartiena alla lista della variabile d'ambiente LIB_PATH.
+	
 	-a, --add
 	    Aggiunge un path o una lista di path alla variabile d'ambiente LIB_PATH.
 	
@@ -492,22 +495,26 @@ END
 	}
 	
 	
-	local ARGS=$(getopt -o hgsarRlvVA -l help,get,set,add,remove,reset,list,verbose,no-verbose,absolute-path -- "$@")
+	local ARGS=$(getopt -o hgsfarRlvVAwW -l help,get,set,find,add,remove,reset,list,verbose,no-verbose,absolute-path,real-path,no-real-path -- "$@")
 	eval set -- $ARGS
 	
 	local CMD="GET"
 	local VERBOSE=0
 	local ABS_PATH=0
+	local REAL_PATH=0
 	
 	while true ; do
 		case "$1" in
 		-g|--get)           CMD="GET"                              ; shift    ;;
 		-s|--set)           CMD="SET"                              ; shift    ;;
+		-f|--find)          CMD="FIND"                             ; shift    ;;
 		-a|--add)           CMD="ADD"                              ; shift    ;;
 		-r|--remove)        CMD="REMOVE"                           ; shift    ;;
 		-R|--reset)         CMD="RESET"                            ; shift    ;;
 		-l|--list)          CMD="LIST"                             ; shift    ;;
-		-A|--absolute_path) ABS_PATH=1                             ; shift    ;;
+		-A|--absolute-path) ABS_PATH=1                             ; shift    ;;
+		-w|--real-path)     REAL_PATH=1                            ; shift    ;;
+		-W|--no-real-path)  REAL_PATH=0                            ; shift    ;;
 		-v|--verbose)       VERBOSE=1                              ; shift    ;;
 		-V|--no-verbose)    VERBOSE=0                              ; shift    ;;
 		-h|--help)          __lib_path_usage "$FUNCNAME"           ; return  0;;
@@ -611,7 +618,57 @@ END
 		
 		export LIB_PATH
 	}
-
+	
+	# Verifica se un path appartiene alla lista contenuta nella variabile LIB_PATH
+	__lib_path_find()
+	{
+		local verbose=$VERBOSE
+		
+		if [ "$1" == "-v" ]; then
+			verbose=2
+			shift
+		fi
+		
+		local path=""
+		
+		path=$(echo $LIB_PATH | grep -o -E -e "(^|:)$1/?(:|$)")
+		# test 1
+		if [ -n "$path" ]; then
+			path=${path#:}; path=${path%:}
+			[ $verbose -eq 1 ] && echo "lib_path: found '$path'"
+			[ $verbose -eq 2 ] && echo "$path"
+			return 0
+		fi
+		
+		local abs_path=$(__lib_get_absolute_path "$1")
+		path=$(echo $LIB_PATH | grep -E -e "(^|:)$abs_path/?(:|$)")
+		
+		# test 2
+		if [ -n "$path" ]; then
+			[ $verbose -eq 1 ] && echo "lib_path: found '$abs_path'"
+			[ $verbose -eq 2 ] && echo "$abs_path"
+			return 0
+		fi
+		
+		local path2=$(echo $LIB_PATH | grep -E -e "(^|:).*$(basename "$1")/?(:|$)")
+		
+		# test 3
+		if [ -n "$path2" ]; then
+			path2=${path2#:}; path2=${path2%:}
+			local abs_path2=$(__lib_get_absolute_path "$path2")
+			
+			if [ "$abs_path" == "$abs_path2" ]; then
+				[ $verbose -eq 1 ] && echo "lib_path: found '$path2'"
+				[ $verbose -eq 2 ] && echo "$path2"
+				return 0
+			fi
+		fi
+		
+		[ $verbose -eq 1 ] && echo "lib_path: '$1' not found"
+		
+		return 1
+	}
+	
 	# Aggiunge un path alla lista contenuta nella variabile LIB_PATH.
 	__lib_path_add()
 	{
@@ -666,6 +723,7 @@ END
 	{
 		unset __lib_path_get
 		unset __lib_path_set
+		unset __lib_path_find
 		unset __lib_path_add
 		unset __lib_path_list
 		unset __lib_path_remove
@@ -678,6 +736,7 @@ END
 	case "$CMD" in
 	RESET)  __lib_path_reset      ;;
 	LIST)   __lib_path_list       ;;
+	FIND)   __lib_path_find   "$1";;
 	ADD)    __lib_path_add    "$@";;
 	REMOVE) __lib_path_remove "$@";;
 	SET)    __lib_path_set    "$@";;
