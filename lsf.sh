@@ -543,14 +543,18 @@ END
 		local LP=""
 		local lib=
 		
-		if [ -z "$*" ]; then
-			if [ $ABS_PATH -eq 0 ]; then
-				LP="$LIB_PATH"
-			else
-				for lib in $(echo -e ${LIB_PATH//:/\\n}); do
-					LP="${LP}:$(__lib_get_absolute_path "$lib")"
-				done
-			fi
+		if [ $# -eq 0 ]; then
+			for lib in $(echo -e ${LIB_PATH//:/\\n}); do
+				if [ $ABS_PATH -eq 1 ]; then
+					lib="$(__lib_get_absolute_path "$lib")"
+				fi
+				
+				if [ $REAL_PATH -eq 1 ] && lib_test --is-archive "$lib"; then
+					lib="$(lib_archive --track --search $lib)"
+				fi
+				
+				LP="${LP}:$lib"
+			done
 		else
 			
 			for path_num in $(echo $* | tr : ' '); do
@@ -558,6 +562,10 @@ END
 				lib=$(echo $LIB_PATH | awk -F: -v PN=$path_num '{print $PN}')
 				
 				[ $ABS_PATH -eq 1 ] && lib=$(__lib_get_absolute_path "$lib")
+				
+				if [ $REAL_PATH -eq 1 ] && lib_test --is-archive "$lib"; then
+					lib="$(lib_archive --track --search $lib)"
+				fi
 				
 				LP=${LP}:${lib}
 			done
@@ -576,11 +584,13 @@ END
 		[ $VERBOSE -eq 1 ] &&
 		echo "LIB_PATH: List"
 		
+		local path_list="$(__lib_path_get)"
+		
 		if [ $ABS_PATH -eq 0 ]; then
-			echo -e ${LIB_PATH//:/\\n}
+			echo -e ${path_list//:/\\n}
 		else
 			local lib
-			for lib in $(echo -e ${LIB_PATH//:/\\n}); do
+			for lib in $(echo -e ${path_list//:/\\n}); do
 				__lib_get_absolute_path "$lib"
 			done
 		fi
@@ -604,16 +614,7 @@ END
 		
 		for lib in $(echo "$libs" | tr : ' '); do
 			
-			[ $ABS_PATH -eq 1 ] && lib=$(__lib_get_absolute_path "$lib")
-			
-			[ $VERBOSE -eq 1 ] &&
-			echo "LIB_PATH: Add path '$lib'"
-			
-			if [ -n "$LIB_PATH" ]; then
-				LIB_PATH="$LIB_PATH:${lib%\/}"
-			else
-				LIB_PATH="${lib%\/}"
-			fi
+			__lib_path_add "$lib"
 		done
 		
 		export LIB_PATH
@@ -674,18 +675,41 @@ END
 	{
 		for lib in $*; do
 			
+			__lib_path_find "$lib" && continue
+			
 			[ $ABS_PATH -eq 1 ] && lib=$(__lib_get_absolute_path "$lib")
 			
-			[ $VERBOSE -eq 1 ] &&
-			echo "LIB_PATH: Add path '$lib'"
-			
+			if   lib_test --is-file "$lib"; then
+				[ $VERBOSE -eq 1 ] &&
+				echo "LIB_PATH: Add file library path: $lib"
+			elif lib_test --is-dir  "$lib"; then
+				[ $VERBOSE -eq 1 ] &&
+				echo "LIB_PATH: Add dir library path: $lib"
+			elif lib_test --is-archive  "$lib"; then
+				local larc_opts="--quiet"
+				[ $VERBOSE -eq 1 ] && larc_opts="--verbose"
+				
+				lib_archive $larc_opts --temp-dir --track --clean-dir --extract "$lib"
+				
+				if [ $REAL_PATH -eq 1 ]; then
+					lib="$(lib_archive --track --search $lib)"
+				fi
+				
+				[ $VERBOSE -eq 1 ] &&
+				echo "LIB_PATH: Add archive library path: $lib"
+			else
+				[ $VERBOSE -eq 1 ] &&
+				echo "LIB_PATH: Add path: '$lib' failed! No type found."
+				
+				continue
+			fi
 			if [ -n "$LIB_PATH" ]; then
 				LIB_PATH="${lib%\/}:$LIB_PATH"
 			else
 				LIB_PATH="${lib%\/}"
 			fi
 		done
-	
+		
 		export LIB_PATH
 	}
 
@@ -694,17 +718,27 @@ END
 	{
 		for lib in $*; do
 			
-			[ $ABS_PATH -eq 1 ] && lib=$(__lib_get_absolute_path "$lib")
+			local path=$(__lib_path_find -v "$lib")
 			
-			[ $VERBOSE -eq 1 ] &&
-			echo "LIB_PATH: Remove path '$lib'"
+			[ -z "$path" ] && continue
 			
-			lib="${lib%\/}"
+			if [ $VERBOSE -eq 1 ]; then
+				echo -n "LIB_PATH: Remove path '$lib'"
+				
+				[ "$lib" != "$path" ] && echo -n " ($path)"
+				echo
+			fi
 			
 			LIB_PATH=$(echo $LIB_PATH |
-					   awk -v LIB="$lib/?" '{gsub(LIB, ""); print}' |
+					   awk -v LIB="$path" '{gsub(LIB, ""); print}' |
 					   awk '{gsub(":+",":"); print}' |
 					   awk '{gsub("^:|:$",""); print}')
+			
+			if lib_test --is-archive "$lib"; then
+				local opts=
+				[ $VERBOSE -eq 1 ] && opts="--verbose --no-quiet"
+				lib_archive $opts --clean "$lib"
+			fi
 		done
 	
 		export LIB_PATH
