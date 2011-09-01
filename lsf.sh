@@ -867,7 +867,7 @@ END
 	
 	#echo "NAME ARGS=$ARGS" > /dev/stderr
 	
-	local libpath="$LIB_PATH"
+	local libpath="$(lib_path --list --absolute-path --real-path)"
 	local VERBOSE=0
 	
 	while true ; do
@@ -1400,6 +1400,7 @@ END
 		#echo "ARC_NAME=$ARC_NAME" > /dev/stderr
 		#echo "LIB=$lIB"           > /dev/stderr
 		
+		local diff_list=
 		#local old_mod_time=0
 		#local new_mod_time=$(stat -c %Y $ARCHIVE_NAME)
 		local exit_code=1
@@ -1423,7 +1424,7 @@ END
 					[ $VERBOSE -eq 1 ] &&
 					echo "Directory trovata: $DIR"
 					
-					local diff_list=$(__lib_archive_diff_list "$ARCHIVE_NAME" "$DIR" "$LIB")
+					diff_list=$(__lib_archive_diff_list "$ARCHIVE_NAME" "$DIR" "$LIB")
 					
 					#old_mod_time=$(stat -c %Y "$DIR")
 					
@@ -1846,26 +1847,29 @@ END
 	#echo "FIND ARGS=$ARGS" > /dev/stderr
 	
 	local QUIET=0
-	local libpath="$LIB_PATH"
+	local libpath=""
 	local ARCHIVE_MODE=0
 	local VERBOSE=0
 	local opts=
+	local add_path=1
 	
 	while true ; do
 		case "$1" in
 		-q|--quiet)        QUIET=1; opts="$opts $1"   ; shift  ;;
 		-Q|--no-quiet)     QUIET=0                    ; shift  ;;
-		-p|--add-libpath)  libpath="${2}:${LIB_PATH}" ; shift 2;;
-		-P|--libpath)      libpath="$2"               ; shift 2;;
+		-p|--add-libpath)  libpath="$2"; add_path=1   ; shift 2;;
+		-P|--libpath)      libpath="$2"; add_path=0   ; shift 2;;
 		-f|--file) 
-			[ -f "$2" ] || return 1
+			[ -f "$2" ] && echo $2 | grep -q -E -e "[.]$LIB_EXT$" || return 1
 			[ $QUIET -eq 1 ] || __lib_get_absolute_path "$2"
 			return 0;;
 		-d|--dir)
 			[ -d "$2" ] || return 1
 			[ $QUIET -eq 1 ] || __lib_get_absolute_path "$2"
 			return 0;;
-		-a|--archive)        ARCHIVE_MODE=1             ; shift  ;;
+		-a|--archive)
+			lib_archive --no-quiet $opts --search $LIB
+			return $?;;
 		-v|--verbose)        VERBOSE=1; opts="$opts $1" ; shift  ;;
 		-V|--no-verbose)     VERBOSE=0                  ; shift  ;;
 		-h|--help) __lib_find_usage $FUNCNAME; return 0;;
@@ -1874,6 +1878,9 @@ END
 		esac
 	done
 	
+	if [ $add_path -eq 1 ]; then
+		libpath="$libpath:$(lib_path --list --absolute-path --real-path)"
+	fi
 	
 	local LIB="${1//://}"
 	
