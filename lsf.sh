@@ -885,9 +885,13 @@ SYNOPSIS
 	    $CMD [OPTIONS] [NAMING_OPTIONS] [EXTRACT OPTIONS] [-d|--dir DIR] -u|--unpack  <archive_name>@
 	
 	Clear command:
-	    $CMD --clean
-	    $CMD --clean-temp
-	    $CMD --clean-track
+	    $CMD [OPTIONS] [NAMING_OPTIONS] --clean       [<archive_file>]
+	    $CMD [OPTIONS] [NAMING_OPTIONS] --clean-temp  [<archive_file>]
+	    $CMD [OPTIONS] [NAMING_OPTIONS] --clean-track [<archive_file>]
+	
+	    $CMD [OPTIONS] [NAMING_OPTIONS] --clean       [<archive_name>@]
+	    $CMD [OPTIONS] [NAMING_OPTIONS] --clean-temp  [<archive_name>@]
+	    $CMD [OPTIONS] [NAMING_OPTIONS] --clean-track [<archive_name>@]
 	
 	
 DESCRIPTION
@@ -948,10 +952,14 @@ COMMAND OPTIONS
 	    Equivale a: --naming --extract o in brave -nx
 	
 	--clear-temp
-	    Cancella tutte le cartelle temporanee in /tmp/lst-*
+	    Senza parametri, cancella tutte le cartelle temporanee in /tmp/lst-*
+	    Se viene passato l'indentificativo di un archivio, cancella solamente
+	    la cartella temporanea associata a quest'ultimo, se esiste.
 	
 	--clear-track
-	    Svuota la mappa per il tracking degli archivi estratti.
+	    Senza parametri, svuota la mappa per il tracking degli archivi estratti.
+	    Se viene passato l'indentificativo di un archivio, cancella solamente
+	    l'entri della mappa associata a quest'ultimo, se esiste.
 	
 	--clear
 	    Equivale a: --clear-temp --clear-track
@@ -1007,7 +1015,7 @@ NAMING OPTIONS
 	-a, --auto-naming (default)
 	    Abilita automaticamente la modalità naming se nel parametro di input compare '@'.
 	
-	-A|--no-auto-naming)
+	-A, --no-auto-naming
 	    Disabilita la modalità automatica di naming.
 	
 END
@@ -1406,28 +1414,52 @@ END
 	
 	__lib_archive_clean()
 	{
-		if [ $CLEAN_TRACK -eq 1 ]; then
-			
-			[ $QUIET -eq 0 ] &&
-			lib_log "Pulizia della mappa degli archivi."
-			
-			LIB_ARC_MAP=()
-		fi
+		local ARCHIVE_NAME=""
+		
+		[ -n "$1" ] && ARCHIVE_NAME=$(__lib_get_absolute_path "$1")
 		
 		if [ $CLEAN_TEMP -eq 1 ]; then
 			
-			[ $QUIET -eq 0 ] &&
-			lib_log "Rimozione delle directory temporanee."
-			
-			local tmp_dir=
-			
-			for tmp_dir in $(ls -1d /tmp/lsf-* 2> /dev/null); do
+			if [ -z "$ARCHIVE_NAME" ]; then
 				
-				rm -r "$tmp_dir" 2> /dev/null
-				[ $VERBOSE -eq 1 ] && (
-				[ $? -eq 0 ] && echo -n "[OK] " || echo -n "[KO] "
-				echo "Remove directory: $tmp_dir")
-			done
+				[ $QUIET -eq 0 ] &&
+				lib_log "Rimozione delle directory temporanee."
+				
+				local tmp_dir=
+				
+				for tmp_dir in $(ls -1d /tmp/lsf-* 2> /dev/null); do
+					
+					rm -r "$tmp_dir" 2> /dev/null
+					[ $VERBOSE -eq 1 ] && (
+					[ $? -eq 0 ] && echo -n "[OK] " || echo -n "[KO] "
+					echo "Remove directory: $tmp_dir")
+				done
+			else
+				local tmp_dir="${LIB_ARC_MAP[$ARCHIVE_NAME]}"
+				
+				if [ -n "$tmp_dir" -a -d "$tmp_dir" ]; then
+					[ $QUIET -eq 0 ] &&
+					lib_log "Rimozione delle directory temporanea dell'archivio '$ARCHIVE_NAME'."
+					rm -r "$tmp_dir" 2> /dev/null
+				else
+					[ $VERBOSE -eq 1 ] &&
+					echo "Rimozione delle directory temporanea dell'archivio '$ARCHIVE_NAME' fallita."
+				fi
+			fi
+		fi
+		
+		if [ $CLEAN_TRACK -eq 1 ]; then
+			if [ -z "$ARCHIVE_NAME" ]; then
+				[ $QUIET -eq 0 ] &&
+				lib_log "Pulizia della mappa degli archivi."
+				
+				LIB_ARC_MAP=()
+			else
+				[ $QUIET -eq 0 ] &&
+				lib_log "Rimozione dalla mappa degli archivi, del track di '$ARCHIVE_NAME'."
+				
+				unset LIB_ARC_MAP[$ARCHIVE_NAME]
+			fi
 		fi
 	}
 	
@@ -1555,7 +1587,7 @@ END
 	CREATE)  __lib_archive_create  "${DIR:=.}" "$ARC_FILE";;
 	SEARCH)  __lib_archive_search  "$ARC_FILE" "$LIB_FILE";;
 	EXTRACT) __lib_archive_extract "${DIR:=--}" "$ARC_FILE" "$LIB_FILE";;
-	CLEAN)   __lib_archive_clean;;
+	CLEAN)   __lib_archive_clean "$1";;
 	esac
 	
 	__lib_archive_exit $?
