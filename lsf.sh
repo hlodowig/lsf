@@ -1234,6 +1234,14 @@ END
 		local ARCHIVE_NAME=$(__lib_get_absolute_path "$1")
 		local LIB="$2"
 		
+		if [ $TRACK -eq 1 ]; then
+			local arc_dir="${LIB_ARC_MAP[$ARCHIVE_NAME]}"
+			
+			[ -n "$arc_dir" ] && echo "$arc_dir"
+			
+			return 0
+		fi
+		
 		if [ -z "$LIB" ]; then
 			
 			[ $QUIET -eq 1 ] || echo "$ARCHIVE_NAME"
