@@ -521,7 +521,7 @@ END
 		--) shift; break;;
 		esac
 	done
-
+	
 	# Restituisce il valore della variabile LIB_PATH, se non viene passato alcun
 	# parametro.
 	# Se come parametro viene passata una sequenza numerica separata da ':',vengono
@@ -576,7 +576,7 @@ END
 		
 		echo $LP 
 	}
-
+	
 	# Stampa la lista dei path della variabile LIB_PATH, separati dal carattere di
 	# newline.
 	__lib_path_list()
@@ -595,12 +595,12 @@ END
 			done
 		fi
 	}
-
+	
 	# Imposta la variabile LIB_PATH.
 	__lib_path_set()
 	{
 		
-		local libs="$1"
+		local libs="$(echo "$1" | awk -F: '{for (i=NF; i>0; i--) { if (i>1) printf "%s:", $i; else print $i; }; }')"
 		local lib=""
 		
 		[ -z "$libs" -a $ABS_PATH -eq 1 ] && libs="$LIB_PATH"
@@ -933,7 +933,7 @@ END
 # Costruisce un archivio o ne visualizza il contenuto.
 lib_archive()
 {
-
+	
 	__lib_archive_usage()
 	{
 		local CMD="$1"
@@ -985,12 +985,12 @@ SYNOPSIS
 	    $CMD [OPTIONS] [NAMING_OPTIONS] --clean       [<archive_name>@]
 	    $CMD [OPTIONS] [NAMING_OPTIONS] --clean-temp  [<archive_name>@]
 	    $CMD [OPTIONS] [NAMING_OPTIONS] --clean-track [<archive_name>@]
-	
-	
+
+
 DESCRIPTION
 	Il comando $CMD crea e gestisce un archivio di libreria.
-	
-	
+
+
 GENERIC OPTIONS
 	-h, --help
 	    Stampa questa messaggio e esce.
@@ -1014,7 +1014,7 @@ GENERIC OPTIONS
 	
 	-V, --no-verbose
 	    Non stampa informazioni dettagliate.
-	
+
 COMMAND OPTIONS
 	-c, --create, --build
 	    Crea un nuovo archivio di libreria
@@ -1056,15 +1056,15 @@ COMMAND OPTIONS
 	
 	--clear
 	    Equivale a: --clear-temp --clear-track
-	
+
 CREATE OPTIONS
 	-d, --dir DIR
 	    Imposta la directory ch
-	
+
 SEARCH OPTIONS
 	-m, --library LIB_PATH
 	    Imposta la libreria da ricercare all'interno dell'archivio.
-	
+
 EXTRACT OPTIONS
 	-d, --dir DIR
 	    Imposta la directory di estrazione per l'archivio.
@@ -1095,7 +1095,7 @@ EXTRACT OPTIONS
 	
 	--no-force (default)
 	    Non forza l'estrazione quando l'archivio è già stato tracciato come estratto.
-	
+
 NAMING OPTIONS
 	-n, --naming
 	    Abilita la modalità di naming.
@@ -1110,7 +1110,7 @@ NAMING OPTIONS
 	
 	-A, --no-auto-naming
 	    Disabilita la modalità automatica di naming.
-	
+
 END
 		) | less
 		return 0
