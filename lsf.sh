@@ -3355,6 +3355,32 @@ END
 	
 }
 
+lib_detect_collision()
+{
+	local lib=""
+	local libfile=""
+	local libpath=""
+	local exit_code=1
+	
+	
+	for lib in $(
+		for libpath in $(lib_path --list --absolute-path --real-path)
+		do
+			for libfile in $(__lib_list_dir "$libpath")
+			do
+				lib_name "$libfile"
+			done
+		done | sort | uniq -c | grep -E -e "^ *[2-9][0-9]*" | awk '{print $2}')
+	do
+		echo "$lib"
+		lib_find --all "$lib"
+		echo
+		
+		exit_code=0
+	done
+	
+	return $exit_code
+}
 
 # Esce dall'ambiente corrente rimuovendo tutte le definizioni del framework
 lib_exit()
