@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-LFS_VERSINFO=([0]="0" [1]="8" [2]="3" [3]="0" [4]="alpha" [5]="all")
+LFS_VERSINFO=([0]="0" [1]="8" [2]="3" [3]="2" [4]="alpha" [5]="all")
 
 
 
@@ -1755,6 +1755,12 @@ OPTIONS
 	    Imposta temporaneamente una nuova lista di path di libreria, invece di quelli 
 	    presenti nella variabile d'ambiente LIB_PATH.
 	
+	-F, --first
+	    Ritorna il primo path di libreria che corrisponde al nome di libreria cercato.
+	
+	-A, --all
+	    Ritorna tutti i path di libreria che corrispondono al nome di libreria cercato.
+	
 	-q, --quiet
 	    Non stampa il path sullo standard output.
 	
@@ -1841,7 +1847,7 @@ END
 
 	[ $# -eq 0 -o -z "$*" ] && return 1
 	
-	local ARGS=$(getopt -o hqQf:d:a:p:P:vV -l help,quiet,no-quiet,file:,dir:,archive:,add-libpath:,libpath:,verbose,no-verbose -- "$@")
+	local ARGS=$(getopt -o hf:d:a:p:P:FAqQvV -l help,file:,dir:,archive:,add-libpath:,libpath:,first,all,quiet,no-quiet,verbose,no-verbose -- "$@")
 	eval set -- $ARGS
 	
 	#echo "FIND ARGS=$ARGS" > /dev/stderr
@@ -1852,6 +1858,7 @@ END
 	local VERBOSE=0
 	local opts=
 	local add_path=1
+	local FIND_ALL=0
 	
 	while true ; do
 		case "$1" in
@@ -1870,8 +1877,10 @@ END
 		-a|--archive)
 			lib_archive --no-quiet $opts --search $LIB
 			return $?;;
-		-v|--verbose)        VERBOSE=1; opts="$opts $1" ; shift  ;;
-		-V|--no-verbose)     VERBOSE=0                  ; shift  ;;
+		-F|--first)        FIND_ALL=0                 ; shift  ;;
+		-A|--all)          FIND_ALL=1                 ; shift  ;;
+		-v|--verbose)      VERBOSE=1; opts="$opts $1" ; shift  ;;
+		-V|--no-verbose)   VERBOSE=0                  ; shift  ;;
 		-h|--help) __lib_find_usage $FUNCNAME; return 0;;
 		--) shift;;
 		*) break;;
@@ -1901,26 +1910,35 @@ END
 	fi
 	
 	local libdir=
+	local exit_code=1
 	
 	for libdir in ${libpath//:/ }; do
 		
 		if [ -d "${libdir}/$LIB" ]; then
 			
 			[ $QUIET -eq 1 ] || __lib_get_absolute_path ${libdir}/$LIB
-			return 0
+			
+			[ $FIND_ALL -eq 0 ] && return 0
+			
+			exit_code=0
 			
 		elif [ -f "${libdir}/$LIB.$LIB_EXT" ]; then
 			
 			[ $QUIET -eq 1 ] || __lib_get_absolute_path ${libdir}/$LIB.$LIB_EXT
-			return 0
+			
+			[ $FIND_ALL -eq 0 ] && return 0
+			
+			exit_code=0
 		else
 			lib_archive --no-quiet $opts --search "${libdir}/$LIB:$SUB_LIB"
 			
-			return $?
+			[ $FIND_ALL -eq 0 ] && return 0
+			
+			exit_code=$?
 		fi
 	done
 	
-	return 1
+	return $exit_code
 }
 
 
