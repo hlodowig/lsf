@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-LFS_VERSINFO=([0]="0" [1]="8" [2]="3" [3]="2" [4]="alpha" [5]="all")
+LFS_VERSINFO=([0]="0" [1]="8" [2]="3" [3]="3" [4]="alpha" [5]="all")
 
 
 
@@ -90,8 +90,8 @@ __lib_get_absolute_path()
 		if [ $# -eq 0 ]; then
 			cat
 		else
-			echo "$1"
-		fi | awk '{gsub("^ *| *$",""); print}'
+			echo $1
+		fi
 	)
 	
 	echo "$STRING" | grep -E -q -e "$REGEXP" >/dev/null
@@ -867,13 +867,14 @@ END
 	
 	#echo "NAME ARGS=$ARGS" > /dev/stderr
 	
-	local libpath="$(lib_path --list --absolute-path --real-path)"
+	local libpath=""
+	local add_libpath=1
 	local VERBOSE=0
 	
 	while true ; do
 		case "$1" in
-		-p|--add-libpath)  libpath="${2}:${LIB_PATH}" ; shift  2;;
-		-P|--libpath)      libpath="$2"               ; shift  2;;
+		-p|--add-libpath)  libpath="${2} ${libpath}"  ; shift  2;;
+		-P|--libpath)      libpath="$2"; add_libpath=0; shift  2;;
 		-v|--verbose)      VERBOSE=1                  ; shift   ;;
 		-V|--no-verbose)   VERBOSE=0                  ; shift   ;;
 		-h|--help)         __lib_name_usage $FUNCNAME ; return 0;;
@@ -885,6 +886,11 @@ END
 	local LIB_NAME=""
 	local lib="$1"
 	local sublib=""
+	
+	if [ $add_libpath -eq 1 ]; then
+		#libpath="${libpath} $(lib_path --list --absolute-path --real-path)"
+		libpath="${libpath} $(lib_path --list --real-path)"
+	fi
 	
 	if echo "$lib" | grep -q "\.$ARC_EXT"; then
 		
@@ -899,16 +905,16 @@ END
 	
 	local dirs=""
 	
-	for libdir in ${libpath//:/ }; do
+	for libdir in ${libpath}; do
 		
-		local dir=$(__lib_get_absolute_path $libdir)
+		libdir=$(__lib_get_absolute_path $libdir)
 		
-		[ "$lib" == $dir ] && return 3
+		[ "$lib" == $libdir ] && return 3
 		
-		dirs="$dirs|$dir"
-		
-		dirs=${dirs#|}
+		dirs="$dirs|$libdir"
 	done
+	
+	dirs=${dirs#|}
 	
 	CMD="echo \"${lib}${sublib}\" | awk '{ gsub(\"^($dirs)/\",\"\"); print}' | 
 	       awk '{ gsub(\"(:|/)+\",\"/\");      print }' | 
@@ -2474,17 +2480,6 @@ END
 
 
 # Importa una libreria nell'ambiente corrente.
-#
-# lib_import [--file|-f] dir/library.lib
-#
-# lib_import [--include|-i] [--file|-f] dir/library.lib
-#
-# lib_import [--dir|-d] dir
-#
-# lib_import [--recursive|-r] [--dir|-d] dir
-#
-# lib_import [--include|-i] [--recursive|-r] [--dir|-d] dir
-#
 lib_import()
 {
 	__lib_import_usage()
@@ -2710,7 +2705,7 @@ END
 	# lib_import --all invocation
 	if [ $ALL -eq 1 ]; then
 		
-		for dir in ${LIB_PATH//:/ }
+		for dir in $(lib_path --list --absolute-path --real-path)
 		do
 			$FUNCNAME $OPTIONS $LIB_PATH_OPT --recursive --dir $dir
 		done
@@ -3013,7 +3008,7 @@ END
 	
 	if [ $# -eq 0 ]; then
 		
-		paths="${LIB_PATH//:/ }"
+		paths="$(lib_path --list --absolute-path --real-path)"
 		RECURSIVE=1
 	fi
 	
@@ -3357,13 +3352,68 @@ END
 
 lib_detect_collision()
 {
+	__lib_detect_collision()
+	{
+		local CMD="$1"
+		
+		(cat << END
+NAME
+	${CMD:=lib_test} - Verifica se ci sono delle collisioni nello spazio dei nomi.
+	
+SYNOPSIS
+	$CMD [OPTIONS] [<libname> ...]
+	
+	$CMD -h|--help
+	
+	
+DESCRIPTION
+	Il comando $CMD verifica se ci sono delle collisioni nello spazio dei nomi.
+	Utile per verificare che un nome sia univoco all'interno delle librerie.
+	
+OPTIONS
+	-f, --print-files
+	    Stampa i nomi delle librerie che collidono e i path dei file associati.
+	
+	-F, --no-print-files
+	    Stampa solo i nomi delle librerie che collidono.
+	
+	-h, --help
+	    Stampa questo messaggio ed esce
+	
+	
+END
+		) | less
+		
+		return 0
+	}
+	
+	local ARGS=$(getopt -o hfF -l help,print-files,no-print-files -- "$@")
+	eval set -- $ARGS
+	
+	
+	local libs=""
 	local lib=""
 	local libfile=""
 	local libpath=""
 	local exit_code=1
+	local PRINT_FILES=0
 	
+	while true ; do
+		case "$1" in
+		-f|--print-files)    PRINT_FILES=1                       ; shift   ;;
+		-F|--no-print-files) PRINT_FILES=0                       ; shift   ;;
+		-h|--help) __lib_detect_collision $FUNCNAME              ; return 0;;
+		--) shift;;
+		*) break;;
+		esac
+	done
 	
-	for lib in $(
+	local ALL_LIBS=0
+	
+	if [ $# -eq 0 ]; then
+		ALL_LIBS=1
+		
+		libs=$(
 		for libpath in $(lib_path --list --absolute-path --real-path)
 		do
 			for libfile in $(__lib_list_dir "$libpath")
@@ -3371,12 +3421,33 @@ lib_detect_collision()
 				lib_name "$libfile"
 			done
 		done | sort | uniq -c | grep -E -e "^ *[2-9][0-9]*" | awk '{print $2}')
-	do
-		echo "$lib"
-		lib_find --all "$lib"
-		echo
+	else
+		local libs="$@"
+	fi
+	
+	for lib in $libs; do
 		
-		exit_code=0
+		if [ $ALL_LIBS -eq 1 ]; then
+			echo "$lib"
+			
+			if [ $PRINT_FILES -eq 1 ]; then
+				lib_find --all "$lib"
+				echo
+			fi
+		else
+			local deps="$(lib_find --all "$lib")"
+			
+			if [ -n "$deps" ]; then
+				echo "$lib"
+				
+				if [ $PRINT_FILES -eq 1 ]; then
+					echo "$deps"
+					echo
+				fi
+				
+				exit_code=0
+			fi
+		fi
 	done
 	
 	return $exit_code

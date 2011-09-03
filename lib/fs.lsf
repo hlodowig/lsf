@@ -34,8 +34,8 @@ fs_get_absolute_path()
 		if [ $# -eq 0 ]; then
 			cat
 		else
-			echo "$1"
-		fi | awk '{gsub("^ *| *$",""); print}'
+			echo $1
+		fi
 	)
 	
 	if ! string_contains "$FILEPATH" "^/"; then
