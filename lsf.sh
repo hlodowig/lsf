@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-LFS_VERSINFO=([0]="0" [1]="8" [2]="3" [3]="3" [4]="alpha" [5]="all")
+LFS_VERSINFO=([0]="0" [1]="8" [2]="4" [3]="0" [4]="alpha" [5]="all")
 
 
 
@@ -735,8 +735,8 @@ END
 					   awk '{gsub("^:|:$",""); print}')
 			
 			if lib_test --is-archive "$lib"; then
-				local opts=
-				[ $VERBOSE -eq 1 ] && opts="--verbose --no-quiet"
+				local opts="--quiet"
+				[ $VERBOSE -eq 1 ] && opts="--verbose"
 				lib_archive $opts --clean "$lib"
 			fi
 		done
@@ -1074,6 +1074,9 @@ SEARCH OPTIONS
 EXTRACT OPTIONS
 	-d, --dir DIR
 	    Imposta la directory di estrazione per l'archivio.
+	
+	-m, --library LIB_PATH
+	    Imposta la libreria da estrarre dall'archivio.
 	
 	-t, --temp-dir
 	    Abilita la creazione automatica di una directory temporanea di estrazione.
@@ -1503,9 +1506,15 @@ END
 			fi
 			echo -e "archivio '$2' nella directory: $DIR\n"
 		fi
+		
+		
 		# Estazione dell'archivio
 		tar -xzvf "$ARCHIVE_NAME" -C "$DIR" "$LIB" 2> /dev/null | 
-		awk -v DIR="$DIR" 'BEGIN {print DIR } {printf "%s/%s\n", DIR, $0}'
+		if [ $QUIET -eq 0 ]; then
+			awk -v DIR="$DIR" 'BEGIN {print DIR } {printf "%s/%s\n", DIR, $0}'
+		else
+			cat > /dev/null
+		fi
 		
 		local exit_code=$?
 		
@@ -1998,7 +2007,7 @@ SYNOPSIS
 	
 DESCRIPTION
 	Il comando $CMD trova il path associato ad una libreria, sia essa file o cartella o archivio,
-	e applica a suddetti file una funzione definita dall'utente e passata come parametro.
+	e applica ai suddetti file una funzione definita dall'utente e passata come parametro.
 	
 	
 OPTIONS
@@ -2012,20 +2021,17 @@ OPTIONS
 	
 	-f, --file
 	    Verifica se il file di libreria esiste, senza eseguire operazioni di naming.
-	    Se il file non esiste, viene applicata la funzione specificata, altrimenti la funzione
-	    di error.
+	    Se il file esiste, viene applicata la funzione specificata, altrimenti la funzione di error.
 	
 	-d, --dir
 	    Verifica se la directory specificata dal path esiste, senza eseguire
 	    operazioni di naming.
-	    Se la directory non esiste, viene applicata la funzione specificata, 
-	    altrimenti la funzione di error.
+	    Se la directory esiste, viene applicata la funzione specificata, altrimenti la funzione di error.
 	
 	-a, --archive  
 	    Verifica se l'archivio specificato dal path esiste, senza eseguire
 	    operazioni di naming.
-	    Se la directory non esiste, viene applicata la funzione specificata, 
-	    altrimenti la funzione di error.
+	    Se l'archivio esiste, viene applicata la funzione specificata, altrimenti la funzione di error.
 	
 	-h| --help
 	    Stampa questo messaggio ed esce.
@@ -2067,7 +2073,7 @@ END
 	__lib_apply_default_lib_function()
 	{
 		if [ $QUIET -eq 0 ]; then
-			echo -e "$LIB_NAME:\n$LIB_FILE"
+			echo "$LIB_NAME=$LIB_FILE"
 		fi
 		
 		test -n "$1"
