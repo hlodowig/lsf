@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+	<mime-type type="application/lsf-archive">
+		<glob pattern="*.lsa"/>
+		<comment>Library Script Archive</comment>
+		<comment xml:lang="it_IT">Library Script Archive</comment>
+	</mime-type>
+	<mime-type type="application/lsf-script">
+		<glob pattern="*.lsf"/>
+		<comment>Library Script File</comment>
+		<comment xml:lang="it_IT">Library Script File</comment>
+	</mime-type>
+</mime-info>
