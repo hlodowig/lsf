@@ -145,6 +145,11 @@ fs_chext()
 	string_sub "$1" "$2"
 }
 
+fs_make_tmp_dir()
+{
+	mktemp --tmpdir -d $*
+}
+
 # This function creates a directory and sets global permissions for it.
 # If the directory already exists, an error is issued.
 fs_ensure_dir()
