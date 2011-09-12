@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-LFS_VERSINFO=([0]="0" [1]="8" [2]="4" [3]="0" [4]="alpha" [5]="all")
+LFS_VERSINFO=([0]="0" [1]="8" [2]="4" [3]="1" [4]="alpha" [5]="all")
 
 
 
@@ -463,6 +463,12 @@ GENERIC OPTIONS
 	-A, --absolute-path
 	    Converte i path relativi in assoluti.
 	
+	-w, --real-path
+	    Converte i path relativi agli archivi nelle relative directory temporanee.
+	
+	-W, --no-real-path
+	    Non converte i path relativi agli archivi. (default)
+	
 COMMAND OPTIONS
 	-g, --get
 	    Restituisce il valore della variabile d'ambiente LIB_PATH.
@@ -553,7 +559,7 @@ END
 					lib="$(lib_archive --track --search $lib)"
 				fi
 				
-				LP="${LP}:$lib"
+				LP="${LP}:${lib}"
 			done
 		else
 			
@@ -581,19 +587,10 @@ END
 	# newline.
 	__lib_path_list()
 	{
-		[ $VERBOSE -eq 1 ] &&
-		echo "LIB_PATH: List"
+		[ $VERBOSE -eq 1 ] && echo "LIB_PATH: List"
 		
 		local path_list="$(__lib_path_get)"
-		
-		if [ $ABS_PATH -eq 0 ]; then
-			echo -e ${path_list//:/\\n}
-		else
-			local lib
-			for lib in $(echo -e ${path_list//:/\\n}); do
-				__lib_get_absolute_path "$lib"
-			done
-		fi
+		echo -e ${path_list//:/\\n}
 	}
 	
 	# Imposta la variabile LIB_PATH.
@@ -673,6 +670,7 @@ END
 	# Aggiunge un path alla lista contenuta nella variabile LIB_PATH.
 	__lib_path_add()
 	{
+		
 		for lib in $*; do
 			
 			__lib_path_find "$lib" && continue
@@ -1270,7 +1268,9 @@ END
 			shift
 		fi
 		
-		[ -f "$1" ] && file --mime-type "$1" | grep -q "gzip"
+		[ -f "$1" ] && 
+		echo "$1" | grep -q ".$ARC_EXT" && 
+		file --mime-type "$1" | grep -q "gzip"
 		
 		local exit_code=$?
 		
@@ -1877,10 +1877,10 @@ END
 	
 	while true ; do
 		case "$1" in
-		-q|--quiet)        QUIET=1; opts="$opts $1"   ; shift  ;;
-		-Q|--no-quiet)     QUIET=0                    ; shift  ;;
-		-p|--add-libpath)  libpath="$2"; add_path=1   ; shift 2;;
-		-P|--libpath)      libpath="$2"; add_path=0   ; shift 2;;
+		-q|--quiet)        QUIET=1; opts="$opts $1"   ; shift   ;;
+		-Q|--no-quiet)     QUIET=0                    ; shift   ;;
+		-p|--add-libpath)  libpath="$2"; add_path=1   ; shift  2;;
+		-P|--libpath)      libpath="$2"; add_path=0   ; shift  2;;
 		-f|--file) 
 			[ -f "$2" ] && echo $2 | grep -q -E -e "[.]$LIB_EXT$" || return 1
 			[ $QUIET -eq 1 ] || __lib_get_absolute_path "$2"
@@ -1889,22 +1889,17 @@ END
 			[ -d "$2" ] || return 1
 			[ $QUIET -eq 1 ] || __lib_get_absolute_path "$2"
 			return 0;;
-		-a|--archive)
-			lib_archive --no-quiet $opts --search $LIB
-			return $?;;
-		-F|--first)        FIND_ALL=0                 ; shift  ;;
-		-A|--all)          FIND_ALL=1                 ; shift  ;;
-		-v|--verbose)      VERBOSE=1; opts="$opts $1" ; shift  ;;
-		-V|--no-verbose)   VERBOSE=0                  ; shift  ;;
-		-h|--help) __lib_find_usage $FUNCNAME; return 0;;
+		-a|--archive)      ARCHIVE_MODE=1             ; shift   ;;
+		-F|--first)        FIND_ALL=0                 ; shift   ;;
+		-A|--all)          FIND_ALL=1                 ; shift   ;;
+		-v|--verbose)      VERBOSE=1; opts="$opts $1" ; shift   ;;
+		-V|--no-verbose)   VERBOSE=0                  ; shift   ;;
+		-h|--help)         __lib_find_usage $FUNCNAME ; return 0;;
 		--) shift;;
 		*) break;;
 		esac
 	done
 	
-	if [ $add_path -eq 1 ]; then
-		libpath="$libpath:$(lib_path --list --absolute-path --real-path)"
-	fi
 	
 	local LIB="${1//://}"
 	
@@ -1912,6 +1907,10 @@ END
 		lib_archive --no-quiet $opts --search $LIB
 		
 		return $?
+	fi
+	
+	if [ $add_path -eq 1 ]; then
+		libpath="$libpath:$(lib_path --list --absolute-path --real-path)"
 	fi
 	
 	
