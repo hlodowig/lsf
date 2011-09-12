@@ -105,6 +105,15 @@ sys_set_prompt3()
 # See: sys_set_prompt1
 alias sys_set_prompt=sys_set_prompt1
 
+sys_server_x_is_running()
+{
+	ps au | grep -q -E -e "root .*/usr/bin/X :[0-9]+"
+}
+
+sys_is_xterm()
+{
+	env | grep -q "DISPLAY"
+}
 
 # Esegue un comando per ogni file processato.
 sys_exec_cmd_forall()
