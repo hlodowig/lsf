@@ -1,0 +1,161 @@
+################################################################################
+# Terminal Widgets: Label                                                      #
+################################################################################
+#
+# Funzione che implemente una label per terminale.
+#
+# Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+
+lib_include io
+lib_include cui:term
+
+
+label()
+{
+	__label_usage()
+	{
+		local CMD="$1"
+		(cat << END
+NAME
+	$CMD - Stampa una label sul terminale
+	
+SYNOPSIS
+	$CMD [OPTIONS] [-v] <integer>
+	
+DESCRIPTION
+	Funzione di base per la stampa una label personalizzabile
+	
+OPTIONS
+	Generic Program Information:
+	    -h, --help                      Print this message
+	
+	Main options:
+	    -l, --length      <integer>     Lunghezza massima della label (default 0 [infinito])
+	    -m, --min-length  <integer>     Lunghezza minima della label (default 0)
+	    -c, --fill-char   <char>        Carattere utilizzato per riempimento            (default ' ')
+	    -b, --fg-color    <color>       Colore utilizzato per il testo della label      (default NULL)
+	    -B, --bg-color    <color>       Colore utilizzato per lo sfondo della label     (default NULL)
+	    -x, --column      <integer>     Imposta la colonna dove posizionare la label
+	    -y, --row         <integer>     Imposta la righa dove posizionare la label
+	    -n, --no-newline                Non stampa il carattere di newline a fine label
+	    -z, --border                    Stampa i bordi laterali della label
+	    -Z, --no-border                 Non stampa i bordi laterali della label (default)
+
+AUTHOR
+	Written by Luigi Capraro (luigi.capraro@gmail.com)
+	
+EXAMPLES
+	
+	$CMD [--length=50] [--no-newline|-n] <text>
+	$CMD --length=100 <text>
+	$CMD -M 100 -f GREEN -b GRAY <text>
+	
+	echo <text> | $CMD -l 100
+	
+END
+) | less
+		return 0
+	}
+	
+	local ARGS=$(getopt -o hlrcM:m:e:f:b:x:y:nB:zZ -l help,align-left,align-right,align-center,length:,min-length:,fill-char:,fg-color:,bg-color:,column:,row:,border-char:,border,no-border,no-newline -- "$@")
+	
+	eval set -- $ARGS
+	
+	local TEXT=""
+	local LENGTH=0
+	local MIN_LENGTH=0
+	local MAX_LENGTH=0
+	local X=0
+	local Y=0
+	local FILL_CHAR=' '
+	local FG_COLOR=
+	local BG_COLOR=
+	local BORDER_CHAR='|'
+	local BORDER=0
+	local NEWLINE=1
+	local ALIGN=0
+	
+	while true ; do
+		case "$1" in
+		    -M|--length)         MAX_LENGTH=$2        ; shift   2;;
+		    -m|--min-length)     MIN_LENGTH=$2        ; shift   2;;
+		    -l|--align-left)     ALIGN=0              ; shift    ;;
+		    -r|--align-right)    ALIGN=1              ; shift    ;;
+		    -c|--align-center)   ALIGN=2              ; shift    ;;
+		    -e|--fill-char)      FILL_CHAR="$2"       ; shift   2;;
+		    -B|--border-char)    BORDER_CHAR="$2"     ; shift   2;;
+		    -f|--fg-color)       FG_COLOR="$2"        ; shift   2;;
+		    -b|--bg-color)       BG_COLOR="$2"        ; shift   2;;
+		    -x|--column)         X=$2                 ; shift   2;;
+		    -y|--row)            Y=$2                 ; shift   2;;
+		    -n|--no-newline)     NEWLINE=0            ; shift    ;;
+		    -z|--border)         BORDER=1             ; shift    ;;
+		    -Z|--no-border)      BORDER=0             ; shift    ;;
+		    -h|--help)    __label_usage $FUNCNAME     ; return 0 ;;
+		    --) shift; break;;
+		    *) 	echo "Error: unknown option \"$1\"" > /dev/stderr; return 1;;
+		esac
+	done
+	
+	TEXT=$(
+		if [ $# -eq 0 ]; then
+			cat
+		else
+			echo "$@"
+		fi
+	)
+	
+	LENGTH=${#TEXT}
+	
+	[ $MIN_LENGTH -gt $MAX_LENGTH ] && MAX_LENGTH=$MIN_LENGTH
+	
+	[ $BORDER -eq 1 ] && MAX_LENGTH=$((MAX_LENGTH-2))
+	
+	if [ $LENGTH -lt $MAX_LENGTH ]; then
+		local ldiff=$((MAX_LENGTH - LENGTH))
+		local i=0
+		
+		if [ $ALIGN -lt 2 ]; then
+			for ((i=0; i<$ldiff; i++)); do
+				if [ $ALIGN -eq 0 ]; then
+					TEXT="${TEXT}${FILL_CHAR}"
+				elif [ $ALIGN -eq 1 ]; then
+					TEXT="${FILL_CHAR}${TEXT}"
+				fi
+			done
+		else
+			local lspace=$((ldiff/2))
+			local rspace=$((ldiff - lspace))
+			
+			for ((i=0; i<$lspace; i++)); do
+				TEXT="${FILL_CHAR}${TEXT}"
+			done
+			
+			for ((i=0; i<rspace; i++)); do
+				TEXT="${TEXT}${FILL_CHAR}"
+			done
+		fi
+		
+	elif [ $MAX_LENGTH -gt 0 -a $LENGTH -gt $MAX_LENGTH ]; then
+		MAX_LENGTH=$((MAX_LENGTH-1))
+		TEXT="${TEXT:0:$MAX_LENGTH}~"
+	fi
+	
+	term_move $X $Y
+	[ $BORDER -eq 1 ] && print $BORDER_CHAR
+	
+	
+	[ -n "$FG_COLOR" ] && term_set_color    $FG_COLOR
+	[ -n "$BG_COLOR" ] && term_set_bg_color $BG_COLOR
+	print "$TEXT"
+	term_set_color
+	term_set_bg_color
+	
+	[ $BORDER -eq 1 ] && print $BORDER_CHAR
+	
+	[ $NEWLINE -eq 1 ] && println
+	
+
+}
+
