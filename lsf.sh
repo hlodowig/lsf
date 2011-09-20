@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-LFS_VERSINFO=([0]="0" [1]="8" [2]="5" [3]="0" [4]="alpha" [5]="all")
+export LSF_VERSINFO=([0]="0" [1]="8" [2]="5" [3]="1" [4]="alpha" [5]="all")
 
 
 
@@ -49,17 +49,22 @@ lsf_version()
 	
 	[ $EXTENDED -eq 1 ] && echo -n "LSF "
 	
-	[ -n "${LFS_VERSINFO[0]}" ] && echo -n "${LFS_VERSINFO[0]}"
-	[ -n "${LFS_VERSINFO[1]}" ] && echo -n ".${LFS_VERSINFO[1]}"
-	[ -n "${LFS_VERSINFO[2]}" -a "${LFS_VERSINFO[2]}" != "0" ] && echo -n ".${LFS_VERSINFO[2]}"
-	[ -n "${LFS_VERSINFO[3]}" -a "${LFS_VERSINFO[3]}" != "0" ] && echo -n ".${LFS_VERSINFO[3]}"
-
+	local i=0
+	
+	for (( i=0; i<4; i++ )); do
+		[ $i -gt 0 ] && echo -n "."
+		[ -n "${LSF_VERSINFO[$i]}" ] && echo -n "${LSF_VERSINFO[$i]}"
+	done | awk '{gsub("([.]0)+$",""); printf "%s", $0}'
+	
 	if [ $EXTENDED -eq 1 ]; then
-		[ -n "${LFS_VERSINFO[4]}" ] && echo -n " ${LFS_VERSINFO[4]}"
+		[ -n "${LSF_VERSINFO[4]}" ] && echo -n " ${LSF_VERSINFO[4]}"
+		[ -n "${LSF_VERSINFO[5]}" ] && echo -n " ${LSF_VERSINFO[5]}"
 	fi
 	
 	echo
 }
+
+export -f lsf_version
 
 # Stampa il contento di una directory
 __lib_list_dir()
