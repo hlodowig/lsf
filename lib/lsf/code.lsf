@@ -485,7 +485,7 @@ lib_unset()
 			awk '{gsub("\\[(VAR|FUN)\\]","unset"); gsub("\\[ALS\\]","unalias"); printf "%s:%s\n",$1,$2}')
 	
 		if [ -n "$VAR_AND_FUN" ]; then
-			lib_log "Library '$lib': unset variables, functions and alias"
+			lib_log "Library '$1': unset variables, functions and alias"
 		
 			for def in $VAR_AND_FUN; do
 				local CMD=$(echo $def | tr : ' ')
