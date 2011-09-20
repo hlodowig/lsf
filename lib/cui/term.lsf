@@ -31,7 +31,7 @@ term_move_up()
 	
 	[ $# -eq 1 ] && POS=$1
 	
-	echo -en "\033[${POS}A"
+	[ $POS -gt 0 ] && echo -en "\033[${POS}A"
 }
 
 # Sposta verso il basso la posizione del cursore nel terminale corrente.
@@ -45,7 +45,7 @@ term_move_down()
 	
 	[ $# -eq 1 ] && POS=$1
 	
-	echo -en "\033[${POS}B"
+	[ $POS -gt 0 ] && echo -en "\033[${POS}B"
 }
 
 # Sposta verso destra la posizione del cursore nel terminale corrente.
@@ -59,7 +59,7 @@ term_move_right()
 	
 	[ $# -eq 1 ] && POS=$1
 
-	echo -en "\033[${POS}C"
+	[ $POS -gt 0 ] && echo -en "\033[${POS}C"
 }
 
 # Sposta verso sinistra la posizione del cursore nel terminale corrente.
@@ -73,7 +73,7 @@ term_move_left()
 	
 	[ $# -eq 1 ] && POS=$1
 
-	echo -en "\033[${POS}D"
+	[ $POS -gt 0 ] && echo -en "\033[${POS}D"
 }
 
 # Sposta il cursore nel terminale con coordinate relative alla posizione corrente.
@@ -82,14 +82,14 @@ term_move()
 	[ $# -eq 0 -o $# -gt 2 ] && return 1
 	
 	case $1 in
-	0|+[1-9]*) term_move_right ${1/+/};;
+	0|[1-9]*|+[1-9]*) term_move_right ${1/+/};;
 	-[1-9]*) term_move_left ${1/-/};;
 	*) return 2;;
 	esac
 
 	if [ $# -eq 2 ]; then
 		case $2 in
-		0|+[1-9]*) term_move_down ${2/+/};;
+		0|[1-9]*|+[1-9]*) term_move_down ${2/+/};;
 		-[1-9]*) term_move_up ${2/-/};;
 		*) return 3;;
 		esac
@@ -112,6 +112,9 @@ term_cursor_restore()
 
 # Pulisce il terminale.
 alias term_clear=clear
+
+# Reimposta tutti gli attributi del terminale ai valori di default.
+alias term_reset="tput sgr0"
 
 # Restituisce la stringa di escape corrispondente al fg color indicato.
 term_get_color()
@@ -226,10 +229,8 @@ term_set_color()
 	echo -en "$(term_get_color $1)"
 	
 	shift
-
-	if [ -n "$*" ]; then
-		echo $*
-	fi
+	
+	[ $# -gt 0 ] && echo $*
 }
 
 # Imposta il colore di bg e stampa sul terminale l'eventuale stringa.
@@ -242,9 +243,7 @@ term_set_bg_color()
 	echo -en "$(term_get_bg_color $1)"
 	
 	shift
-
-	if [ -n "$*" ]; then
-		echo $*
-	fi
+	
+	[ $# -gt 0 ] && echo $*
 }
 
