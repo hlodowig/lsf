@@ -44,7 +44,7 @@
     <style id="lsf-math"            _name="LSF Math"            map-to="def:lsf-function"/>
     <style id="lsf-io"              _name="LSF IO"              map-to="def:lsf-function"/>
     <style id="lsf-fs"              _name="LSF Filesystem"      map-to="def:lsf-function"/>
-    <style id="lsf-term"            _name="LSF Terminal"        map-to="def:lsf-function"/>
+    <style id="lsf-cui"             _name="LSF CUI"             map-to="def:lsf-function"/>
     <style id="lsf-util-bool"       _name="LSF Util Bool"       map-to="def:lsf-function"/>
     <style id="lsf-util-string"     _name="LSF Util String"     map-to="def:lsf-function"/>
     <style id="lsf-util-map"        _name="LSF Util Map"        map-to="def:lsf-function"/>
@@ -702,7 +702,7 @@
       <keyword>sum</keyword>
     </context>
 
-    <context id="lsf-term" style-ref="lsf-term">
+    <context id="lsf-term" style-ref="lsf-cui">
       <prefix>(?&lt;![\w\-\.])term_</prefix>
       <suffix>(?![\w\-\.])</suffix>
       <keyword>cursor_restore</keyword>
@@ -719,6 +719,15 @@
       <keyword>set_bg_color</keyword>
       <keyword>set_color</keyword>
       <keyword>set_clear</keyword>
+    </context>
+
+    <context id="lsf-cui" style-ref="lsf-cui">
+      <prefix>(?&lt;![\w\-\.])</prefix>
+      <suffix>(?![\w\-\.])</suffix>
+      <keyword>label</keyword>
+      <keyword>tabulator</keyword>
+      <keyword>progress_bar_builder</keyword>
+      <keyword>progress_bar</keyword>
     </context>
 
     <context id="lsf" class="no-spell-check">
@@ -747,6 +756,7 @@
         <context ref="lsf-io"/>
         <context ref="lsf-fs"/>
         <context ref="lsf-term"/>
+        <context ref="lsf-cui"/>
         <context ref="lsf-util-bool"/>
         <context ref="lsf-util-string"/>
         <context ref="lsf-util-array"/>
