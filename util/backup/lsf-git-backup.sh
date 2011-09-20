@@ -79,21 +79,17 @@ END
 	
 	if [ -z "$GIT_DIR" ]; then
 		GIT_DIR=".git"
+		[ -n "$LSF_HOME" ] && GIT_DIR="$LSF_HOME/$GIT_DIR"
 	fi
 	
 	if [ ! -d "$GIT_DIR" ]; then
-		[ $QUIET -eq 0 ] || echo "Error: directory '$GIT_DIR' non trovata!"
+		[ $QUIET -eq 1 ] || echo "Error: directory '$GIT_DIR' non trovata!"
 		
 		return 1
 	fi
 	
-	if [ -z "$BAK_DIR" ]; then
-		BAK_DIR="."
-	fi
-	
-	
-	if [ ! -d "$BAK_DIR" ]; then
-		[ $QUIET -eq 0 ] || echo "Error: directory '$BAK_DIR' per il backp non trovata!"
+	if [ ! -d "${BAK_DIR:-.}" ]; then
+		[ $QUIET -eq 1 ] || echo "Error: directory '$BAK_DIR' per il backp non trovata!"
 		
 		return 1
 	fi
@@ -112,8 +108,8 @@ END
 	
 	[ -n "$BAK_DIR" ] && LSF_TAR="$BAK_DIR/$LSF_TAR"
 	
-	[ $QUIET -eq 1 ] || echo -n "LSF $LSF_VERSION GIT: Backup in corso..."
-	[ $DUMMY -eq 1 ] || tar -czf "$LSF_TAR" $GIT_DIR
+	[ $QUIET -eq 1 ] || echo -n "LSF GIT: Backup in corso..."
+	[ $DUMMY -eq 1 ] || tar -czf "$LSF_TAR" -C $(dirname $GIT_DIR) $(basename $GIT_DIR) 2> /dev/null
 	
 	local exit_code=$?
 	

@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-export LSF_VERSINFO=([0]="0" [1]="8" [2]="5" [3]="1" [4]="alpha" [5]="all")
+export LSF_VERSINFO=([0]="0" [1]="8" [2]="5" [3]="2" [4]="alpha" [5]="all")
 
 
 
@@ -43,6 +43,8 @@ declare -gxA LIB_ARC_MAP
 
 lsf_version()
 {
+	[ -z "$LSF_VERSINFO" ] && return 1
+	
 	local EXTENDED=0
 	
 	[ "$1" == "-e" ] && EXTENDED=1
@@ -63,8 +65,6 @@ lsf_version()
 	
 	echo
 }
-
-export -f lsf_version
 
 # Stampa il contento di una directory
 __lib_list_dir()
@@ -2072,6 +2072,8 @@ END
 		-f|--file)               FIND_OPT="$1"  ; shift   ;;
 		-d|--dir)                FIND_OPT="$1"  ; shift   ;;
 		-a|--archive) IS_ARC=1;  FIND_OPT="$1"  ; shift   ;;
+		-q|--quiet)              QUIET=1        ; shift   ;;
+		-Q|--no-quiet)           QUIET=0        ; shift   ;;
 		-h|--help) __lib_apply_usage $FUNCNAME  ; return 0;;
 		--) shift;;
 		*) break;;
@@ -2244,7 +2246,7 @@ END
 	
 	
 	local FIND_OPT=""
-	local QUIET=0
+	local QUIET="--quiet"
 	local VERBOSE=0
 	
 	__lib_is_enabled()
@@ -2296,10 +2298,10 @@ END
 		--is-file)          TEST="EXIST";FIND_OPT="-f" ; shift;;
 		--is-dir)           TEST="EXIST";FIND_OPT="-d" ; shift;;
 		--is-archive)       TEST="EXIST";FIND_OPT="-a" ; shift;;
-		-q|--quiet)         QUIET=1                    ; shift;;
-		-Q|--no-quiet)      QUIET=0                    ; shift;;
-		-v|--verbose)       VERBOSE=1                  ; shift;;
-		-V|--no-verbose)    VERBOSE=0                  ; shift;;
+		-q|--quiet)         QUIET="$1"                 ; shift;;
+		-Q|--no-quiet)      QUIET="$1"                 ; shift;;
+		-v|--verbose)       VERBOSE=1; QUIET="-Q"      ; shift;;
+		-V|--no-verbose)    VERBOSE=0; QUIET="-q"      ; shift;;
 		-h|--help)          __lib_test_usage $FUNCNAME ;
 		                    __lib_test_exit  $?        ; return  0;;
 		--) shift;;
@@ -2316,7 +2318,7 @@ END
 	EXIST|INSTALLED)   FUN="__lib_is_installed";;
 	esac
 	
-	lib_apply --lib-function $FUN -E "" $FIND_OPT "$LIB"
+	lib_apply $QUIET --lib-function $FUN $FIND_OPT "$LIB"
 	
 	__lib_test_exit $?
 }
@@ -2577,9 +2579,6 @@ OPTIONS
 	-Q, --no-quiet
 	    Abilita la stampa dei messaggi nel log. (see: lib_log funtions)
 	
-	-D, --dummy
-	    Esegue tutte le operazioni di checking, ma non importa la libreria.
-	
 	-p, --add-libpath
 	    Aggiuge temporaneamente una nuova lista di path di libreria a quelli presenti
 	    nella variabile d'ambiente LIB_PATH.
@@ -2587,6 +2586,18 @@ OPTIONS
 	-P, --libpath
 	    Imposta temporaneamente una nuova lista di path di libreria, invece di quelli 
 	    presenti nella variabile d'ambiente LIB_PATH.
+	
+	-s, --fast
+	    Attiva la modalità fast quando è attiva l'opzione --all.
+	    Disabilita i comandi di import o include per i sorgenti caricati nell'ambiente.
+	    Non sicura se ci sono librerie dipendenti da librerie non attivate.
+	    @see lib_enable, lib_disable
+	
+	-S, --no-fast
+	    Disattiva la modalità fast quando è attiva l'opzione --all. (default)
+	
+	-D, --dummy
+	    Esegue tutte le operazioni di checking, ma non importa la libreria.
 	
 	-h, --help
 	    Stampa questo messaggio ed esce.
@@ -2667,7 +2678,7 @@ END
 ) | less
 	}
 	
-	local ARGS=$(getopt -o hfdircCuDqQlLRFaAp:P:vV -l help,file,dir,archive,include,recursive,check,no-check,update,dummy,quiet,no-quiet,list,list-files,list-clear,force,all,libpath:,add-libpath:,verbose,no-verbose -- "$@")
+	local ARGS=$(getopt -o hfdircCuDqQlLRFaAp:P:sSvV -l help,file,dir,archive,include,recursive,check,no-check,update,dummy,quiet,no-quiet,list,list-files,list-clear,force,all,libpath:,add-libpath:,fast,no-fast,verbose,no-verbose -- "$@")
 	eval set -- $ARGS
 	
 	#echo "___________________________________________________"
@@ -2686,6 +2697,7 @@ END
 	local DUMMY=0
 	local QUIET=0
 	local VERBOSE=0
+	local FAST=0
 	
 	while true ; do
 		
@@ -2704,6 +2716,8 @@ END
 		-V|--no-verbose) VERBOSE=0           OPTIONS="$OPTIONS $1"    ; shift  ;;
 		-D|--dummy)      DUMMY=1;            OPTIONS="$OPTIONS $1"    ; shift  ;;
 		-F|--force)      CHECK=0; INCLUDE=1; OPTIONS="$OPTIONS -C -i" ; shift  ;;
+		-s|--fast)       FAST=1                                       ; shift  ;;
+		-S|--no-fast)    FAST=0                                       ; shift  ;;
 		-p|--add-libpath)  LIB_PATH_OPT="$1 $2"                       ; shift 2;;
 		-P|--libpath)      LIB_PATH_OPT="$1 $2"                       ; shift 2;;
 		-l|--list)       __lib_list_names      ; return ;; 
@@ -2725,7 +2739,7 @@ END
 	# lib_import --all invocation
 	if [ $ALL -eq 1 ]; then
 		
-		LIB_IMPORT_ALL=1
+		[ $FAST -eq 1 ] && LIB_IMPORT_ALL=1
 		
 		for dir in $(lib_path --list --absolute-path --real-path)
 		do
@@ -2753,6 +2767,9 @@ END
 	else
 		LIB="$1"
 	fi
+	
+	# verifica se la pathname expansion di bash è fallita
+	echo "$LIB" | grep -q -E -e "[*][.]($LIB_EXT|$ARC_EXT)$" && return 3
 	
 	LIB_FILE=$(lib_find $LIB_PATH_OPT $FIND_OPT $LIB)
 	
@@ -3552,25 +3569,39 @@ END
 
 ### MAIN SECTION ###############################################################
 
-if [ "sh" != "$0" -a "bash" != "$0" ]; then 
+lsf_help()
+{
+	echo "Library System Framework HELP (not implementated)"
+}
 
-	LIBSYS="lib"
+
+if [ "sh" != "$0" -a "bash" != "$0" ]; then 
+	
+	LSF_PREFIX="lib"
 	CMD=""
+	OPTIONS=""
 	
 	while true; do
 		case "$1" in
-			-h|--help) echo "LibSys Help (not implementated)"; exit 0;;
-			import*|include*|name|find|list*|enable|disable|unset|is_*|get_*|set_*)
-				CMD=${LIBSYS}_$1; shift;;
-			log*) CMD=${LIBSYS}_$1_$2; shift 2;;
+			-h|--help) OPTIONS="$1"; shift;;
+			-v|--version) lsf_version; exit $?;;
+			apply|archive|depend|detect_collision|disable|enable|exit|find|import|list|list_apply|log|name|path|test)
+				CMD="${LSF_PREFIX}_$1"; shift;;
+			include) 
+				CMD="${LSF_PREFIX}_import --include"; shift;;
+			update) 
+				CMD="${LSF_PREFIX}_import --update" ; shift;;
 			*) break
 		esac
 	done
 	
 	if [ -n "$CMD" ]; then
-		$CMD $@
+		$CMD $OPTIONS $@
 		exit $?
+	elif [ -n "$OPTIONS" ]; then
+		lsf_help
 	fi
+	
 fi
 
 ################################################################################

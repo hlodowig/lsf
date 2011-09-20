@@ -13,28 +13,23 @@ lsf_install()
 	(cat << END
 ### Load Library System Framework ##############################################
 
+source $LSF_HOME/lsf.sh
 
+export LSF_HOME="$HOME/config/lsf"
+export PATH="$LSF_HOME/bin:$PATH"
 
-lsf_setup() {
-	
-	source $LSF_HOME/lsf.sh
-	
-	export LSF_HOME="$HOME/config/lsf"
-	
-	lib_path --set "$LSF_HOME/lib"
-	
-	echo -n "LSF: Loading libraries..."
-	lib_import --all
-	echo "complete!"
-	
-	#lib_log --output "$LOG_DIR/libsys.log"
-	#lib_log --enable
-	
-	#sleep 1
-	#clear
-}
+lib_path --set "$LSF_HOME/lib"
 
-lsf_setup
+echo -n "LSF: Loading libraries... "
+lib_import --all --fast
+echo "complete!"
+
+#lib_log --output "$LOG_DIR/libsys.log"
+lib_log --enable
+
+#sleep 1
+#clear
+
 
 ### Load profile scripts #######################################################
 
