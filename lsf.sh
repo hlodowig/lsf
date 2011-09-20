@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-LFS_VERSINFO=([0]="0" [1]="8" [2]="4" [3]="1" [4]="alpha" [5]="all")
+LFS_VERSINFO=([0]="0" [1]="8" [2]="5" [3]="0" [4]="alpha" [5]="all")
 
 
 
@@ -886,11 +886,10 @@ END
 	local sublib=""
 	
 	if [ $add_libpath -eq 1 ]; then
-		#libpath="${libpath} $(lib_path --list --absolute-path --real-path)"
-		libpath="${libpath} $(lib_path --list --real-path)"
+		libpath="${libpath} $(lib_path --list --absolute-path --real-path)"
 	fi
 	
-	if echo "$lib" | grep -q "\.$ARC_EXT"; then
+	if echo "$lib" | grep -q -E -e"[.]$ARC_EXT"; then
 		
 		local regex="^.*.$ARC_EXT"
 		
@@ -905,8 +904,6 @@ END
 	
 	for libdir in ${libpath}; do
 		
-		libdir=$(__lib_get_absolute_path $libdir)
-		
 		[ "$lib" == $libdir ] && return 3
 		
 		dirs="$dirs|$libdir"
@@ -914,7 +911,8 @@ END
 	
 	dirs=${dirs#|}
 	
-	CMD="echo \"${lib}${sublib}\" | awk '{ gsub(\"^($dirs)/\",\"\"); print}' | 
+	CMD="echo \"${lib}${sublib}\" |
+	       awk '{ gsub(\"^($dirs)/\",\"\");    print }' | 
 	       awk '{ gsub(\"(:|/)+\",\"/\");      print }' | 
 	       awk '{ gsub(\"[.]$ARC_EXT\",\"@\"); print }' |
 	       awk '! /[.]$LIB_EXT\$/ { printf \"%s/\n\", \$0 }
@@ -1883,11 +1881,11 @@ END
 		-P|--libpath)      libpath="$2"; add_path=0   ; shift  2;;
 		-f|--file) 
 			[ -f "$2" ] && echo $2 | grep -q -E -e "[.]$LIB_EXT$" || return 1
-			[ $QUIET -eq 1 ] || __lib_get_absolute_path "$2"
+			[ $QUIET -eq 1 ] || echo "$2" #__lib_get_absolute_path "$2"
 			return 0;;
 		-d|--dir)
 			[ -d "$2" ] || return 1
-			[ $QUIET -eq 1 ] || __lib_get_absolute_path "$2"
+			[ $QUIET -eq 1 ] || echo "$2" #__lib_get_absolute_path "$2"
 			return 0;;
 		-a|--archive)      ARCHIVE_MODE=1             ; shift   ;;
 		-F|--first)        FIND_ALL=0                 ; shift   ;;
@@ -1900,6 +1898,7 @@ END
 		esac
 	done
 	
+	#return 1
 	
 	local LIB="${1//://}"
 	
@@ -1910,18 +1909,14 @@ END
 	fi
 	
 	if [ $add_path -eq 1 ]; then
+		#libpath="$libpath:$LIB_PATH"
+		#libpath="$libpath:$(lib_path --list)"
+		#libpath="$libpath:$(lib_path --list --absolute-path)"
+		#libpath="$libpath:$(lib_path --list --real-path)"
+		
 		libpath="$libpath:$(lib_path --list --absolute-path --real-path)"
 	fi
 	
-	
-	if echo "$LIB" | grep -q "@"; then
-		local lib="$LIB"
-		local regex="^.*@"
-		
-		LIB="$(echo "$lib" | grep -o -E -e "$regex" | awk '{gsub("@",""); print}').$ARC_EXT"
-		SUB_LIB="$(echo "$lib" | awk -v S="$regex" '{gsub(S,""); print}')"
-		SUB_LIB="${SUB_LIB#/}"
-	fi
 	
 	local libdir=
 	local exit_code=1
@@ -1930,7 +1925,7 @@ END
 		
 		if [ -d "${libdir}/$LIB" ]; then
 			
-			[ $QUIET -eq 1 ] || __lib_get_absolute_path ${libdir}/$LIB
+			[ $QUIET -eq 1 ] || echo ${libdir}/$LIB
 			
 			[ $FIND_ALL -eq 0 ] && return 0
 			
@@ -1938,12 +1933,21 @@ END
 			
 		elif [ -f "${libdir}/$LIB.$LIB_EXT" ]; then
 			
-			[ $QUIET -eq 1 ] || __lib_get_absolute_path ${libdir}/$LIB.$LIB_EXT
+			[ $QUIET -eq 1 ] || echo  ${libdir}/$LIB.$LIB_EXT
 			
 			[ $FIND_ALL -eq 0 ] && return 0
 			
 			exit_code=0
-		else
+			
+		elif echo "$LIB" | grep -q "@"; then
+			
+			local lib="$LIB"
+			local regex="^.*@"
+			
+			LIB="$(echo "$lib" | grep -o -E -e "$regex" | awk '{gsub("@",""); print}').$ARC_EXT"
+			SUB_LIB="$(echo "$lib" | awk -v S="$regex" '{gsub(S,""); print}')"
+			SUB_LIB="${SUB_LIB#/}"
+			
 			lib_archive --no-quiet $opts --search "${libdir}/$LIB:$SUB_LIB"
 			
 			[ $FIND_ALL -eq 0 ] && return 0
@@ -2485,8 +2489,14 @@ END
 
 
 # Importa una libreria nell'ambiente corrente.
+
+LIB_IMPORT=1
+LIB_IMPORT_ALL=0
+
 lib_import()
 {
+	[ $LIB_IMPORT -eq 1 ] || return 0
+	
 	__lib_import_usage()
 	{
 		local CMD=$1
@@ -2710,10 +2720,14 @@ END
 	# lib_import --all invocation
 	if [ $ALL -eq 1 ]; then
 		
+		LIB_IMPORT_ALL=1
+		
 		for dir in $(lib_path --list --absolute-path --real-path)
 		do
 			$FUNCNAME $OPTIONS $LIB_PATH_OPT --recursive --dir $dir
 		done
+		
+		LIB_IMPORT_ALL=0
 		
 		return 0
 	fi
@@ -2735,28 +2749,23 @@ END
 		LIB="$1"
 	fi
 	
-	
 	LIB_FILE=$(lib_find $LIB_PATH_OPT $FIND_OPT $LIB)
-	
-	#echo "___________________________________________________"
-	#echo "FIND LIB_FILE=$LIB_FILE"
-	
-	SUB_LIB="$(echo "$LIB_FILE" | awk -F : '{ print $2 }')"
-	LIB_FILE="$(echo "$LIB_FILE" | awk -F : '{ print $1 }')"
-	
-	#echo "LIB_FILE=$LIB_FILE, SUB_LIB=$SUB_LIB"
-	
 	
 	if [ -z "$LIB_FILE" ]; then
 		[ $QUIET -eq 1 ] || lib_log "Library '$LIB' not found!"	
 		return 1
 	fi
 	
+	if echo "$LIB_FILE" | grep ":"; then
+		SUB_LIB="$(echo "$LIB_FILE" | awk -F : '{ print $2 }')"
+		LIB_FILE="$(echo "$LIB_FILE" | awk -F : '{ print $1 }')"
+		#echo "LIB_FILE=$LIB_FILE, SUB_LIB=$SUB_LIB"
+	fi
+	
 	if [ $INCLUDE -eq 0 -a ! -x "$LIB_FILE" ]; then
 		[ $QUIET -eq 1 ] || lib_log "Library '$LIB' disable!"
 		return 2
 	fi
-	
 	
 	if [ -f "$LIB_FILE" ]; then  # se la libreria è un file o un'archivio
 		
@@ -2772,7 +2781,9 @@ END
 			
 				if ! file --mime-type "$LIB_FILE" | grep -q "gzip"; then
 					
+					[ $LIB_IMPORT_ALL -eq 1 ] && LIB_IMPORT=0
 					source "$LIB_FILE"
+					[ $LIB_IMPORT_ALL -eq 1 ] && LIB_IMPORT=1
 					
 					__lib_list_files_add "$LIB_FILE"
 					
@@ -2832,13 +2843,17 @@ END
 		
 		if [ $(ls -A1 "$DIR" | wc -l) -gt 0 ]; then
 			
+			# importa tutti i file di libreria
 			for library in $DIR/*.$LIB_EXT; do
 				if [ $INCLUDE -eq 1 -o -x $library ]; then
 					$FUNCNAME $LIB_PATH_OPT $OPTIONS --file $library
 				fi
 			done
 			
+			# se in modalità ricorsiva
 			if [ $RECURSIVE -eq 1 ]; then
+			
+				# importa tutte le directory
 				for libdir in $DIR/*; do
 					
 					test -d $libdir || continue
@@ -2850,6 +2865,7 @@ END
 					fi
 				done
 				
+				# importa tutti gli archivi
 				for library in $DIR/*.$ARC_EXT; do
 					if [ $INCLUDE -eq 1 -o -x $library ]; then
 						$FUNCNAME $LIB_PATH_OPT $OPTIONS --archive $library
