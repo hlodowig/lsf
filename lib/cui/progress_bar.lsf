@@ -457,7 +457,7 @@ END
 		
 		if [ $AUTO -eq 1 ]; then
 			local SLEN=$(string_length "$FORMAT")
-			local TERM_COLS=$(term_get_colums)
+			local TERM_COLS=$(term_get_columns)
 		
 			local ALEN=$(math_sub $TERM_COLS $SLEN)
 			ALEN=$(math_sub $ALEN 5)
