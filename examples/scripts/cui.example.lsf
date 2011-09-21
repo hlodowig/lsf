@@ -1,0 +1,30 @@
+#!/usr/local/bin/lsf --script
+
+clear
+run echo "Test LSF Parser"
+run echo "¯¯¯¯¯¯¯¯¯¯¯¯¯¯¯"
+
+path --set $LSF_HOME/lib
+log --enable
+include io
+include cui
+
+exec println
+command 'label Test CUI Module'
+eval println
+
+MSG="TEST COLOR LABEL"
+label --length 29 --border --fg-color red --bg-color yellow --align-left $MSG
+println
+
+MSG="TEST TABULATOR"
+label --length 29 --border --fg-color GREEN --bg-color BLUE --align-right $MSG
+cat /etc/passwd | tabulator -F: -f7 -B | sort | uniq -c | sort -rn | tabulator -f2,1 --headers="SHELL,USERS"
+println
+
+MSG="TEST PROGRESS BAR"
+label -x 15 -y 1 --length 62 --border --fg-color blue --bg-color WHITE --align-center $MSG
+label --no-newline -f YELLOW -b red --border "BAR"
+progress_bar -l 60 -m 20 -M 50 -v 45 -u Kbytes --format=" min %{3.1f}m %{P}B %{3.1f}M max %{3.1f}V %U"
+println
+

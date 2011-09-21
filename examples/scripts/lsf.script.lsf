@@ -1,0 +1,14 @@
+#!/usr/local/bin/lsf --script
+
+# log setup
+log --out out
+log --disable
+
+# library path setup
+path --set $LSF_HOME/lib
+
+# include library
+include io
+
+# test
+println "Test LSF"

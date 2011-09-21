@@ -25,7 +25,7 @@ lib_import --all --fast
 echo "complete!"
 
 #lib_log --output "$LOG_DIR/libsys.log"
-lib_log --enable
+#lib_log --enable
 
 #sleep 1
 #clear

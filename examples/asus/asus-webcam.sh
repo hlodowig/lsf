@@ -1,3 +1,5 @@
+#!/usr/local/bin/lsf --file
+
 lib_include fs
 lib_include io
 lib_include sys

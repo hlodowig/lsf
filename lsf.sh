@@ -19,9 +19,10 @@
 #
 
 # LSF Version info
-export LSF_VERSINFO=([0]="0" [1]="8" [2]="5" [3]="2" [4]="alpha" [5]="all")
+export LSF_VERSINFO=([0]="0" [1]="9" [2]="0" [3]="0" [4]="alpha" [5]="all")
 
-
+# Attiva l'espansione degli alias
+shopt -s expand_aliases
 
 # Variabile d'ambiente contenente la lista delle directory contenenti librerie.
 export LIB_PATH="${LIB_PATH:-"lib"}"
@@ -33,38 +34,13 @@ export LIB_EXT="lsf"
 export ARC_EXT="lsa"
 
 # Lista dei file di libreria importati.
-export LIB_FILE_LIST="${LIB_FILE_LIST:-""}"
+LIB_FILE_LIST="${LIB_FILE_LIST:-""}"
 
 # Mappa che associa ad un archivio una directory temporanea
 declare -gxA LIB_ARC_MAP
 
 
 ### UTILITY FUNCTIONS ##########################################################
-
-lsf_version()
-{
-	[ -z "$LSF_VERSINFO" ] && return 1
-	
-	local EXTENDED=0
-	
-	[ "$1" == "-e" ] && EXTENDED=1
-	
-	[ $EXTENDED -eq 1 ] && echo -n "LSF "
-	
-	local i=0
-	
-	for (( i=0; i<4; i++ )); do
-		[ $i -gt 0 ] && echo -n "."
-		[ -n "${LSF_VERSINFO[$i]}" ] && echo -n "${LSF_VERSINFO[$i]}"
-	done | awk '{gsub("([.]0)+$",""); printf "%s", $0}'
-	
-	if [ $EXTENDED -eq 1 ]; then
-		[ -n "${LSF_VERSINFO[4]}" ] && echo -n " ${LSF_VERSINFO[4]}"
-		[ -n "${LSF_VERSINFO[5]}" ] && echo -n " ${LSF_VERSINFO[5]}"
-	fi
-	
-	echo
-}
 
 # Stampa il contento di una directory
 __lib_list_dir()
@@ -799,7 +775,7 @@ lib_name()
 
 		(cat <<END
 NAME
-	${CMD:=lib_name} - Trova la libreria e applica una funzione specifica su di essa.
+	${CMD:=lib_name} - Restituisce il nome della libreria.
 
 SYNOPSIS
 	$CMD  <lib_path>|<dir_path|<archive_path>
@@ -2159,7 +2135,7 @@ lib_test()
 		
 		(cat << END
 NAME
-	${CMD:=lib_test} - Test.
+	${CMD:=lib_test} - Esegue test sulla libreria.
 
 SYNOPSIS
 	$CMD [OPTIONS] -e|--is-enabled               <lib_name>
@@ -2900,10 +2876,12 @@ END
 	fi
 }
 
+#alias lib_include="lib_import --include"
+#alias lib_update="lib_import --update"
 
-alias lib_include="lib_import -i"
+lib_include() { lib_import -i $@; }
 
-alias lib_update="lib_import -u"
+lib_update()  { lib_import -u $@; }
 
 
 ### List functions #############################################################
@@ -3567,41 +3545,309 @@ END
 }
 
 
-### MAIN SECTION ###############################################################
+### LSF MAIN SECTION ###########################################################
+
 
 lsf_help()
 {
-	echo "Library System Framework HELP (not implementated)"
+	local LSF_PREFIX="lib"
+	local CMD="lsf"
+	
+	(cat << END
+NAME
+	$CMD - Library System Framework.
+	
+SYNOPSIS
+	$CMD <command> [<options>]
+	
+	$CMD [-|--verbose]
+	
+	$CMD -h|--help|-?|help
+	
+	
+DESCRIPTION
+	Library System Framework (LSF) è un framework per l'import di librerie di script definite dall'utente.
+	
+GENERIC OPTIONS
+	--file <sh_script>
+	    Esegue lo script con sintassi bash, senza effettuare parsing.
+	    I comandi LSF devono essere idenfificati per esteso: $LSF_PREFIX_<comando>.
+	
+	--script <lsf_script>
+	    Esegue il parsing dello script LSF.
+	    Negli script LSF il comando run e affini risulta superfluo.
+	    NOTA: Al momento può eseguire solo comandi su una singola linea.
+	
+	-D, --dummy
+	    Stampa il comando senza eseguirlo.
+	
+	--interactive
+	    Esegue LSF in modalità interattiva.
+	
+	--no-interactive
+	    Esegue LSF in modalità normale. (default)
+	
+	-v, --version
+	    Stampa la versione di LSF.
+	
+	-h, --help, help [<command>]
+	    Se non è specificato nessun comando, stampa questo messaggio ed esce.
+	
+COMMAND LIST
+	Core functions:
+	  [${LSF_PREFIX}_]apply              Trova la libreria e applica una funzione specifica su di essa.
+	  [${LSF_PREFIX}_]archive            Crea e gestice gli archivi di libreria.
+	  [${LSF_PREFIX}_]depend             Stampa la lista delle dipendenze di una librerie.
+	  [${LSF_PREFIX}_]detect_collision   Verifica se ci sono delle collisioni nello spazio dei nomi.
+	  [${LSF_PREFIX}_]disable            Disabilita una libreria per l'importazione.
+	  [${LSF_PREFIX}_]enable             Abilita una libreria per l'importazione.
+	  [${LSF_PREFIX}_]exit               Rimuove le definizioni di funzioni, variabili e alias di LSF.
+	  [${LSF_PREFIX}_]find               Restituisce il path della libreria.
+	  [${LSF_PREFIX}_]import             Importa librerie nell'ambiente corrente.
+	  [${LSF_PREFIX}_]list               Stampa la lista delle librerie in una directory.
+	  [${LSF_PREFIX}_]list_apply         Applica una funzione definita dall'utente per file, directory, e archivi.
+	  [${LSF_PREFIX}_]log                Log Manager di LSF.
+	  [${LSF_PREFIX}_]name               Restituisce il nome della libreria.
+	  [${LSF_PREFIX}_]path               Toolkit per la variabile LIB_PATH.
+	  [${LSF_PREFIX}_]test               Esegue test sulla libreria
+	
+	Extended funcions:
+	  ${LSF_PREFIX}_<command>            Esegue funzioni di LSF non appartenenti al core.
+	
+	Util funcions:
+	  clear                              Pulisce lo schermo
+	  dummy                              Stampa i comandi senza eseguirli (debug)
+	  normal                             Esegue i comandi
+	  script,source,.                    Importa una script
+	
+	Per ulteriri informazioni digitare:
+	lsf help <command>  oppure  lsf <command> -h|--help
+	
+AUTHOR
+	Written by Luigi Capraro (lugi.capraro@gmail.com)
+	
+COPYRIGHT
+       Copyright © 2011 Free Software Foundation, Inc.  License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>.
+       This is free software: you are free to change and redistribute it.  There is NO WARRANTY, to the extent permitted by law.
+	
+END
+	) | less
+	return 0
 }
 
 
-if [ "sh" != "$0" -a "bash" != "$0" ]; then 
+# Restituisce la versione corrente di LSF.
+lsf_version()
+{
+	[ -z "$LSF_VERSINFO" ] && return 1
 	
-	LSF_PREFIX="lib"
-	CMD=""
-	OPTIONS=""
+	local EXTENDED=0
 	
-	while true; do
+	[ "$1" == "-e" ] && EXTENDED=1
+	
+	[ $EXTENDED -eq 1 ] && echo -n "LSF "
+	
+	local i=0
+	
+	for (( i=0; i<4; i++ )); do
+		[ $i -gt 0 ] && echo -n "."
+		[ -n "${LSF_VERSINFO[$i]}" ] && echo -n "${LSF_VERSINFO[$i]}"
+	done | awk '{gsub("([.]0)+$",""); printf "%s", $0}'
+	
+	if [ $EXTENDED -eq 1 ]; then
+		[ -n "${LSF_VERSINFO[4]}" ] && echo -n " ${LSF_VERSINFO[4]}"
+		[ -n "${LSF_VERSINFO[5]}" ] && echo -n " ${LSF_VERSINFO[5]}"
+	fi
+	
+	echo
+}
+
+# Esegue il parsing dei comandi LSF.
+lsf_parse()
+{
+	[ $# -gt 0 ] || return 1
+	
+	local INTERACTIVE=0
+	local READ_LINE=0
+	local SCRIPT=
+	local SCRIPT_FILE=
+	local LINE=
+	local LSF_PREFIX="lib"
+	local HELP_OPT=""
+	local DUMMY=0
+	local LSF_CMD=""
+	local CMD=""
+	local FILE=""
+	local ARGS=""
+	
+	while [ -n "$1" ]; do
 		case "$1" in
-			-h|--help) OPTIONS="$1"; shift;;
-			-v|--version) lsf_version; exit $?;;
-			apply|archive|depend|detect_collision|disable|enable|exit|find|import|list|list_apply|log|name|path|test)
-				CMD="${LSF_PREFIX}_$1"; shift;;
-			include) 
-				CMD="${LSF_PREFIX}_import --include"; shift;;
-			update) 
-				CMD="${LSF_PREFIX}_import --update" ; shift;;
-			*) break
+		--interactive)    INTERACTIVE=1; READ_LINE=1                 ; shift  ;;
+		--no-interactive) INTERACTIVE=0; READ_LINE=0                 ; shift  ;;
+		-D|--dummy)       DUMMY=1                                    ; shift  ;;
+		--script)         SCRIPT_FILE="$2";
+		   [ -f "$2" ] && readarray SCRIPT < $2; READ_LINE=1         ; shift 2;;
+		*)                ARGS="$ARGS '$1'"                          ; shift  ;;
 		esac
 	done
 	
-	if [ -n "$CMD" ]; then
-		$CMD $OPTIONS $@
-		exit $?
-	elif [ -n "$OPTIONS" ]; then
-		lsf_help
+	eval set -- $ARGS
+	
+	if [ $INTERACTIVE -eq 1 ]; then
+		echo "LSF Interactive mode: digit 'quit' or 'end' to exit."
+		echo
 	fi
 	
+	local i=0
+	local lines=${#SCRIPT[@]}
+	local WORDS=
+	
+	while true; do
+		if [ $READ_LINE -eq 1 ]; then
+			LINE=""
+			if [ $INTERACTIVE -eq 1 ]; then
+				read -a WORDS -p "lsf > "
+				LINE="${WORDS[@]}"
+			else
+				while [ $i -le $lines ] ; do
+					eval "LINE=\${SCRIPT[$i]}"
+					LINE=$(echo $LINE | awk '{gsub("\n$",""); print}' )
+					let i++
+					echo "$LINE" | grep -v -q -E -e "^(#|$)" && break
+				done
+				
+				[ $i -gt $lines ] && break
+			fi
+			
+			if echo "$LINE" | grep -v -q -E -e "^((${LSF_PREFIX}_)?(apply|archive|depend|detect_collision|disable|enable|exit|find|import|include|update|list|list_apply|log|name|path|test)|(--)?command|exec|execute|run|eval|--file|script|source|[.]|clear|normal|(--)?dummy|(--)?help|-h|quit|end)"; then
+				LINE="run '$LINE'"
+			fi
+			
+			#echo "Analizzo la linea: '$LINE'"
+			
+			[ "$LINE" == "quit" -o "$LINE" == "end" ] && break
+			
+			eval set -- "${LINE}"
+			
+		fi
+		
+		ARGS=""
+		
+		while [ -n "$1" ]; do
+			case "$1" in
+			-h|--help)  HELP_OPT="$1"    ; shift    ;;
+			clear)      clear            ; shift    ;;
+			dummy)      DUMMY=1          ; shift    ;;
+			normal)     DUMMY=0          ; shift    ;;
+			--file|source|\.) 
+				FILE="$2"
+				if [ -n "$FILE" -a -f "$FILE" ]; then
+				if [ $DUMMY -eq 0 ]; then
+					source "$FILE"
+				else
+					echo "source $FILE"
+				fi
+				fi                        ; shift   2;;
+			--command|command|exec|execute|run|eval) 
+				shift
+				if [ $READ_LINE -eq 0 ]; then
+					CMD="$1"
+				else
+					CMD="$*"
+					ARGS=""
+					break
+				fi;;
+			*) ARGS="$ARGS $1"; shift;;
+			esac
+		done
+		
+		eval set -- $ARGS
+		
+		ARGS=""
+		
+		while [ -n "$1" ]; do
+			
+			case "$1" in
+				${LSF_PREFIX}_*|apply|archive|depend|detect_collision|disable|enable|exit|find|import|include|update|list|list_apply|log|name|path|test)
+					if [ -n "$LSF_CMD" ]; then
+						# esegui il comando precede
+						if [ $DUMMY -eq 0 ]; then
+							$LSF_CMD $HELP_OPT $ARGS
+						else
+							echo $LSF_CMD $HELP_OPT $ARGS
+						fi
+					fi
+					
+					if echo $1 | grep -q -E -e "^${LSF_PREFIX}_"; then
+						LSF_CMD="$1"
+					else
+						LSF_CMD="${LSF_PREFIX}_$1"
+					fi
+					ARGS=""
+					shift;;
+				help) HELP_OPT="--help" ; shift  ;;
+				*) ARGS="$ARGS $1"; shift;;
+			esac
+		done
+
+		if [ -n "$LSF_CMD" -o -n "$CMD" ]; then
+	
+			if [ $DUMMY -eq 0 ]; then
+				if [ -n "$LSF_CMD" ]; then
+					$LSF_CMD $HELP_OPT $ARGS
+				fi
+				
+				if [ -n "$CMD" ]; then
+					eval $CMD 2> /dev/null
+					if [ $? -ne 0 ]; then
+						(echo "LSF Error: parsing fallito!"
+						 if [ -n "$SCRIPT_FILE" ]; then
+						 	echo "LSF Script: $SCRIPT_FILE (riga $i)"
+						 fi
+						) > /dev/stderr
+						return 2
+					fi
+				fi
+			else
+				[ -z "$LSF_CMD" ] || echo $LSF_CMD $HELP_OPT $ARGS
+				[ -z "$CMD"     ] || echo $CMD
+			fi
+		elif [ -n "$HELP_OPT" ]; then
+			lsf_help
+		fi
+		
+		[ $READ_LINE -eq 0 ] && break
+		
+		HELP_OPT=""
+		LSF_CMD=""
+		CMD=""
+		SCRIPT=""
+		ARGS=""
+		
+	done
+}
+
+lsf_main()
+{
+	while [ -n "$1" ]; do
+		case "$1" in
+		--version)     lsf_version      ; exit $?;;
+		*) ARGS="$ARGS '$1'"; shift;;
+		esac
+	done
+
+	eval set -- $ARGS
+
+	lsf_parse "$@"
+
+	return $?
+}
+
+# main #########################################################################
+#echo "SCRIPT=$0"
+
+if [ "sh" != "$0" -a "bash" != "$0" ]; then
+	lsf_main "$@"
 fi
 
 ################################################################################

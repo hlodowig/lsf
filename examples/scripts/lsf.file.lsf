@@ -1,0 +1,19 @@
+#!/usr/local/bin/lsf --file
+
+# log setup
+lib_log --out out
+lib_log --disable
+
+# library path setup
+lib_path --set $LSF_HOME/lib
+
+# include library
+lib_include io
+lib_include sys
+
+# test
+println "Test LSF"
+
+if sys_is_xterm; then
+	println "Stai utilizzando un terminale in ambiente grafico"
+fi
