@@ -4,8 +4,8 @@
 source $LSF_HOME/lsf.sh
 
 # log setup
-lib_log --out out
-lib_log --disable
+lsf_log --out out
+lsf_log --enable
 
 # library path setup
 lib_path --set $LSF_HOME/lib

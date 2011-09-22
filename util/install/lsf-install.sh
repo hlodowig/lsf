@@ -24,8 +24,8 @@ echo -n "LSF: Loading libraries... "
 lib_import --all --fast
 echo "complete!"
 
-#lib_log --output "$LOG_DIR/libsys.log"
-#lib_log --enable
+#lsf_log --output "$LOG_DIR/libsys.log"
+#lsf_log --enable
 
 #sleep 1
 #clear
@@ -64,8 +64,8 @@ profile_setup
 ################################################################################
 
 # Abilita il log per l'utente
-lib_log  --output out
-lib_log --enable
+lsf_log --output out
+lsf_log --enable
 
 END
 ) #>> $HOME/.bashrc

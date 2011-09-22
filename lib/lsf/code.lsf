@@ -126,7 +126,7 @@ lib_def_list()
 		unset __is_local_fun
 		unset __is_local_alias
 	else
-		lib_log "Library '$library' not found!"
+		lsf_log "Library '$library' not found!"
 		return 1
 	fi
 	
@@ -485,7 +485,7 @@ lib_unset()
 			awk '{gsub("\\[(VAR|FUN)\\]","unset"); gsub("\\[ALS\\]","unalias"); printf "%s:%s\n",$1,$2}')
 	
 		if [ -n "$VAR_AND_FUN" ]; then
-			lib_log "Library '$1': unset variables, functions and alias"
+			lsf_log "Library '$1': unset variables, functions and alias"
 		
 			for def in $VAR_AND_FUN; do
 				local CMD=$(echo $def | tr : ' ')
@@ -495,7 +495,7 @@ lib_unset()
 				[ "$CMD" != "unset PS2"  ] || continue
 				[ "$CMD" != "unset PS3"  ] || continue
 				
-				lib_log "Library '$1': $CMD"
+				lsf_log "Library '$1': $CMD"
 				eval "$CMD 2> /dev/null"
 			done
 		fi

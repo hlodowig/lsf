@@ -190,16 +190,16 @@ export LIB_LOG_OUT=${LIB_LOG_OUT:-"/dev/stderr"}
 # Log Manager
 #
 # Stampa messaggi di log.
-lib_log()
+lsf_log()
 {
-	__lib_log_usage()
+	__lsf_log_usage()
 	{
 		local CMD="$1"
 		
 		
 		(cat << END
 NAME
-	${CMD:=lib_log} - Log Manager di LSF.
+	${CMD:=lsf_log} - Log Manager di LSF.
 
 SYNOPSIS
 	Enable/Disable command:
@@ -278,12 +278,12 @@ END
 		-E|--is-enabled)     test $LIB_LOG_ENABLE -eq 1 && return 0; return  1;;
 		-v|--verbose)        VERBOSE=1                             ; shift    ;;
 		-V|--no-verbose)     VERBOSE=0                             ; shift    ;;
-		-h|--help)           __lib_log_usage $FUNCNAME             ; return  0;;
+		-h|--help)           __lsf_log_usage $FUNCNAME             ; return  0;;
 		--) shift; break;;
 		esac
 	done
 	
-	__lib_log_out()
+	__lsf_log_out()
 	{
 		if [ -n "$1" ]; then
 			case $1 in
@@ -306,19 +306,19 @@ END
 		return 0
 	}
 	
-	__lib_log_enable()
+	__lsf_log_enable()
 	{
 		[ $VERBOSE -eq 1 ] && echo "Log abilitato."
 		export LIB_LOG_ENABLE=1
 	}
 	
-	__lib_log_disable()
+	__lsf_log_disable()
 	{
 		[ $VERBOSE -eq 1 ] && echo "Log disabilitato."
 		export LIB_LOG_ENABLE=0
 	}
 	
-	__lib_log_print()
+	__lsf_log_print()
 	{
 		[ $# -eq 0 ] && return
 		
@@ -350,7 +350,7 @@ END
 		fi
 	}
 	
-	__lib_log_view()
+	__lsf_log_view()
 	{
 		[ $VERBOSE -eq 1 ] &&
 		echo "Contenuto del file di log: '$LIB_LOG_OUT'."
@@ -361,7 +361,7 @@ END
 		return $?
 	}
 	
-	__lib_log_reset()
+	__lsf_log_reset()
 	{
 		if [ -f "$LIB_LOG_OUT" ]; then
 			[ $VERBOSE -eq 1 ] &&
@@ -374,29 +374,29 @@ END
 		return 0
 	}
 	
-	__lib_log_exit()
+	__lsf_log_exit()
 	{
-		unset __lib_log_enable
-		unset __lib_log_disable
-		unset __lib_log_out
-		unset __lib_log_print
-		unset __lib_log_view
-		unset __lib_log_reset
-		unset __lib_log_exit
+		unset __lsf_log_enable
+		unset __lsf_log_disable
+		unset __lsf_log_out
+		unset __lsf_log_print
+		unset __lsf_log_view
+		unset __lsf_log_reset
+		unset __lsf_log_exit
 		
 		return $1
 	}
 	
 	case "$CMD" in
-	ON)       __lib_log_enable    ;;
-	OFF)      __lib_log_disable   ;;
-	RESET)    __lib_log_reset     ;;
-	VIEW)     __lib_log_view      ;;
-	OUTPUT)   __lib_log_out   "$1";;
-	PRINT|*)  __lib_log_print "$@";;
+	ON)       __lsf_log_enable    ;;
+	OFF)      __lsf_log_disable   ;;
+	RESET)    __lsf_log_reset     ;;
+	VIEW)     __lsf_log_view      ;;
+	OUTPUT)   __lsf_log_out   "$1";;
+	PRINT|*)  __lsf_log_print "$@";;
 	esac
 	
-	__lib_log_exit $?
+	__lsf_log_exit $?
 }
 
 
@@ -1527,7 +1527,7 @@ END
 			if [ -z "$ARCHIVE_NAME" ]; then
 				
 				[ $QUIET -eq 0 ] &&
-				lib_log "Rimozione delle directory temporanee."
+				lsf_log "Rimozione delle directory temporanee."
 				
 				local tmp_dir=
 				
@@ -1543,7 +1543,7 @@ END
 				
 				if [ -n "$tmp_dir" -a -d "$tmp_dir" ]; then
 					[ $QUIET -eq 0 ] &&
-					lib_log "Rimozione delle directory temporanea dell'archivio '$ARCHIVE_NAME'."
+					lsf_log "Rimozione delle directory temporanea dell'archivio '$ARCHIVE_NAME'."
 					rm -r "$tmp_dir" 2> /dev/null
 				else
 					[ $VERBOSE -eq 1 ] &&
@@ -1555,12 +1555,12 @@ END
 		if [ $CLEAN_TRACK -eq 1 ]; then
 			if [ -z "$ARCHIVE_NAME" ]; then
 				[ $QUIET -eq 0 ] &&
-				lib_log "Pulizia della mappa degli archivi."
+				lsf_log "Pulizia della mappa degli archivi."
 				
 				LIB_ARC_MAP=()
 			else
 				[ $QUIET -eq 0 ] &&
-				lib_log "Rimozione dalla mappa degli archivi, del track di '$ARCHIVE_NAME'."
+				lsf_log "Rimozione dalla mappa degli archivi, del track di '$ARCHIVE_NAME'."
 				
 				unset LIB_ARC_MAP[$ARCHIVE_NAME]
 			fi
@@ -2369,11 +2369,11 @@ END
 		chmod a+x $1
 		
 		[ $QUIET -eq 0 ] &&
-		lib_log "Enable library: $LIB_NAME"
+		lsf_log "Enable library: $LIB_NAME"
 		
 	}
 	
-	__lib_not_found() { [ $QUIET -eq 0 ] && lib_log "Library '$1' not found!"; }
+	__lib_not_found() { [ $QUIET -eq 0 ] && lsf_log "Library '$1' not found!"; }
 	
 	lib_apply --lib-function __lib_enable --lib-error-function __lib_not_found $*
 	
@@ -2454,10 +2454,10 @@ END
 		chmod a-x $1
 		
 		[ $QUIET -eq 0 ] &&
-		lib_log "Disable library: $LIB_NAME"
+		lsf_log "Disable library: $LIB_NAME"
 	}
 	
-	__lib_not_found() { [ $QUIET -eq 0 ] && lib_log "Library '$1' not found!"; }
+	__lib_not_found() { [ $QUIET -eq 0 ] && lsf_log "Library '$1' not found!"; }
 	
 	lib_apply --lib-function __lib_disable --lib-error-function __lib_not_found $*
 	
@@ -2550,10 +2550,10 @@ OPTIONS
 	    Equivale a: --include --no-check
 	
 	-q, --quiet
-	    Disabilita la stampa dei messaggi nel log. (see: lib_log funtions)
+	    Disabilita la stampa dei messaggi nel log. (see: lsf_log funtions)
 	
 	-Q, --no-quiet
-	    Abilita la stampa dei messaggi nel log. (see: lib_log funtions)
+	    Abilita la stampa dei messaggi nel log. (see: lsf_log funtions)
 	
 	-p, --add-libpath
 	    Aggiuge temporaneamente una nuova lista di path di libreria a quelli presenti
@@ -2750,7 +2750,7 @@ END
 	LIB_FILE=$(lib_find $LIB_PATH_OPT $FIND_OPT $LIB)
 	
 	if [ -z "$LIB_FILE" ]; then
-		[ $QUIET -eq 1 ] || lib_log "Library '$LIB' not found!"	
+		[ $QUIET -eq 1 ] || lsf_log "Library '$LIB' not found!"	
 		return 1
 	fi
 	
@@ -2761,7 +2761,7 @@ END
 	fi
 	
 	if [ $INCLUDE -eq 0 -a ! -x "$LIB_FILE" ]; then
-		[ $QUIET -eq 1 ] || lib_log "Library '$LIB' disable!"
+		[ $QUIET -eq 1 ] || lsf_log "Library '$LIB' disable!"
 		return 2
 	fi
 	
@@ -2785,7 +2785,7 @@ END
 					
 					__lib_list_files_add "$LIB_FILE"
 					
-					[ $QUIET -eq 1 ] || lib_log "Import library module:\t $LIB"
+					[ $QUIET -eq 1 ] || lsf_log "Import library module:\t $LIB"
 				
 				else # importa un'archivio
 					
@@ -2837,7 +2837,7 @@ END
 		
 		local DIR="$LIB_FILE"
 		
-		[ $QUIET -eq 1 ] || lib_log "Import library directory:\t $LIB_FILE"
+		[ $QUIET -eq 1 ] || lsf_log "Import library directory:\t $LIB_FILE"
 		
 		if [ $(ls -A1 "$DIR" | wc -l) -gt 0 ]; then
 			
@@ -2859,7 +2859,7 @@ END
 					if [ $INCLUDE -eq 1 -o  -x "$libdir" ]; then
 						$FUNCNAME $LIB_PATH_OPT $OPTIONS --dir $libdir
 					else
-						[ $QUIET -eq 1 ] || lib_log "Library directory '$libdir' disable!"
+						[ $QUIET -eq 1 ] || lsf_log "Library directory '$libdir' disable!"
 					fi
 				done
 				

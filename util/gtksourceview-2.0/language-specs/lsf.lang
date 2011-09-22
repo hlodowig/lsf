@@ -39,8 +39,8 @@
     <style id="others"              _name="Others"              map-to="def:keyword"/>
     <style id="common-command"      _name="Common Commands"     map-to="def:keyword"/>
     <style id="lsf-command"         _name="LSF Commands"        map-to="def:lsf-keyword"/>
-    <style id="lsf-command-alias"   _name="LSF Commands Alias"  map-to="def:lsf-keyword2"/>
-    <style id="lsf-command-code"    _name="LSF Commands Code"   map-to="def:lsf-keyword2"/>
+    <style id="lsf-command-code"    _name="LSF Commands Code"   map-to="def:lsf-keyword"/>
+    <style id="lsf-command-alias"   _name="LSF Commands Alias"  map-to="def:lsf-alias"/>
     <style id="lsf-math"            _name="LSF Math"            map-to="def:lsf-function"/>
     <style id="lsf-io"              _name="LSF IO"              map-to="def:lsf-function"/>
     <style id="lsf-fs"              _name="LSF Filesystem"      map-to="def:lsf-function"/>
@@ -485,8 +485,17 @@
       </include>
     </context>
 
-
     <context id="lsf-command" style-ref="lsf-command">
+      <prefix>(?&lt;![\w\-\.])lsf_</prefix>
+      <suffix>(?![\w\-\.])</suffix>
+      <keyword>log</keyword>
+      <keyword>parse</keyword>
+      <keyword>main</keyword>
+      <keyword>version</keyword>
+      <keyword>help</keyword>
+    </context>
+
+    <context id="lsf-lib" style-ref="lsf-command">
       <prefix>(?&lt;![\w\-\.])lib_</prefix>
       <suffix>(?![\w\-\.])</suffix>
       <keyword>archive</keyword>
@@ -503,12 +512,20 @@
       <keyword>apply</keyword>
       <keyword>list</keyword>
       <keyword>list_apply</keyword>
-      <keyword>log</keyword>
       <keyword>path</keyword>
       <keyword>test</keyword>
     </context>
-    
-    <context id="lsf-command-alias" style-ref="lsf-command-alias">
+
+    <context id="lsf-lib-code" style-ref="lsf-command-code">
+      <prefix>(?&lt;![\w\-\.])lib_def_</prefix>
+      <suffix>(?![\w\-\.])</suffix>
+      <keyword>get</keyword>
+      <keyword>get_alias</keyword>
+      <keyword>get_variable</keyword>
+      <keyword>get_function</keyword>
+    </context>
+
+    <context id="lsf-lib-alias" style-ref="lsf-command-alias">
       <prefix>(?&lt;![\w\-\.])lib_</prefix>
       <suffix>(?![\w\-\.])</suffix>
       <keyword>archive_create</keyword>
@@ -560,15 +577,6 @@
       <keyword>is_file</keyword>
       <keyword>is_dir</keyword>
       <keyword>is_archive</keyword>
-    </context>
-
-    <context id="lsf-command-code" style-ref="lsf-command-code">
-      <prefix>(?&lt;![\w\-\.])lib_def_</prefix>
-      <suffix>(?![\w\-\.])</suffix>
-      <keyword>get</keyword>
-      <keyword>get_alias</keyword>
-      <keyword>get_variable</keyword>
-      <keyword>get_function</keyword>
     </context>
 
     <context id="lsf-util-bool" style-ref="lsf-util-bool">
@@ -750,8 +758,9 @@
         <context ref="built-in-command"/>
         <context ref="common-command"/>
         <context ref="lsf-command"/>
-        <context ref="lsf-command-alias"/>
-        <context ref="lsf-command-code"/>
+        <context ref="lsf-lib"/>
+        <context ref="lsf-lib-code"/>
+        <context ref="lsf-lib-alias"/>
         <context ref="lsf-math"/>
         <context ref="lsf-io"/>
         <context ref="lsf-fs"/>
