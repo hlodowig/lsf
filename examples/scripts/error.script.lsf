@@ -1,0 +1,11 @@
+#!/usr/local/bin/lsf --script
+
+# Reset LIB_PATH
+path --reset
+
+# Error import
+include io
+
+# Never execute
+println "Hello world!"
+

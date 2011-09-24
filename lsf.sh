@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="1" [4]="alpha" [5]="all")
+export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="2" [4]="alpha" [5]="all")
 
 # Attiva l'espansione degli alias
 shopt -s expand_aliases
@@ -3792,32 +3792,55 @@ END
 # Esegue il parsing dei comandi LSF.
 lsf_parser()
 {
-	#lsf_parser0 "$@"
-	#return $?
-	
 	local ARGS=""
+	local COMMAND=""
 	local INTERACTIVE=0
 	local VERBOSE=0
 	local SCRIPT=
 	local SCRIPT_FILE=""
 	local DUMMY=0
+	local CHECK_IMPORT=1
 	local CODE_PROMPT="> "
 	
 	while [ -n "$1" ]; do
 		case "$1" in
-		-h|--help)        lsf_help                           ; return $?;;
-		-D|--dummy)       DUMMY=1                            ; shift    ;;
-		-d|--dump)        DUMMY=1; CODE_PROMPT=""; VERBOSE=1 ; shift    ;;
-		-i|--interactive) INTERACTIVE=1                      ; shift    ;;
-		-s|--script)      SCRIPT_FILE="$2";
-		   [ -f "$2" ] && mapfile SCRIPT < $2                ; shift   2;;
-		-v|--verbose)     VERBOSE=1                          ; shift    ;;
-		*)                ARGS="$ARGS $1"                    ; shift    ;;
+		-h|--help)            lsf_help                           ; return $?;;
+		-c|--command)         COMMAND="$2"                       ; shift    ;;
+		-i|--interactive)     INTERACTIVE=1                      ; shift    ;;
+		-s|--script)          SCRIPT_FILE="$2";
+		   [ -f "$2" ] && mapfile SCRIPT < $2                    ; shift   2;;
+		-i|--check-import)    CHECK_IMPORT=1                     ; shift    ;;
+		-I|--no-check-import) CHECK_IMPORT=0                     ; shift    ;;
+		-D|--dummy)           DUMMY=1                            ; shift    ;;
+		-d|--dump)            DUMMY=1; CODE_PROMPT=""; VERBOSE=1 ; shift    ;;
+		-v|--verbose)         VERBOSE=1                          ; shift    ;;
+		*)                    ARGS="$ARGS $1"                    ; shift    ;;
 		esac
 	done
 	
 	local CMD=""
 	local COMPLEX_ISTR=0
+	
+	__lsf_execute()
+	{
+		local CMD="$@"
+		
+		[ $VERBOSE -eq 1 ] && echo "${CODE_PROMPT}$CMD"
+		if [ $DUMMY -eq 0 ]; then
+			# esegui il comando
+			eval "$CMD"
+			
+			# verifica degli import
+			if [ $? -ne 0 -a $CHECK_IMPORT -eq 1 ]; then
+				if echo "$CMD" | grep -q -E -e "^lib_(import|include)"; then
+					echo "LSF: import error: $CMD" > /dev/stderr
+					return 1
+				fi
+			fi
+		fi
+		
+		return 0
+	}
 	
 	__lsf_parse()
 	{
@@ -3836,11 +3859,10 @@ lsf_parser()
 		COMPLEX_ISTR=0
 		
 		for word in $LINE; do
-			
-			#echo "Parse $word" > /dev/stderr
+		
 			if [ $COMPLEX_ISTR -eq 0 -a "$word" == ";" ]; then
-				[ $VERBOSE -eq 1 ] && echo "${CODE_PROMPT}$CMD"
-				[ $DUMMY -eq 0 ] && eval "$(echo -e $CMD)"
+				__lsf_execute $CMD || return 1;
+				
 				CMD=""
 			else
 				local kword=$(lsf_keywords --function-name "$word")
@@ -3864,6 +3886,8 @@ lsf_parser()
 				fi
 			fi
 		done
+		
+		return 0
 	}
 	
 	if [ -n "$SCRIPT_FILE" ]; then
@@ -3871,7 +3895,7 @@ lsf_parser()
 		local lines=${#SCRIPT[@]}
 		
 		while [ $i -lt $lines ] ; do
-			__lsf_parse "${SCRIPT[$i]}"
+			__lsf_parse "${SCRIPT[$i]}" || return 1
 			let i++
 		done
 	elif [ $INTERACTIVE -eq 1 ]; then
@@ -3893,7 +3917,7 @@ lsf_parser()
 			__lsf_parse "$LINE"
 		done
 	else
-		__lsf_parse "$ARGS"
+		__lsf_parse "$COMMAND"
 	fi
 	
 	if [ -n "$CMD" ]; then
@@ -3903,25 +3927,25 @@ lsf_parser()
 
 lsf_main()
 {
-	local VERBOSE=""
+	local VERBOSE_OPT=""
 	local LSF_PARSER_OPT=""
 	
 	while [ -n "$1" ]; do
 		case "$1" in
-		-c|--command)     LSF_PARSER_OPT=""        ; shift; break;;
-		-s|--script)      LSF_PARSER_OPT="$1"      ; shift; break;;
-		-i|--interactive) LSF_PARSER_OPT="$1"      ; shift; break;;
+		-p|--parser)                              shift; break;;
+		-c|--command|-s|--script|-i|--interactive)
+			LSF_PARSER_OPT="$1"                 ; shift; break;;
 		-h|--help)        lsf_help                 ; return $?;;
 		-k|--keywords)    shift; lsf_keywords "$@" ; return $?;;
-		-v|--verbose)     VERBOSE="$1"             ; shift    ;;
-		--version)        lsf_version $VERBOSE     ; return $?;;
+		-v|--verbose)     VERBOSE_OPT="$1"         ; shift    ;;
+		--version)        lsf_version $VERBOSE_OPT ; return $?;;
 		*) if [ -f "$1" ]; then source "$1";
            else echo "lsf: $1: File o directory non esistente"; fi
            shift;;
 		esac
 	done
 	
-	lsf_parser $VERBOSE $LSF_PARSER_OPT "$@"
+	lsf_parser $VERBOSE_OPT $LSF_PARSER_OPT "$@"
 }
 
 # main #########################################################################
