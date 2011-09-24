@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="3" [4]="alpha" [5]="all")
+export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="4" [4]="alpha" [5]="all")
 
 # Attiva l'espansione degli alias
 shopt -s expand_aliases
@@ -3819,6 +3819,7 @@ lsf_parser()
 	local CMD="$@"
 	local PREV_CMD=""
 	local INDENT_LEVEL=0
+	local FUN_START=0
 	
 	__lsf_execute()
 	{
@@ -3879,9 +3880,23 @@ lsf_parser()
 				CMD="$CMD ; $kword"
 			fi
 		else
+			if echo "$word" | grep -q -E -e ".*[^=]\(\)$"; then
+				FUN_START=1
+				let INDENT_LEVEL++
+			elif [ "$word" == "{" ]; then
+				if [ $FUN_START -eq 0 ]; then
+					let INDENT_LEVEL++
+				else
+					FUN_START=0
+				fi
+			elif [ $FUN_START -eq 1 ]; then
+				echo "LSF: error: parse function failed!" > /dev/stderr
+				return 1
+			fi
+			
 			case "$word" in
-			'if'|'for'|'while'|'case'|'{') let INDENT_LEVEL++;;
-			'fi'|'done'|'esac'|'}'|\))     let INDENT_LEVEL--;;
+			'if'|'for'|'while'|'case') let INDENT_LEVEL++;;
+			'fi'|'done'|'esac'|'}'|\)) let INDENT_LEVEL--;;
 			esac
 			
 			case "$word" in
@@ -3919,7 +3934,7 @@ lsf_parser()
 				__lsf_run "$CMD" && continue || return 1
 			fi
 			
-			__lsf_parse_word "$word"
+			__lsf_parse_word "$word" || return 1
 		done
 		
 		return 0
