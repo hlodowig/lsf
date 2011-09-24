@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="2" [4]="alpha" [5]="all")
+export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="3" [4]="alpha" [5]="all")
 
 # Attiva l'espansione degli alias
 shopt -s expand_aliases
@@ -3792,34 +3792,33 @@ END
 # Esegue il parsing dei comandi LSF.
 lsf_parser()
 {
-	local ARGS=""
-	local COMMAND=""
+	local SCRIPT_LINE=()
+	local SCRIPT_FILE=""
+	local CODE_PROMPT="> "
+	local CHECK_IMPORT=1
 	local INTERACTIVE=0
 	local VERBOSE=0
-	local SCRIPT=
-	local SCRIPT_FILE=""
 	local DUMMY=0
-	local CHECK_IMPORT=1
-	local CODE_PROMPT="> "
 	
 	while [ -n "$1" ]; do
 		case "$1" in
 		-h|--help)            lsf_help                           ; return $?;;
-		-c|--command)         COMMAND="$2"                       ; shift    ;;
 		-i|--interactive)     INTERACTIVE=1                      ; shift    ;;
 		-s|--script)          SCRIPT_FILE="$2";
-		   [ -f "$2" ] && mapfile SCRIPT < $2                    ; shift   2;;
+		   [ -f "$2" ] && mapfile SCRIPT_LINE < $2               ; shift   2;;
 		-i|--check-import)    CHECK_IMPORT=1                     ; shift    ;;
 		-I|--no-check-import) CHECK_IMPORT=0                     ; shift    ;;
 		-D|--dummy)           DUMMY=1                            ; shift    ;;
 		-d|--dump)            DUMMY=1; CODE_PROMPT=""; VERBOSE=1 ; shift    ;;
 		-v|--verbose)         VERBOSE=1                          ; shift    ;;
-		*)                    ARGS="$ARGS $1"                    ; shift    ;;
+		-c|--command)         shift                              ; break    ;;
+		*) break;
 		esac
 	done
 	
-	local CMD=""
-	local COMPLEX_ISTR=0
+	local CMD="$@"
+	local PREV_CMD=""
+	local INDENT_LEVEL=0
 	
 	__lsf_execute()
 	{
@@ -3842,60 +3841,102 @@ lsf_parser()
 		return 0
 	}
 	
-	__lsf_parse()
+	__lsf_run()
 	{
-		local word=""
-		local LINE="$CMD $*"
-		#echo "LINE=$LINE" > /dev/stderr
+		if [ $INDENT_LEVEL -gt 0 ]; then
+			[ -n "$CMD" ] && CMD="$CMD;"
+		else
+			local exit_code=0
+			
+			if [ $INDENT_LEVEL -eq 0 ]; then
+				__lsf_execute $CMD
+				exit_code=$?
+			else
+				INDENT_LEVEL=0
+				echo "LSF Parser: run error: '$CMD'" > /dev/stderr
+				exit_code=1
+			fi
+			
+			PREV_CMD="$CMD"
+			CMD=""
+			
+			[ $exit_code -eq 0 ] || return $exit_code
+		fi
 		
-		if echo $LINE | grep -q -v -E -e "(do|then|in|;+) *$"; then
+		return 0
+	}
+	
+	__lsf_parse_word()
+	{
+		local word="$1"
+		
+		local kword=$(lsf_keywords --function-name "$word")
+		
+		if [ -n "$kword" ]; then
+			if [ -z "$CMD" ]; then
+				CMD="$kword"
+			else
+				CMD="$CMD ; $kword"
+			fi
+		else
+			case "$word" in
+			'if'|'for'|'while'|'case'|'{') let INDENT_LEVEL++;;
+			'fi'|'done'|'esac'|'}'|\))     let INDENT_LEVEL--;;
+			esac
+			
+			case "$word" in
+			then|else|elif|fi|do|done)
+				if [ -z "$CMD" ]; then
+					CMD="$word"
+				else
+					CMD="$CMD ; $word"
+					CMD="echo '$CMD' | awk '{ gsub(\"( *;)+ *$word\",\" ; $word\"); print}'"
+					CMD="$(eval $CMD)"
+				fi;;
+			*) CMD="$CMD $word";;
+			esac
+		fi
+	}
+	
+	__lsf_parse_line()
+	{
+		local LINE="$*"
+		
+		if echo $LINE | grep -q -v -E -e "(if|do|then|in|;+|\{|\(|[^=]\(\)|cat << .*) *$"; then
 			LINE="$LINE;"
 		fi
+		
 		LINE="$(echo "$LINE" | awk '{gsub(" *; *", " ; "); print}')"
 		LINE="$(echo "$LINE" | awk '{gsub("; +;", ";;"); print}')"
-		#echo "LINE=$LINE" > /dev/stderr
 		
 		CMD=""
-		COMPLEX_ISTR=0
+		INDENT_LEVEL=0
+		
+		local word=""
 		
 		for word in $LINE; do
-		
-			if [ $COMPLEX_ISTR -eq 0 -a "$word" == ";" ]; then
-				__lsf_execute $CMD || return 1;
-				
-				CMD=""
-			else
-				local kword=$(lsf_keywords --function-name "$word")
-				
-				if [ -n "$kword" ]; then
-					CMD="$CMD $kword"
-				else
-					case "$word" in
-					'if'|'for'|'while'|'case') let COMPLEX_ISTR++; shift;;
-					'fi'|'done'|'esac')        let COMPLEX_ISTR--; shift;;
-					esac
-					
-					case "$word" in
-					then|else|elif|fi|do|done)
-						CMD="$CMD; $word"
-						CMD="echo '$CMD' | awk '{ gsub(\"( *;)+ *$word\",\" ; $word\"); print}'"
-						CMD="$(eval $CMD)"
-						;;
-					*) CMD="$CMD $word"; shift;;
-					esac
-				fi
+			if [ "$word" == ";" ]; then
+				__lsf_run "$CMD" && continue || return 1
 			fi
+			
+			__lsf_parse_word "$word"
 		done
 		
 		return 0
 	}
 	
+	__lsf_parse()
+	{
+		__lsf_parse_line "$CMD $*"
+	}
+	
+	
 	if [ -n "$SCRIPT_FILE" ]; then
 		local i=0
-		local lines=${#SCRIPT[@]}
+		local lines=${#SCRIPT_LINE[@]}
 		
 		while [ $i -lt $lines ] ; do
-			__lsf_parse "${SCRIPT[$i]}" || return 1
+			__lsf_parse "${SCRIPT_LINE[$i]}" || return 1
 			let i++
 		done
 	elif [ $INTERACTIVE -eq 1 ]; then
@@ -3906,7 +3947,7 @@ lsf_parser()
 		
 			local LSF_PROMPT="lsf > "
 			
-			[ $COMPLEX_ISTR -ne 0 ] && LSF_PROMPT="> " 
+			[ $INDENT_LEVEL -ne 0 ] && LSF_PROMPT="> " 
 			
 			read -a WORDS -p "$LSF_PROMPT"
 			
@@ -3917,7 +3958,7 @@ lsf_parser()
 			__lsf_parse "$LINE"
 		done
 	else
-		__lsf_parse "$COMMAND"
+		__lsf_parse_line "$CMD"
 	fi
 	
 	if [ -n "$CMD" ]; then
