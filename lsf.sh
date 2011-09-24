@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="0" [4]="alpha" [5]="all")
+export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="1" [4]="alpha" [5]="all")
 
 # Attiva l'espansione degli alias
 shopt -s expand_aliases
@@ -3801,16 +3801,18 @@ lsf_parser()
 	local SCRIPT=
 	local SCRIPT_FILE=""
 	local DUMMY=0
+	local CODE_PROMPT="> "
 	
 	while [ -n "$1" ]; do
 		case "$1" in
-		-h|--help)        lsf_help            ; return $?;;
-		-D|--dummy)       DUMMY=1             ; shift    ;;
-		-i|--interactive) INTERACTIVE=1       ; shift    ;;
+		-h|--help)        lsf_help                           ; return $?;;
+		-D|--dummy)       DUMMY=1                            ; shift    ;;
+		-d|--dump)        DUMMY=1; CODE_PROMPT=""; VERBOSE=1 ; shift    ;;
+		-i|--interactive) INTERACTIVE=1                      ; shift    ;;
 		-s|--script)      SCRIPT_FILE="$2";
-		   [ -f "$2" ] && mapfile SCRIPT < $2 ; shift   2;;
-		-v|--verbose)     VERBOSE=1           ; shift    ;;
-		*)                ARGS="$ARGS $1"     ; shift    ;;
+		   [ -f "$2" ] && mapfile SCRIPT < $2                ; shift   2;;
+		-v|--verbose)     VERBOSE=1                          ; shift    ;;
+		*)                ARGS="$ARGS $1"                    ; shift    ;;
 		esac
 	done
 	
@@ -3837,7 +3839,7 @@ lsf_parser()
 			
 			#echo "Parse $word" > /dev/stderr
 			if [ $COMPLEX_ISTR -eq 0 -a "$word" == ";" ]; then
-				[ $VERBOSE -eq 1 ] && echo "> $CMD"
+				[ $VERBOSE -eq 1 ] && echo "${CODE_PROMPT}$CMD"
 				[ $DUMMY -eq 0 ] && eval "$(echo -e $CMD)"
 				CMD=""
 			else
