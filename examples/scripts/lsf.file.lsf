@@ -1,4 +1,4 @@
-#!/usr/local/bin/lsf --file
+#!/usr/local/bin/lsf
 
 # log setup
 lsf_log --out out

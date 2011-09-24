@@ -489,7 +489,8 @@
       <prefix>(?&lt;![\w\-\.])lsf_</prefix>
       <suffix>(?![\w\-\.])</suffix>
       <keyword>log</keyword>
-      <keyword>parse</keyword>
+      <keyword>parser</keyword>
+      <keyword>keywords</keyword>
       <keyword>main</keyword>
       <keyword>version</keyword>
       <keyword>help</keyword>
