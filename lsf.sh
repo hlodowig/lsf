@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="8" [4]="alpha" [5]="all")
+export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="9" [4]="alpha" [5]="all")
 
 # Attiva l'espansione degli alias
 shopt -s expand_aliases
@@ -3823,6 +3823,7 @@ lsf_parser()
 	local FUN_START=0
 	local STRING_START=0
 	local SUBCMD_START=0
+	local ARITM_SUBCMD_START=0
 	
 	__lsf_execute()
 	{
@@ -3912,8 +3913,19 @@ lsf_parser()
 				let INDENT_LEVEL++
 			fi
 			
+			# $(( <aritmetic expression> ))
+			if [ $ARITM_SUBCMD_START -eq 1 ] && 
+				echo "$word" | grep -q -E -e '[)][)]'; then
+				ARITM_SUBCMD_START=0
+				let INDENT_LEVEL--
+				CMD="$(echo "$CMD" | awk '{gsub(";( |\\\n)*", ""); print}')"
+			elif echo "$word" | grep -q -E -e '\$[(][(]'; then
+				ARITM_SUBCMD_START=1
+				let INDENT_LEVEL++
+			fi
 			
-			if [ $STRING_START -eq 1 -o $SUBCMD_START -eq 1 ]; then
+			
+			if [ $STRING_START -eq 1 -o $SUBCMD_START -eq 1 -o $ARITM_SUBCMD_START -eq 1 ]; then
 				CMD="$CMD $WORD"
 			else
 				# function support: <fun_id>() { ... }  function <fun_id>[( )] { ... }
@@ -4005,6 +4017,7 @@ lsf_parser()
 		INDENT_LEVEL=0
 		STRING_START=0
 		SUBCMD_START=0
+		ARITM_SUBCMD_START=0
 		FUN_START=0
 		
 		local word=""
