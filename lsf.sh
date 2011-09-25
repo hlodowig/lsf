@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="7" [4]="alpha" [5]="all")
+export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="8" [4]="alpha" [5]="all")
 
 # Attiva l'espansione degli alias
 shopt -s expand_aliases
@@ -3822,7 +3822,7 @@ lsf_parser()
 	local INDENT_LEVEL=0
 	local FUN_START=0
 	local STRING_START=0
-
+	local SUBCMD_START=0
 	
 	__lsf_execute()
 	{
@@ -3900,7 +3900,20 @@ lsf_parser()
 				let INDENT_LEVEL++
 			fi
 			
-			if [ $STRING_START -eq 1 ]; then
+			# $(<list>) (<list>) `<list>`
+			if [ $SUBCMD_START -eq 1 ] && 
+				echo "$word" | grep -q -E -e '^[^`]*`$' ||
+				echo "$word" | grep -q -E -e '[)]'; then
+				SUBCMD_START=0
+				let INDENT_LEVEL--
+			elif echo "$word" | grep -q -E -e '^`' ||
+				 echo "$word" | grep -q -E -e '\$?[(]'; then
+				SUBCMD_START=1
+				let INDENT_LEVEL++
+			fi
+			
+			
+			if [ $STRING_START -eq 1 -o $SUBCMD_START -eq 1 ]; then
 				CMD="$CMD $WORD"
 			else
 				# function support: <fun_id>() { ... }  function <fun_id>[( )] { ... }
@@ -3966,9 +3979,11 @@ lsf_parser()
 	{
 		local LINE="$*"
 		
-		local an=$(echo $LINE | tr \' '#' | awk '{gsub("[^#]"," "); print}'| wc -w)
+		local an=$(echo $LINE | tr \'  '#' | awk '{gsub("[^#]"," "); print}'| wc -w)
+		local bn=$(echo $LINE | tr '`' '#' | awk '{gsub("[^#]"," "); print}'| wc -w)
+
 		
-		if (( $an%2==0 )) &&
+		if (( $an%2==0 )) && (( $bn%2==0 )) &&
 		   echo "$LINE" | grep -q -v -E -e "(if|do|then|in|;+|\{|\(|[^=][(] *[)]|function *) *$"; then
 			LINE="$LINE;"
 		fi
@@ -3980,6 +3995,7 @@ lsf_parser()
 		                             gsub("[)] *[)]","))");
 		                             gsub(" *; *"," ; ");
 		                             gsub("; +;",";;");
+		                             gsub("`", " ` ");
 		                             print}')"
 		
 		# debug
@@ -3988,6 +4004,7 @@ lsf_parser()
 		CMD=""
 		INDENT_LEVEL=0
 		STRING_START=0
+		SUBCMD_START=0
 		FUN_START=0
 		
 		local word=""
