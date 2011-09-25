@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="5" [4]="alpha" [5]="all")
+export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="6" [4]="alpha" [5]="all")
 
 # Attiva l'espansione degli alias
 shopt -s expand_aliases
@@ -3799,6 +3799,7 @@ lsf_parser()
 	local INTERACTIVE=0
 	local VERBOSE=0
 	local DUMMY=0
+	local SYNTAX_HELP=1
 	
 	while [ -n "$1" ]; do
 		case "$1" in
@@ -3871,7 +3872,13 @@ lsf_parser()
 	
 	__lsf_parse_word()
 	{
-		local word="$1"
+		[ $# -eq 0 ] && return 0
+		
+		local WORD="$1"
+		local word="${1/"\n"}"
+		
+		# debug
+		#echo "WORD=$1 -> $word"
 		
 		local kword=$(lsf_keywords --function-name "$word")
 		
@@ -3879,40 +3886,63 @@ lsf_parser()
 			if [ -z "$CMD" ]; then
 				CMD="$kword"
 			else
-				CMD="$CMD ; $kword"
+				CMD="$CMD \n$kword"
 			fi
 		else
-			if echo "$word" | grep -q -E -e ".*[^=]\(\)$"; then
-				FUN_START=1
+			# function support: <fun_id>() { ... }  function <fun_id>[( )] { ... }
+			if echo "$word" | grep -q -E -e "^function$"; then
+				FUN_START=2
 				let INDENT_LEVEL++
+			elif echo "$word" | grep -q -E -e ".*[^=]?[(][)]$"; then
+				[ $FUN_START -gt 0 ] || let INDENT_LEVEL++
+				FUN_START=1
 			elif [ "$word" == "{" ]; then
 				if [ $FUN_START -eq 0 ]; then
 					let INDENT_LEVEL++
-				else
+				elif [ $FUN_START -eq 1 ]; then
 					FUN_START=0
+					
+					if [ $SYNTAX_HELP -eq 1 ]; then
+						CMD="$(echo "$CMD" | awk '{gsub("(;|\\\\n)+ *",""); print}')"
+					fi
+				else
+					echo "LSF: error: parse function failed!" > /dev/stderr
+					return 1
 				fi
+			elif [ $FUN_START -eq 2 ]; then
+				FUN_START=1
 			elif [ $FUN_START -eq 1 ]; then
-				echo "LSF: error: parse function failed!" > /dev/stderr
-				return 1
+				if [ $SYNTAX_HELP -eq 0 ]; then
+					echo "LSF: error: parse function failed!" > /dev/stderr
+					return 1
+				else
+					WORD="{ $WORD"
+				fi
 			fi
 			
 			case "$word" in
 			'if'|'for'|'while'|'case') let INDENT_LEVEL++;;
-			'fi'|'done'|'esac'|'}'|\)) let INDENT_LEVEL--;;
+			'fi'|'done'|'esac'|'}') let INDENT_LEVEL--;;
 			esac
 			
-			case "$word" in
-			then|else|elif|fi|do|done)
-				if [ -z "$CMD" ]; then
-					CMD="$word"
-				else
-					CMD="$CMD ; $word"
-					CMD="echo '$CMD' | awk '{ gsub(\"( *;)+ *$word\",\" ; $word\"); print}'"
-					CMD="$(eval $CMD)"
-				fi;;
-			*) CMD="$CMD $word";;
-			esac
+			if [ $SYNTAX_HELP -eq 0 ]; then
+				CMD="$CMD $WORD"
+			else
+				# auto syntax correction
+				case "$word" in
+#				then|else|elif|fi|do|done)
+#					if [ -z "$CMD" ]; then
+#						CMD="$word"
+#					else
+#						CMD="$CMD ; $word"
+#						CMD="echo '$CMD' | awk '{ gsub(\"( *;)+ *$word\",\" ; $word\"); print}'"
+#						CMD="$(eval $CMD)"
+#					fi;;
+				*) CMD="$CMD $WORD";;
+				esac
+			fi
 		fi
+		
 		# debug
 		#echo "CMD=$(echo -e $CMD)"
 	}
@@ -3921,12 +3951,19 @@ lsf_parser()
 	{
 		local LINE="$*"
 		
-		if echo $LINE | grep -q -v -E -e "(if|do|then|in|;+|\{|\(|[^=]\(\)|cat << .*) *$"; then
+		if echo "$LINE" | grep -q -v -E -e "(if|do|then|in|;+|\{|\(|[^=][(] *[)]|function *) *$"; then
 			LINE="$LINE;"
 		fi
 		
-		LINE="$(echo "$LINE" | awk '{gsub(" *; *", " ; "); print}')"
-		LINE="$(echo "$LINE" | awk '{gsub("; +;", ";;"); print}')"
+		LINE="$(echo "$LINE" | awk '{gsub("[(]", "( "  );
+		                             gsub("[)]", " )"  );
+		                             gsub("[(] *[)]", "()");
+		                             gsub("[(] *[(]","((");
+		                             gsub("[)] *[)]","))");
+		                             gsub(" *; *"," ; ");
+		                             gsub("; +;",";;");
+		                             print}')"
+		
 		# debug
 		#echo "LINE=$LINE"
 		
