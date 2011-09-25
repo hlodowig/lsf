@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="9" [4]="alpha" [5]="all")
+export LSF_VERSINFO=([0]="0" [1]="9" [2]="2" [3]="0" [4]="alpha" [5]="all")
 
 # Attiva l'espansione degli alias
 shopt -s expand_aliases
@@ -4043,6 +4043,59 @@ lsf_parser()
 	}
 	
 	
+	local LSF_HISTORY=()
+	local LSF_HISTORY_INDEX=0
+	local LSF_HISTORY_CMD=""
+	
+	__lsf_history()
+	{
+		local i=0
+		
+		if [ $# -eq 0 ] || echo "$*" | grep -q -E -e "^#$"; then
+			for ((i=0; i<$LSF_HISTORY_INDEX; i++)); do
+				echo "$i ${LSF_HISTORY[$i]}"
+			done
+			return
+		fi
+		
+		i="$*"
+		
+		(echo "$i" | grep -q -E -e "^\!$" || [ "$i" == "last" ]) && i=-1
+		
+		if echo "$i" | grep -q -E -e "^(-[1-9]|[0-9])[0-9]*$"; then
+			
+			if [ $i -lt 0 ]; then
+				i=$(($LSF_HISTORY_INDEX + $i))
+			fi
+			
+			if [ $i -ge 0 ]; then
+				LSF_HISTORY_CMD="${LSF_HISTORY[$i]}"
+				echo ${LSF_HISTORY_CMD}
+			fi
+		else
+			case "$i" in
+			clear|--) LSF_HISTORY=(); LSF_HISTORY_INDEX=0;;
+			+*) LSF_HISTORY[$((LSF_HISTORY_INDEX++))]="$(echo ${i:1})";;
+			*) 
+				local cmd="echo $i | awk '{gsub(\"?\", \".*\"); print}'"
+				local regex="^$(eval $cmd)$"
+				
+				for (( i=${LSF_HISTORY_INDEX} - 1; i>=0; i-- )); do
+					if echo "${LSF_HISTORY[$i]}" | grep -E -e "$regex"; then
+						LSF_HISTORY_CMD="${LSF_HISTORY[$i]}"
+						
+						return 0
+					fi
+				done
+				
+				echo "LSF: history error: regex '$regex' not found" > /dev/stderr
+			   return 1;;
+			esac
+		fi
+		
+		return 0
+	}
+	
 	if [ -n "$SCRIPT_FILE" ]; then
 		local i=0
 		local lines=${#SCRIPT_LINE[@]}
@@ -4087,7 +4140,21 @@ lsf_parser()
 				*)       echo "LSF: mode error: ${WORDS[1]} invalid" > /dev/stderr;;
 				esac
 				continue;;
+			h|history)
+				__lsf_history ${WORDS[1]};
+				[ -z "$LSF_HISTORY_CMD" ] && continue
+				LINE="$LSF_HISTORY_CMD"
+				LSF_HISTORY_CMD="";;
+			*)
+				if [ "${WORDS[0]:0:1}" == "!" ]; then
+					__lsf_history ${WORDS[0]:1}
+					[ -z "$LSF_HISTORY_CMD" ] && continue
+					LINE="$LSF_HISTORY_CMD"
+					LSF_HISTORY_CMD=""
+				fi;;
 			esac
+			
+			__lsf_history +$LINE
 			
 			__lsf_parse "$LINE"
 		done
