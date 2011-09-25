@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="4" [4]="alpha" [5]="all")
+export LSF_VERSINFO=([0]="0" [1]="9" [2]="1" [3]="5" [4]="alpha" [5]="all")
 
 # Attiva l'espansione degli alias
 shopt -s expand_aliases
@@ -3737,7 +3737,7 @@ END
 	
 	__lsf_keywords_test()
 	{
-		if [ "$1" == "$2" -o "$1" == "$3" ]; then 
+		if [[ "$1" == "$2" || "$1" == "$3" ]]; then 
 			[ $VERBOSE -eq 1 ] && echo -n "LSF: '$1' e' una keyword"
 			
 			if [ $FNAME -eq 1 ]; then
@@ -3825,10 +3825,10 @@ lsf_parser()
 	{
 		local CMD="$@"
 		
-		[ $VERBOSE -eq 1 ] && echo "${CODE_PROMPT}$CMD"
+		[ $VERBOSE -eq 1 ] && echo -e "${CODE_PROMPT}$CMD"
 		if [ $DUMMY -eq 0 ]; then
 			# esegui il comando
-			eval "$CMD"
+			eval "$(echo -e "$CMD")"
 			
 			# verifica degli import
 			if [ $? -ne 0 -a $CHECK_IMPORT -eq 1 ]; then
@@ -3845,12 +3845,14 @@ lsf_parser()
 	__lsf_run()
 	{
 		if [ $INDENT_LEVEL -gt 0 ]; then
-			[ -n "$CMD" ] && CMD="$CMD;"
+			[ -n "$CMD" ] && CMD="$CMD ;"
 		else
 			local exit_code=0
 			
+			CMD="$(echo $CMD)"
+			
 			if [ $INDENT_LEVEL -eq 0 ]; then
-				__lsf_execute $CMD
+				__lsf_execute "$CMD"
 				exit_code=$?
 			else
 				INDENT_LEVEL=0
@@ -3911,6 +3913,8 @@ lsf_parser()
 			*) CMD="$CMD $word";;
 			esac
 		fi
+		# debug
+		#echo "CMD=$(echo -e $CMD)"
 	}
 	
 	__lsf_parse_line()
@@ -3923,9 +3927,12 @@ lsf_parser()
 		
 		LINE="$(echo "$LINE" | awk '{gsub(" *; *", " ; "); print}')"
 		LINE="$(echo "$LINE" | awk '{gsub("; +;", ";;"); print}')"
+		# debug
+		#echo "LINE=$LINE"
 		
 		CMD=""
 		INDENT_LEVEL=0
+		FUN_START=0
 		
 		local word=""
 		
@@ -3934,7 +3941,7 @@ lsf_parser()
 				__lsf_run "$CMD" && continue || return 1
 			fi
 			
-			__lsf_parse_word "$word" || return 1
+			__lsf_parse_word $word || return 1
 		done
 		
 		return 0
@@ -3942,7 +3949,11 @@ lsf_parser()
 	
 	__lsf_parse()
 	{
-		__lsf_parse_line "$CMD $*"
+		if [ -z "$CMD" ]; then
+			__lsf_parse_line "$*"
+		else
+			__lsf_parse_line "$CMD \n$*"
+		fi
 	}
 	
 	
@@ -3968,7 +3979,29 @@ lsf_parser()
 			
 			local LINE="${WORDS[@]}"
 			
-			[ "$LINE" == "quit" -o "$LINE" == "end" ] && break
+			case "${WORDS[0]}" in
+			q|quit|end)     [ -z "${WORDS[1]}" ] && break || continue;;
+			c|cmd)          echo -e "$CMD"      q; continue;;
+			r|reset_cmd)    CMD=""              ; continue;;
+			p|prev_cmd)     echo -e "$PREV_CMD" ; continue;;
+			i|indent_level) 
+				if echo "${WORDS[1]}" | grep -q -E -e "[0-9][1-9]*"; then
+					INDENT_LEVEL=${WORDS[1]}
+				else
+					echo $INDENT_LEVEL
+				fi
+				continue;;
+			m|mode)
+				case "${WORDS[1]}" in
+				verbose) VERBOSE=1;;
+				quiet)   VERBOSE=0;;
+				dummy)   DUMMY=1;;
+				dump)    VERBOSE=1; DUMMY=1; CODE_PROMPT="";;
+				normal)  VERBOSE=0; DUMMY=0; CODE_PROMPT="> ";;
+				*)       echo "LSF: mode error: ${WORDS[1]} invalid" > /dev/stderr;;
+				esac
+				continue;;
+			esac
 			
 			__lsf_parse "$LINE"
 		done
@@ -3990,7 +4023,7 @@ lsf_main()
 		case "$1" in
 		-p|--parser)                              shift; break;;
 		-c|--command|-s|--script|-i|--interactive)
-			LSF_PARSER_OPT="$1"                 ; shift; break;;
+			LSF_PARSER_OPT="$1";                  shift; break;;
 		-h|--help)        lsf_help                 ; return $?;;
 		-k|--keywords)    shift; lsf_keywords "$@" ; return $?;;
 		-v|--verbose)     VERBOSE_OPT="$1"         ; shift    ;;
