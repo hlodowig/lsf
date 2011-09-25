@@ -53,7 +53,7 @@ END
 	}
 	
 	local ARGS=$(getopt -o hd:g:v:VqQD -l help,dir:,git-dir:,quiet,no-quiet,version:,no-version,dummy -- "$@")
-	eval set -- $ARGS
+	eval set -- "$ARGS"
 	
 	local LSF_TAR=""
 	local LSF_VERSION=""

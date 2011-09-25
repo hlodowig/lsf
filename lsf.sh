@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-export LSF_VERSINFO=([0]="0" [1]="9" [2]="2" [3]="0" [4]="alpha" [5]="all")
+export LSF_VERSINFO=([0]="0" [1]="9" [2]="2" [3]="1" [4]="alpha" [5]="all")
 
 # Attiva l'espansione degli alias
 shopt -s expand_aliases
@@ -3864,9 +3864,6 @@ lsf_parser()
 				exit_code=1
 			fi
 			
-			PREV_CMD="$CMD"
-			CMD=""
-			
 			[ $exit_code -eq 0 ] || return $exit_code
 		fi
 		
@@ -3877,11 +3874,8 @@ lsf_parser()
 	{
 		[ $# -eq 0 ] && return 0
 		
-		local WORD="$1"
+		WORD="$1"
 		local word="${1/"\n"}"
-		
-		# debug
-		#echo "WORD=$1 -> $word"
 		
 		local kword=$(lsf_keywords --function-name "$word")
 		
@@ -3982,14 +3976,18 @@ lsf_parser()
 				fi
 			fi
 		fi
-		
-		# debug
-		#echo "CMD=$(echo -e $CMD)"
 	}
 	
 	__lsf_parse_line()
 	{
-		local LINE="$*"
+		LINE="$*"
+		
+		CMD=""
+		INDENT_LEVEL=0
+		STRING_START=0
+		SUBCMD_START=0
+		ARITM_SUBCMD_START=0
+		FUN_START=0
 		
 		local an=$(echo $LINE | tr \'  '#' | awk '{gsub("[^#]"," "); print}'| wc -w)
 		local bn=$(echo $LINE | tr '`' '#' | awk '{gsub("[^#]"," "); print}'| wc -w)
@@ -4000,25 +3998,11 @@ lsf_parser()
 			LINE="$LINE;"
 		fi
 		
-		LINE="$(echo "$LINE" | awk '{gsub("[(]", "( "  );
-		                             gsub("[)]", " )"  );
-		                             gsub("[(] *[)]", "()");
-		                             gsub("[(] *[(]","((");
-		                             gsub("[)] *[)]","))");
-		                             gsub(" *; *"," ; ");
-		                             gsub("; +;",";;");
-		                             gsub("`", " ` ");
+		LINE="$(echo "$LINE" | awk '{gsub("[(]", "( "  )    ; gsub("[)]", " )"  );
+		                             gsub("[(] *[)]", "()") ; gsub("[(] *[(]","((");
+		                             gsub("[)] *[)]","))")  ; gsub(" *; *"," ; ");
+		                             gsub("; +;",";;")      ; gsub("`", " ` ");
 		                             print}')"
-		
-		# debug
-		#echo "LINE=$LINE"
-		
-		CMD=""
-		INDENT_LEVEL=0
-		STRING_START=0
-		SUBCMD_START=0
-		ARITM_SUBCMD_START=0
-		FUN_START=0
 		
 		local word=""
 		
@@ -4116,13 +4100,16 @@ lsf_parser()
 			
 			read -a WORDS -p "$LSF_PROMPT"
 			
-			local LINE="${WORDS[@]}"
+			local line="${WORDS[@]}"
 			
 			case "${WORDS[0]}" in
 			q|quit|end)     [ -z "${WORDS[1]}" ] && break || continue;;
-			c|cmd)          echo -e "$CMD"      ; continue;;
-			r|reset_cmd)    CMD=""              ; continue;;
-			p|prev_cmd)     echo -e "$PREV_CMD" ; continue;;
+			w|word)         echo -e "${WORD/"\n"} [$WORD]" ; continue;;
+			l|line)         echo    "$LINE"                ; continue;;
+			c|cmd)          echo -e "$CMD"                 ; continue;;
+			e|exec)   __lsf_execute "$CMD"                 ; continue;;
+			r|reset_cmd)    CMD=""                         ; continue;;
+			p|prev_cmd)     echo -e "$PREV_CMD"            ; continue;;
 			i|indent_level) 
 				if echo "${WORDS[1]}" | grep -q -E -e "[0-9][1-9]*"; then
 					INDENT_LEVEL=${WORDS[1]}
@@ -4143,20 +4130,20 @@ lsf_parser()
 			h|history)
 				__lsf_history ${WORDS[1]};
 				[ -z "$LSF_HISTORY_CMD" ] && continue
-				LINE="$LSF_HISTORY_CMD"
+				line="$LSF_HISTORY_CMD"
 				LSF_HISTORY_CMD="";;
 			*)
 				if [ "${WORDS[0]:0:1}" == "!" ]; then
 					__lsf_history ${WORDS[0]:1}
 					[ -z "$LSF_HISTORY_CMD" ] && continue
-					LINE="$LSF_HISTORY_CMD"
+					line="$LSF_HISTORY_CMD"
 					LSF_HISTORY_CMD=""
 				fi;;
 			esac
 			
-			__lsf_history +$LINE
+			__lsf_history +$line
 			
-			__lsf_parse "$LINE"
+			__lsf_parse "$line"
 		done
 	else
 		__lsf_parse_line "$CMD"
