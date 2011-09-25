@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-export LSF_VERSINFO=([0]="0" [1]="9" [2]="2" [3]="1" [4]="alpha" [5]="all")
+export LSF_VERSINFO=([0]="0" [1]="9" [2]="2" [3]="2" [4]="alpha" [5]="all")
 
 # Attiva l'espansione degli alias
 shopt -s expand_aliases
@@ -3796,7 +3796,7 @@ lsf_parser()
 	local SCRIPT_FILE=""
 	local CODE_PROMPT="> "
 	local CHECK_IMPORT=1
-	local INTERACTIVE=0
+	local SHELL=0
 	local VERBOSE=0
 	local DUMMY=0
 	local SYNTAX_HELP=1
@@ -3804,7 +3804,8 @@ lsf_parser()
 	while [ -n "$1" ]; do
 		case "$1" in
 		-h|--help)            lsf_help                           ; return $?;;
-		-i|--interactive)     INTERACTIVE=1                      ; shift    ;;
+		-i|--interactive|--shell)       SHELL=1                  ; shift    ;;
+		-I|--no-interactive|--no-shell) SHELL=0                  ; shift    ;;
 		-s|--script)          SCRIPT_FILE="$2";
 		   [ -f "$2" ] && mapfile SCRIPT_LINE < $2               ; shift   2;;
 		-i|--check-import)    CHECK_IMPORT=1                     ; shift    ;;
@@ -3822,12 +3823,17 @@ lsf_parser()
 	local INDENT_LEVEL=0
 	local FUN_START=0
 	local STRING_START=0
+	local DSTRING_START=0
 	local SUBCMD_START=0
 	local ARITM_SUBCMD_START=0
+	local LINE_COMPLETE=1
+	local NO_PARSE_WORD=0
 	
 	__lsf_execute()
 	{
-		local CMD="$@"
+		CMD="$@"
+		
+		local exit_code=0
 		
 		[ $VERBOSE -eq 1 ] && echo -e "${CODE_PROMPT}$CMD"
 		if [ $DUMMY -eq 0 ]; then
@@ -3838,16 +3844,21 @@ lsf_parser()
 			if [ $? -ne 0 -a $CHECK_IMPORT -eq 1 ]; then
 				if echo "$CMD" | grep -q -E -e "^lib_(import|include)"; then
 					echo "LSF: import error: $CMD" > /dev/stderr
-					return 1
+					exit_code=1
 				fi
 			fi
 		fi
 		
-		return 0
+		PREV_CMD="$CMD"
+		CMD=""
+		
+		return $exit_code
 	}
 	
 	__lsf_run()
 	{
+		CMD="$@"
+		
 		if [ $INDENT_LEVEL -gt 0 ]; then
 			[ -n "$CMD" ] && CMD="$CMD ;"
 		else
@@ -3889,20 +3900,35 @@ lsf_parser()
 			# '<string>'
 			if [ $STRING_START -eq 1 ] && echo "$word" | grep -q -E -e "^[^']*'$"; then
 				STRING_START=0
+				NO_PARSE_WORD=0
 				let INDENT_LEVEL--
-			elif echo "$word" | grep -q -E -e "^'(.*[^'])?$"; then
+			elif [ $NO_PARSE_WORD -eq 0 ] && echo "$word" | grep -q -E -e "^'(.*[^'])?$"; then
 				STRING_START=1
+				NO_PARSE_WORD=1
+				let INDENT_LEVEL++
+			fi
+			
+			if [ $DSTRING_START -eq 1 ] && echo "$word" | grep -q -E -e '^[^"]*"$'; then
+				DSTRING_START=0
+				NO_PARSE_WORD=0
+				let INDENT_LEVEL--
+			elif [ $NO_PARSE_WORD -eq 0 ] && echo "$word" | grep -q -E -e '^"(.*[^"])?$'; then
+				echo "sono qui"
+				DSTRING_START=1
+				NO_PARSE_WORD=1
 				let INDENT_LEVEL++
 			fi
 			
 			# $(<list>) (<list>) `<list>`
 			if [ $SUBCMD_START -eq 1 ] && 
-				echo "$word" | grep -q -E -e '^[^`]*`$' ||
-				echo "$word" | grep -q -E -e '[)]'; then
+				( echo "$word" | grep -q -E -e '^[^`]*`$' ||
+				echo "$word" | grep -q -E -e '[^(][)]'); then
 				SUBCMD_START=0
+				NO_PARSE_WORD=0
 				let INDENT_LEVEL--
-			elif echo "$word" | grep -q -E -e '^`' ||
-				 echo "$word" | grep -q -E -e '\$?[(]'; then
+			elif [ $NO_PARSE_WORD -eq 0 ] && (
+				echo "$word" | grep -q -E -e '^`' ||
+				echo "$word" | grep -q -E -e '^[(]|\$[(][^(]'); then
 				SUBCMD_START=1
 				let INDENT_LEVEL++
 			fi
@@ -3911,15 +3937,15 @@ lsf_parser()
 			if [ $ARITM_SUBCMD_START -eq 1 ] && 
 				echo "$word" | grep -q -E -e '[)][)]'; then
 				ARITM_SUBCMD_START=0
+				NO_PARSE_WORD=0
 				let INDENT_LEVEL--
 				CMD="$(echo "$CMD" | awk '{gsub(";( |\\\n)*", ""); print}')"
-			elif echo "$word" | grep -q -E -e '\$[(][(]'; then
+			elif [ $NO_PARSE_WORD -eq 0 ] && echo "$word" | grep -q -E -e '\$[(][(]'; then
 				ARITM_SUBCMD_START=1
 				let INDENT_LEVEL++
 			fi
 			
-			
-			if [ $STRING_START -eq 1 -o $SUBCMD_START -eq 1 -o $ARITM_SUBCMD_START -eq 1 ]; then
+			if [ $NO_PARSE_WORD -eq 1 ]; then
 				CMD="$CMD $WORD"
 			else
 				# function support: <fun_id>() { ... }  function <fun_id>[( )] { ... }
@@ -3985,17 +4011,31 @@ lsf_parser()
 		CMD=""
 		INDENT_LEVEL=0
 		STRING_START=0
+		DSTRING_START=0
 		SUBCMD_START=0
 		ARITM_SUBCMD_START=0
 		FUN_START=0
+		LINE_COMPLETE=1
 		
-		local an=$(echo $LINE | tr \'  '#' | awk '{gsub("[^#]"," "); print}'| wc -w)
-		local bn=$(echo $LINE | tr '`' '#' | awk '{gsub("[^#]"," "); print}'| wc -w)
-
+		local n=0
 		
-		if (( $an%2==0 )) && (( $bn%2==0 )) &&
+		for sep in \' \" \`; do
+			[ "$sep" != "'" -a $n -gt 0 ] && break
+			
+			n=$(echo "$LINE" | grep -o -E -e "[^\]?[$sep]" | wc -l)
+			
+			#echo ">> $LINE_COMPLETE [sep=$sep $n]"
+			if (( $n%2==1 )); then
+				LINE_COMPLETE=0
+				break
+			fi
+		done
+		
+		if [ $LINE_COMPLETE -eq 1 ] &&
 		   echo "$LINE" | grep -q -v -E -e "(if|do|then|in|;+|\{|\(|[^=][(] *[)]|function *) *$"; then
 			LINE="$LINE;"
+		else
+			LINE_COMPLETE=0
 		fi
 		
 		LINE="$(echo "$LINE" | awk '{gsub("[(]", "( "  )    ; gsub("[)]", " )"  );
@@ -4006,6 +4046,7 @@ lsf_parser()
 		
 		local word=""
 		
+		# word parsing
 		for word in $LINE; do
 			if [ "$word" == ";" ]; then
 				__lsf_run "$CMD" && continue || return 1
@@ -4020,10 +4061,12 @@ lsf_parser()
 	__lsf_parse()
 	{
 		if [ -z "$CMD" ]; then
-			__lsf_parse_line "$*"
+			LINE="$*"
 		else
-			__lsf_parse_line "$CMD \n$*"
+			LINE="$CMD \n$*"
 		fi
+		
+		__lsf_parse_line "$LINE"
 	}
 	
 	
@@ -4080,20 +4123,11 @@ lsf_parser()
 		return 0
 	}
 	
-	if [ -n "$SCRIPT_FILE" ]; then
-		local i=0
-		local lines=${#SCRIPT_LINE[@]}
-		
-		while [ $i -lt $lines ] ; do
-			__lsf_parse "${SCRIPT_LINE[$i]}" || return 1
-			let i++
-		done
-	elif [ $INTERACTIVE -eq 1 ]; then
-		
-		CMD=$ARGS
+	__lsf_shell()
+	{
+		local SPECIAL_CMD=1
 		
 		while true; do
-		
 			local LSF_PROMPT="lsf > "
 			
 			[ $INDENT_LEVEL -ne 0 ] && LSF_PROMPT="> " 
@@ -4103,48 +4137,67 @@ lsf_parser()
 			local line="${WORDS[@]}"
 			
 			case "${WORDS[0]}" in
-			q|quit|end)     [ -z "${WORDS[1]}" ] && break || continue;;
-			w|word)         echo -e "${WORD/"\n"} [$WORD]" ; continue;;
-			l|line)         echo    "$LINE"                ; continue;;
-			c|cmd)          echo -e "$CMD"                 ; continue;;
-			e|exec)   __lsf_execute "$CMD"                 ; continue;;
-			r|reset_cmd)    CMD=""                         ; continue;;
-			p|prev_cmd)     echo -e "$PREV_CMD"            ; continue;;
-			i|indent_level) 
-				if echo "${WORDS[1]}" | grep -q -E -e "[0-9][1-9]*"; then
-					INDENT_LEVEL=${WORDS[1]}
-				else
-					echo $INDENT_LEVEL
-				fi
-				continue;;
-			m|mode)
-				case "${WORDS[1]}" in
-				verbose) VERBOSE=1;;
-				quiet)   VERBOSE=0;;
-				dummy)   DUMMY=1;;
-				dump)    VERBOSE=1; DUMMY=1; CODE_PROMPT="";;
-				normal)  VERBOSE=0; DUMMY=0; CODE_PROMPT="> ";;
-				*)       echo "LSF: mode error: ${WORDS[1]} invalid" > /dev/stderr;;
-				esac
-				continue;;
-			h|history)
-				__lsf_history ${WORDS[1]};
-				[ -z "$LSF_HISTORY_CMD" ] && continue
-				line="$LSF_HISTORY_CMD"
-				LSF_HISTORY_CMD="";;
-			*)
-				if [ "${WORDS[0]:0:1}" == "!" ]; then
-					__lsf_history ${WORDS[0]:1}
-					[ -z "$LSF_HISTORY_CMD" ] && continue
-					line="$LSF_HISTORY_CMD"
-					LSF_HISTORY_CMD=""
-				fi;;
+				@q|@quit|@end)     [ -z "${WORDS[1]}" ] && break || continue;;
+				@1|@on)            SPECIAL_CMD=1                  ; continue;;
+				@0|@off)           SPECIAL_CMD=0                  ; continue;;
 			esac
 			
+			if [ $SPECIAL_CMD -eq 1 ]; then
+				case "${WORDS[0]}" in
+				@w|@word)          echo -e "${WORD/"\n"} [$WORD]" ; continue;;
+				@l|@line)          echo    "$LINE"                ; continue;;
+				@c|@cmd)           echo -e "$CMD"                 ; continue;;
+				@e|@exec)    __lsf_execute "$CMD"                 ; continue;;
+				@r|@reset_cmd)     CMD=""                         ; continue;;
+				@p|@prev_cmd)      echo -e "$PREV_CMD"            ; continue;;
+				@i|@indent_level) 
+					if echo "${WORDS[1]}" | grep -q -E -e "[0-9][1-9]*"; then
+						INDENT_LEVEL=${WORDS[1]}
+					else
+						echo $INDENT_LEVEL
+					fi
+					continue;;
+				@m|@mode)
+					case "${WORDS[1]}" in
+					verbose) VERBOSE=1;;
+					quiet)   VERBOSE=0;;
+					dummy)   DUMMY=1;;
+					dump)    VERBOSE=1; DUMMY=1; CODE_PROMPT="";;
+					normal)  VERBOSE=0; DUMMY=0; CODE_PROMPT="> ";;
+					*)       echo "LSF: mode error: ${WORDS[1]} invalid" > /dev/stderr;;
+					esac
+					continue;;
+				@h|@history)
+					__lsf_history ${WORDS[1]};
+					[ -z "$LSF_HISTORY_CMD" ] && continue
+					line="$LSF_HISTORY_CMD"
+					LSF_HISTORY_CMD="";;
+				*)
+					if [ "${WORDS[0]:0:1}" == "!" ]; then
+						__lsf_history ${WORDS[0]:1}
+						[ -z "$LSF_HISTORY_CMD" ] && continue
+						line="$LSF_HISTORY_CMD"
+						LSF_HISTORY_CMD=""
+					fi;;
+				esac
+			fi
 			__lsf_history +$line
 			
 			__lsf_parse "$line"
 		done
+	}
+	
+	# lsf parser main #####################################
+	if [ -n "$SCRIPT_FILE" ]; then
+		local i=0
+		local lines=${#SCRIPT_LINE[@]}
+		
+		while [ $i -lt $lines ] ; do
+			__lsf_parse "${SCRIPT_LINE[$i]}" || return 1
+			let i++
+		done
+	elif [ $SHELL -eq 1 ]; then
+		__lsf_shell
 	else
 		__lsf_parse_line "$CMD"
 	fi
