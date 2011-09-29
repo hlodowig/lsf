@@ -19,7 +19,7 @@
 #
 
 # LSF Version info
-export LSF_VERSINFO=([0]="0" [1]="9" [2]="2" [3]="2" [4]="alpha" [5]="all")
+export LSF_VERSINFO=([0]="0" [1]="9" [2]="2" [3]="3" [4]="alpha" [5]="unstable")
 
 # Attiva l'espansione degli alias
 shopt -s expand_aliases
@@ -3836,7 +3836,7 @@ lsf_parser()
 		local exit_code=0
 		
 		[ $VERBOSE -eq 1 ] && echo -e "${CODE_PROMPT}$CMD"
-		if [ $DUMMY -eq 0 ]; then
+		if [ $DUMP -eq 0 ]; then
 			# esegui il comando
 			eval "$(echo -e "$CMD")"
 			
@@ -3847,6 +3847,9 @@ lsf_parser()
 					exit_code=1
 				fi
 			fi
+		else
+			# stampa il comando
+			echo -e "$CMD"
 		fi
 		
 		PREV_CMD="$CMD"
@@ -3902,10 +3905,12 @@ lsf_parser()
 				STRING_START=0
 				NO_PARSE_WORD=0
 				let INDENT_LEVEL--
+				echo "'-"
 			elif [ $NO_PARSE_WORD -eq 0 ] && echo "$word" | grep -q -E -e "^'(.*[^'])?$"; then
 				STRING_START=1
 				NO_PARSE_WORD=1
 				let INDENT_LEVEL++
+				echo "'+"
 			fi
 			
 			if [ $DSTRING_START -eq 1 ] && echo "$word" | grep -q -E -e '^[^"]*"$'; then
@@ -4001,15 +4006,29 @@ lsf_parser()
 					esac
 				fi
 			fi
+			
+			# debug
+			echo "WORD               $WORD -> $word"
+			echo "NO_PARSE_WORD      $NO_PARSE_WORD"
+			echo "STRING START       $STRING_START"
+			echo "DSTRING START      $DSTRING_START"
+			echo "SUBCMD_START       $SUBCMD_START"
+			echo "ARITM_SUBCMD_START $ARITM_SUBCMD_START"
+			echo "FUN_START          $FUN_START"
+			echo
 		fi
 	}
 	
 	__lsf_parse_line()
 	{
+		clear 
+		echo "--------------"
+		
 		LINE="$*"
 		
 		CMD=""
 		INDENT_LEVEL=0
+		NO_PARSE_WORD=0
 		STRING_START=0
 		DSTRING_START=0
 		SUBCMD_START=0
@@ -4017,26 +4036,34 @@ lsf_parser()
 		FUN_START=0
 		LINE_COMPLETE=1
 		
-		local n=0
-		
-		for sep in \' \" \`; do
-			[ "$sep" != "'" -a $n -gt 0 ] && break
+		__check_single_quoted_string() {
+			echo "$LINE" | grep -q "'" || return 0
+			echo "$LINE" | grep -q -E -e "(\"|\`|[^'])+[']" && return 0 
+			local n=$(echo "$LINE" | grep -o -E -e "[^\]?[']" | wc -l)
 			
-			n=$(echo "$LINE" | grep -o -E -e "[^\]?[$sep]" | wc -l)
+			echo "single quoted=$n"
 			
-			#echo ">> $LINE_COMPLETE [sep=$sep $n]"
-			if (( $n%2==1 )); then
-				LINE_COMPLETE=0
-				break
-			fi
-		done
+			return $(($n%2==0))
+		}
 		
-		if [ $LINE_COMPLETE -eq 1 ] &&
-		   echo "$LINE" | grep -q -v -E -e "(if|do|then|in|;+|\{|\(|[^=][(] *[)]|function *) *$"; then
-			LINE="$LINE;"
-		else
+		__check_double_quoted_string() {
+			echo "$LINE" | grep -q '"' || return 0
+			echo "$LINE" | grep -q -E -e "(\'|\`|[^\"])+[\"]" && return 0 
+			local n=$(echo "$LINE" | grep -o -E -e '[^\]?["]' | wc -l)
+			
+			echo "double quoted=$n"
+			
+			return $(($n%2==0))
+		}
+		
+		# no string support
+		if  __check_single_quoted_string &&
+			__check_double_quoted_string &&
+			echo "$LINE" | grep -q -v -E -e "(if|do|then|in|;+|\{|\(|[^=][(] *[)]|function *) *$"; then
 			LINE_COMPLETE=0
 		fi
+		
+		[ $LINE_COMPLETE -eq 1 ] && LINE="$LINE;"
 		
 		LINE="$(echo "$LINE" | awk '{gsub("[(]", "( "  )    ; gsub("[)]", " )"  );
 		                             gsub("[(] *[)]", "()") ; gsub("[(] *[(]","((");
