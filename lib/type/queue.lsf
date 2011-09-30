@@ -1,0 +1,165 @@
+################################################################################
+# Queue Library                                                                #
+################################################################################
+#
+# Libreria contenente definizioni e funzioni per la manipolazione di code.
+#
+# Copyright (C) 2011 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+
+lib_include type:array
+
+# Crea una coda.
+#
+# ES.
+# > queue_create QUEUE_NAME
+#
+alias queue_create=array_create
+
+# Distrugge un set.
+#
+# ES.
+# > QUEUE_NAME=()
+# > queue_destroy QUEUE_NAME
+#
+alias queue_destroy=array_destroy
+
+# Imposta un set.
+#
+# ES.
+# > QUEUE_NAME=()
+# > queue_set QUEUE_NAME item1 item2 item3
+#
+alias queue_set_all=array_queue_all
+
+# Restituisce la definizione dell'insieme nell'ambiente corrente.
+#
+# ES.
+# > queue_set QUEUE_NAME 'item 0' 'item 4' 'item 7'
+# > queue_def QUEUE_NAME
+#   QUEUE_NAME=( [0]='item 0' [4]='item 4' [7]='item 7' )
+#
+alias queue_def=array_def
+
+# Restituisce i valori di un set con quoting.
+#
+# ES.
+# > QUEUE_NAME=( 'item 1' 'item 2' 'item 3' )
+# > queue_values QUEUE_NAME
+#   'item 1' 'item 2' 'item 3'
+#
+alias queue_values=array_values
+
+
+# Aggiunge il valore, se non presente nell'insieme.
+#
+# ES.
+# > QUEUE_NAME=( item1 item2 item3 )
+# > queue_remove_item QUEUE_NAME 2
+# > queue_get QUEUE_NAME
+#   item1 item3
+# > queue_get_item QUEUE_NAME 2
+#   (empty string)
+#
+queue_add()
+{
+	[ $# -gt 1 ] || return 1
+	
+	local QUEUE_NAME=$1
+	local value=$2
+	local i=$(queue_size $QUEUE_NAME)
+	
+	array_set $QUEUE_NAME $i "$value"
+}
+
+# Rimuove il valore, se presente nell'insieme.
+#
+# ES.
+# > QUEUE_NAME=( item1 item2 item3 )
+# > queue_remove_item QUEUE_NAME 2
+# > queue_get QUEUE_NAME
+#   item1 item3
+# > queue_get_item QUEUE_NAME 2
+#   (empty string)
+#
+queue_remove()
+{
+	[ $# -gt 0 ] || return 1
+	
+	local QUEUE_NAME=$1
+	
+	array_remove $QUEUE_NAME 0
+	array_compact $QUEUE_NAME
+}
+
+alias queue_poll=queue_remove
+
+queue_peek()
+{
+	[ $# -gt 0 ] || return 1
+	
+	local QUEUE_NAME=$1
+	
+	array_get $QUEUE_NAME 0
+}
+
+# Restituisce la dimensione di un array.
+#
+# ES.
+# > ARRAY_NAME=( item1 item2 item3 )
+# > array_length ARRAY_NAME
+#   3
+#
+alias queue_size=array_size
+
+
+# Rimuove tutti i valore di un insieme.
+#
+# ES.
+# > QUEUE_NAME=( item1 item2 item3 )
+# > queue_clear QUEUE_NAME
+# > queue_get QUEUE_NAME
+#   (empty string)
+#
+alias queue_clear=array_clear
+
+# Restituisce un exit code pari a 0 se l'insieme è vuoto, altrimenti 1.
+#
+# ES.
+# > QUEUE_NAME=( )
+# > queue_is_empty QUEUE_NAME
+# > echo $?
+#   0
+#
+# > QUEUE_NAME=( item1 )
+# > queue_is_empty QUEUE_NAME
+# > echo $?
+#   1
+#
+alias queue_is_empty=array_is_empty
+
+# Restituisce 0 se l'insieme contiene l'elemento specificato, altrimenti 1.
+#
+# > QUEUE_NAME=( item1 item2 item3 )
+# > queue_contains QUEUE_NAME item3
+# > echo $?
+#   0
+#
+# > queue_contains QUEUE_NAME item5
+# > echo $?
+#   1
+#
+alias queue_contains=array_contains
+
+queue_to_array()
+{
+	[ $# -gt 1 ] || return 1
+	
+	return 0
+}
+
+# Trasforma un insieme in una mappa.
+alias queue_to_map=array_to_map
+
+alias queue_to_string=array_to_string
+
