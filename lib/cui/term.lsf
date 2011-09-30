@@ -7,6 +7,17 @@
 # Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
 #
 
+# Abilita la stampa dei caratteri digitati.
+term_enable_echo()
+{
+	stty echo
+}
+
+# Disabilita la stampa dei caratteri digitati.
+term_disable_echo()
+{
+	stty -echo
+}
 
 # Restituisce il numero di colonne del terminale corrente.
 term_get_columns()
