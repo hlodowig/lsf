@@ -70,14 +70,14 @@ LIBRARY NAMING
 	Il nome di una libreria è così costruito:
 	- se il file o la cartella di libreria ha una directory genitrice che si trova 
 	  nella variabile LIB_PATH, questa è eliminata dal path.
-	- se la libreria è un file l'estensione '.$LIB_EXT' viene omessa.
+	- se la libreria è un file l'estensione '.$LSF_LIB_EXT' viene omessa.
 	- Optionalmente il carattere '/' può essere sostituito dal carattere ':'
 	
 	
 EXAMPLES
 	
 	Se la libreria cercata è, ad esempio, 'math:sin', il comanando cerchera
-	all'interno di ogni cartella della variabile LIB_PATH, o il file 'math/sin.$LIB_EXT'
+	all'interno di ogni cartella della variabile LIB_PATH, o il file 'math/sin.$LSF_LIB_EXT'
 	oppure la cartella math/sin.
 	
 	
@@ -162,7 +162,7 @@ lib_find()
 		-p|--add-libpath)  libpath="$2"; add_path=1   ; shift  2;;
 		-P|--libpath)      libpath="$2"; add_path=0   ; shift  2;;
 		-f|--file) 
-			[ -f "$2" ] && echo $2 | grep -q -E -e "[.]$LIB_EXT$" || return 1
+			[ -f "$2" ] && echo $2 | grep -q -E -e "[.]$LSF_LIB_EXT$" || return 1
 			[ $QUIET -eq 1 ] || echo "$2" #__lib_get_absolute_path "$2"
 			return 0;;
 		-d|--dir)
@@ -213,9 +213,9 @@ lib_find()
 			
 			exit_code=0
 			
-		elif [ -f "${libdir}/$LIB.$LIB_EXT" ]; then
+		elif [ -f "${libdir}/$LIB.$LSF_LIB_EXT" ]; then
 			
-			[ $QUIET -eq 1 ] || echo  ${libdir}/$LIB.$LIB_EXT
+			[ $QUIET -eq 1 ] || echo  ${libdir}/$LIB.$LSF_LIB_EXT
 			
 			[ $FIND_ALL -eq 0 ] && return 0
 			
@@ -226,7 +226,7 @@ lib_find()
 			local lib="$LIB"
 			local regex="^.*@"
 			
-			LIB="$(echo "$lib" | grep -o -E -e "$regex" | awk '{gsub("@",""); print}').$ARC_EXT"
+			LIB="$(echo "$lib" | grep -o -E -e "$regex" | awk '{gsub("@",""); print}').$LSF_ARC_EXT"
 			SUB_LIB="$(echo "$lib" | awk -v S="$regex" '{gsub(S,""); print}')"
 			SUB_LIB="${SUB_LIB#/}"
 			

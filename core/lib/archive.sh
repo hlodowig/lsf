@@ -12,24 +12,24 @@ NAME
 
 SYNOPSIS
 	Create command:
-	    $CMD [OPTIONS] -c|--create|--build [-d|--dir .]             [lib.$ARC_EXT]
-	    $CMD [OPTIONS] -c|--create|--build [-d|--dir .]              <archive_name>.$ARC_EXT
+	    $CMD [OPTIONS] -c|--create|--build [-d|--dir .]             [lib.$LSF_ARC_EXT]
+	    $CMD [OPTIONS] -c|--create|--build [-d|--dir .]              <archive_name>.$LSF_ARC_EXT
 	    $CMD [OPTIONS] -c|--create|--build [-d|--dir <archive_name>] <archive_name>
-	    $CMD [OPTIONS] -c|--create|--build  -d|--dir <dir>           <archive_name>[.$ARC_EXT]
-	    $CMD [OPTIONS] -c|--create|--build  -d|--dir <dir>          [<dir>.$ARC_EXT]
+	    $CMD [OPTIONS] -c|--create|--build  -d|--dir <dir>           <archive_name>[.$LSF_ARC_EXT]
+	    $CMD [OPTIONS] -c|--create|--build  -d|--dir <dir>          [<dir>.$LSF_ARC_EXT]
 	    
-	    $CMD [OPTIONS] -c|--create|--build <archive_name>[.$ARC_EXT]:<dir>
-	    $CMD [OPTIONS] -c|--create|--build <archive_name>.$ARC_EXT(:|/):<dir>
+	    $CMD [OPTIONS] -c|--create|--build <archive_name>[.$LSF_ARC_EXT]:<dir>
+	    $CMD [OPTIONS] -c|--create|--build <archive_name>.$LSF_ARC_EXT(:|/):<dir>
 	
 	
 	Check command:
-	    $CMD [OPTIONS] [NAMING_OPTIONS] -C|--check   <archive_file>[.$ARC_EXT]
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -C|--check   <archive_file>[.$LSF_ARC_EXT]
 	    
 	    $CMD [OPTIONS] [NAMING_OPTIONS] -y|--verify  <archive_name>@
 	
 	
 	List command:
-	    $CMD [OPTIONS] [NAMING_OPTIONS] -l|--list  <archive_file>[.$ARC_EXT]
+	    $CMD [OPTIONS] [NAMING_OPTIONS] -l|--list  <archive_file>[.$LSF_ARC_EXT]
 	    $CMD [OPTIONS] [NAMING_OPTIONS] -L|--ls    <archive_name>@
 	
 	
@@ -335,7 +335,7 @@ lib_archive()
 		fi
 		
 		[ -f "$1" ] && 
-		echo "$1" | grep -q ".$ARC_EXT" && 
+		echo "$1" | grep -q ".$LSF_ARC_EXT" && 
 		file --mime-type "$1" | grep -q "gzip"
 		
 		local exit_code=$?
@@ -432,23 +432,23 @@ lib_archive()
 					fi
 				fi
 				return 0
-			elif [ "$2.$LIB_EXT" == "$libfile" ]; then
+			elif [ "$2.$LSF_LIB_EXT" == "$libfile" ]; then
 				[ $VERBOSE -eq 1 ] && echo "trovato!"
 				if [ $QUIET -eq 0 ]; then
 					if [ $REALPATH -eq 1 -a -n "${LIB_ARC_MAP[$ARCHIVE_NAME]}" ]; then
-						echo "${LIB_ARC_MAP[$ARCHIVE_NAME]}:$LIB.$LIB_EXT"
+						echo "${LIB_ARC_MAP[$ARCHIVE_NAME]}:$LIB.$LSF_LIB_EXT"
 					else
-						echo "$ARCHIVE_NAME:$LIB.$LIB_EXT"
+						echo "$ARCHIVE_NAME:$LIB.$LSF_LIB_EXT"
 					fi
 				fi
 				return 0
-			elif [ "$2.$ARC_EXT" == "$libfile" ]; then
+			elif [ "$2.$LSF_ARC_EXT" == "$libfile" ]; then
 				[ $VERBOSE -eq 1 ] && echo "trovato!"
 				if [ $QUIET -eq 0 ]; then
 					if [ $REALPATH -eq 1 -a -n "${LIB_ARC_MAP[$ARCHIVE_NAME]}" ]; then
-						echo "${LIB_ARC_MAP[$ARCHIVE_NAME]}:$LIB.$ARC_EXT"
+						echo "${LIB_ARC_MAP[$ARCHIVE_NAME]}:$LIB.$LSF_ARC_EXT"
 					else
-						echo "$ARCHIVE_NAME:$LIB.$ARC_EXT"
+						echo "$ARCHIVE_NAME:$LIB.$LSF_ARC_EXT"
 					fi
 				fi
 				return 0
@@ -539,7 +539,7 @@ lib_archive()
 		fi
 		
 		if [ -z "$DIR" ]; then
-			DIR=$(basename "$ARCHIVE_NAME" | awk -v S=".$ARC_EXT" '{gsub(S,""); print}')
+			DIR=$(basename "$ARCHIVE_NAME" | awk -v S=".$LSF_ARC_EXT" '{gsub(S,""); print}')
 		fi
 		
 		if [ ! -d "$DIR" ]; then
@@ -689,15 +689,15 @@ lib_archive()
 		#echo "- ARC_NAME=$ARC_NAME" > /dev/stderr
 		#echo "- LIB_NAME=$LIB_NAME" > /dev/stderr
 		
-		[ -n "$ARC_NAME" ] && ARC_FILE="${ARC_NAME/@/.$ARC_EXT}"
+		[ -n "$ARC_NAME" ] && ARC_FILE="${ARC_NAME/@/.$LSF_ARC_EXT}"
 		
 		if [ -n "$LIB_NAME" ]; then
-			LIB_FILE=$(echo ${LIB_NAME//://} | awk -v E=".$ARC_EXT/" '
+			LIB_FILE=$(echo ${LIB_NAME//://} | awk -v E=".$LSF_ARC_EXT/" '
 		               {  gsub("@", E); 
 		                  gsub("//","/");
 		                  gsub("^/",""); 
 		                  print
-		               }' | awk -v AE="[.]$ARC_EXT[/]$" -v AES=".$ARC_EXT" -v LE="$LIB_EXT" '
+		               }' | awk -v AE="[.]$LSF_ARC_EXT[/]$" -v AES=".$LSF_ARC_EXT" -v LE="$LSF_LIB_EXT" '
 		               ! /[/]$/ { printf "%s.%s\n", $0, LE } 
 		                 /[/]$/ { gsub(AE,AES); print      }')
 		fi 
@@ -713,7 +713,7 @@ lib_archive()
 		
 		#echo "Naming: disabled"
 		
-		local regex="^[^:]+(.$ARC_EXT|:)"
+		local regex="^[^:]+(.$LSF_ARC_EXT|:)"
 		local lib_file=
 		
 		lib_file="$(echo "$ARC_FILE" | awk -v S="${regex}/?" '{gsub(S,""); print}')"
@@ -729,7 +729,7 @@ lib_archive()
 	#echo "- DIR=$DIR" > /dev/stderr
 	#echo
 	
-	if echo $LIB_FILE | grep -q -E -e ".+[.]$ARC_EXT.+$"; then
+	if echo $LIB_FILE | grep -q -E -e ".+[.]$LSF_ARC_EXT.+$"; then
 		
 		[ $QUIET -eq 0 -o $VERBOSE -eq 1 ] && (
  		echo "WARNING: LIB_FILE=$LIB_FILE"
@@ -743,26 +743,26 @@ lib_archive()
 		DIR="$LIB_FILE"
 		
 		[ -z "$ARC_FILE" -a -n "$DIR" ] && 
-		ARC_FILE="$(basename "$DIR").$ARC_EXT"
+		ARC_FILE="$(basename "$DIR").$LSF_ARC_EXT"
 	fi
 	
 	if [ -z "$ARC_FILE" -a "$CMD" != "SEARCH" ]; then
 		[ -z "$DIR" -a -n "$LIB_FILE" ] &&
-		ARC_FILE="$LIB_FILE.$ARC_EXT"
+		ARC_FILE="$LIB_FILE.$LSF_ARC_EXT"
 		LIB_FILE=""
 	fi
 	
 	if [ "$CMD" == "CREATE" ]; then
-		ARC_FILE="${ARC_FILE:=lib.$ARC_EXT}"
+		ARC_FILE="${ARC_FILE:=lib.$LSF_ARC_EXT}"
 		DIR="${DIR:=.}"
 	fi
 	
 	if [ -n "$ARC_FILE" ]; then
-		if ! echo $ARC_FILE | grep -q ".$ARC_EXT$"; then
-			ARC_FILE="$ARC_FILE.$ARC_EXT"
+		if ! echo $ARC_FILE | grep -q ".$LSF_ARC_EXT$"; then
+			ARC_FILE="$ARC_FILE.$LSF_ARC_EXT"
 		fi
 	else
-		ARC_FILE="lib.$ARC_EXT"
+		ARC_FILE="lib.$LSF_ARC_EXT"
 	fi
 	
 	#echo "Output:"

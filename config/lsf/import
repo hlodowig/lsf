@@ -1,0 +1,11 @@
+# LSF config file
+
+# Importa tutte le librerie attive
+lib_path --set "$LSF_HOME/lib"
+
+lsf_log "LSF: Importazione delle librerie attivate..."
+
+lib_import --fast --all
+
+lsf_log "LSF: Importazione delle librerie completata"
+

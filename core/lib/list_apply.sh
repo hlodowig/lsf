@@ -104,7 +104,7 @@ lib_list_apply()
 		if [ $(ls -A1 "$DIR" | wc -l) -gt 0 ]; then
 		
 			if [ -n "$LIB_FUN" ]; then
-				for library in $DIR/*.$LIB_EXT; do
+				for library in $DIR/*.$LSF_LIB_EXT; do
 					! lib_test --file "$library"  || 
 					__already_visited $library && 
 					continue
@@ -115,7 +115,7 @@ lib_list_apply()
 			fi
 			
 			if [ -n "$ARC_FUN" ]; then
-				for library in $DIR/*.$ARC_EXT; do
+				for library in $DIR/*.$LSF_ARC_EXT; do
 					 ! lib_test --archive "$library"  || 
 					 __already_visited $library && 
 					 continue

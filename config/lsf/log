@@ -1,0 +1,12 @@
+# LSF config file
+
+LSF_LOG_FILE="${LSF_LOG_FILE:-out}"
+
+# Configura il log mananger
+lsf_log --out "$LSF_LOG_FILE"
+
+# Attiva i log
+lsf_log --enable 
+
+lsf_log "LSF: Log attivato"
+

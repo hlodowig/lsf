@@ -11,13 +11,13 @@ lsf_shell()
 
  /¯¯|      /¯¯¯¯¯\   /¯¯¯¯¯¯¯¯\   
  |  |     |  |¯¯¯    |  |¯¯¯¯¯¯   Library System Framework
- |  |      \__¯¯¯\   |  ¯¯¯¯|     
+ |  |      \__¯¯¯\   |  ¯¯¯¯/     
  |  |          \  \  |  |¯¯¯      GPL v.3
  |  |____   __ /  /  |  |
  \______/  /_____/   \__/         Version $(lsf_version -v)
 
 END
 
-	lsf_parser --shell "$@"
+	exec bash --rcfile "$LSF_HOME/config/lsf/lsfrc"
 }
 

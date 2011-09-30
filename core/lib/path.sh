@@ -1,5 +1,9 @@
 ### PATH SECTION ###############################################################
 
+# Variabile d'ambiente contenente la lista delle directory contenenti librerie.
+LIB_PATH="${LIB_PATH:-"lib"}"
+
+
 __lib_path_usage()
 {
 	local CMD="$1"
@@ -78,8 +82,6 @@ END
 # Toolkit per la variabile LIB_PATH
 lib_path()
 {
-	
-	
 	local ARGS=$(getopt -o hgsfarRlvVAwW -l help,get,set,find,add,remove,reset,list,verbose,no-verbose,absolute-path,real-path,no-real-path -- "$@")
 	eval set -- $ARGS
 	

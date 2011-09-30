@@ -40,13 +40,13 @@ NAMING
 	Conversion Sintax:
 	
 	- Library File:
-	    <lib_file_name>.$LIB_EXT  ==>  <lib_file_name>
+	    <lib_file_name>.$LSF_LIB_EXT  ==>  <lib_file_name>
 	    
 	- Library Directory:
 	    <lib_dir_name>  ==>  <lib_dir_name>[:|/]
 	
 	- Library Archive:
-	    <lib_arc_name>.$ARC_EXT  ==>  <lib_arc_name>@
+	    <lib_arc_name>.$LSF_ARC_EXT  ==>  <lib_arc_name>@
 	_____________________________________________________
 	
 	EXAMPLE:
@@ -109,9 +109,9 @@ lib_name()
 		libpath="${libpath} $(lib_path --list --absolute-path --real-path)"
 	fi
 	
-	if echo "$lib" | grep -q -E -e"[.]$ARC_EXT"; then
+	if echo "$lib" | grep -q -E -e"[.]$LSF_ARC_EXT"; then
 		
-		local regex="^.*.$ARC_EXT"
+		local regex="^.*.$LSF_ARC_EXT"
 		
 		sublib="$(echo "$lib" | awk -v S="$regex" '{gsub(S,""); print}')"
 		lib="$(echo "$lib" | grep -o -E -e "$regex")"
@@ -134,9 +134,9 @@ lib_name()
 	CMD="echo \"${lib}${sublib}\" |
 	       awk '{ gsub(\"^($dirs)/\",\"\");    print }' | 
 	       awk '{ gsub(\"(:|/)+\",\"/\");      print }' | 
-	       awk '{ gsub(\"[.]$ARC_EXT\",\"@\"); print }' |
-	       awk '! /[.]$LIB_EXT\$/ { printf \"%s/\n\", \$0 }
-	              /[.]$LIB_EXT\$/ { gsub(\"[.]$LIB_EXT\$\",\"\"); print}' |
+	       awk '{ gsub(\"[.]$LSF_ARC_EXT\",\"@\"); print }' |
+	       awk '! /[.]$LSF_LIB_EXT\$/ { printf \"%s/\n\", \$0 }
+	              /[.]$LSF_LIB_EXT\$/ { gsub(\"[.]$LSF_LIB_EXT\$\",\"\"); print}' |
 	       tr / :"
 	
 	LIB_NAME=$(eval "$CMD")

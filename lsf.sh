@@ -32,15 +32,15 @@ lsf_load_module()
 	local modfile="$LSF_HOME/core/$module.sh"
 	
 	if [ -f $modfile ]; then
-		echo "LSF INIT: Load module '$module [$modfile]"
+		#echo "LSF INIT: Load module '$module [$modfile]"
 		source $modfile
 	else
-		echo "LSF ERROR: Module '$module [$modfile] not found!" > /dev/stderr
+		#echo "LSF ERROR: Module '$module [$modfile] not found!" > /dev/stderr
 		return 1
 	fi
 }
 
-LSF_MODULES=( common log version lib-core keywords exit help main )
+LSF_MODULES=( common log version lib-core keywords export exit help shell main )
 
 lsf_init()
 {
@@ -50,20 +50,32 @@ lsf_init()
 	local module=""
 	local modfile=""
 	
+	echo -e "Loading module... "
 	for module in ${LSF_MODULES[@]}; do
+		echo " - $module"
 		lsf_load_module "$module"
 	done
+	echo -e "done.\n"
 }
 
-lsf_init || return 1
 ################################################################################
 
 
 ### LSF MAIN SECTION ###########################################################
 
+#debug
 #echo "lsf execute by $0"
 
-if [ "$0" != "/bin/sh" -a "$0" != "/bin/bash" ]; then
+if echo "$0" | grep -q -E -e "^(/bin/)?(ba)?sh$"; then
+	
+	lsf_init || return 1
+else
+	if echo $0 | grep -q -E -e "lsf-shell$"    ; then
+		lsf_load_module "version" &&
+		lsf_load_module "shell"   &&
+		lsf_shell "$@"
+	fi
+	
 	lsf_main "$@"
 fi
 

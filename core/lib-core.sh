@@ -28,37 +28,6 @@ LIB_FILE_LIST="${LIB_FILE_LIST:-""}"
 declare -gxA LIB_ARC_MAP
 
 
-### UTILITY FUNCTIONS ##########################################################
-
-# Restituisce il path assoluto.
-__lib_get_absolute_path()
-{
-	readlink -m $*
-}
-
-# Stampa il contento di una directory
-__lib_list_dir()
-{
-	[ $# -eq 0 -a ! -d "$1" ] && return 1
-	local dir="${1%/}"
-	local file=
-	
-	
-	if [ "$dir" != "." ]; then
-		echo "$dir" #| awk -v PWD="$PWD/" '{gsub(PWD,""); print}'
-		dir="$dir/*"
-	else
-		dir="*"
-	fi
-	
-	for file in $dir; do
-		[ -f "$file" ] && echo "$file" #| awk -v PWD="$PWD/" '{gsub(PWD,""); print}'
-		
-		[ -d "$file" ] && $FUNCNAME "$file"
-	done
-}
-
-
 ### LIB_LIST FILES SECTION #####################################################
 
 # Restituisce la lista dei file delle librerie importate nell'ambiente corrente.

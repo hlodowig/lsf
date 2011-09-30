@@ -1,0 +1,13 @@
+# LSF config file
+
+# LSF Aliases
+alias log=lsf_log
+
+# LIB Aliases
+alias path=lib_path
+alias import=lib_import
+alias include=lib_include
+alias update=lib_update
+
+lsf_log "LSF: Definizione di alias di utilità completata"
+

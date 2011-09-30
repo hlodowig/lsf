@@ -34,7 +34,7 @@ END
 
 lsf_exit()
 {
-	local ARGS=$(getopt -o rhf:d:l:a: -l recursive,help,function:,dir-function:,lib-function:,archive-function -- "$@")
+	local ARGS=$(getopt -o hv -l help,verbose -- "$@")
 	eval set -- $ARGS
 	
 	#echo "ARGS=$ARGS"
@@ -58,13 +58,13 @@ lsf_exit()
 		[ $VERBOSE -eq 1 ] && echo "unalias $al"
 	done
 	
-	for fun in $(set | grep -E "^_{0,3}($LSF_CMD_PREFIX|$LSF_LIB_CMD_PREFIX)_.* \(\)" | awk '{gsub(" \\(\\)",""); print}'); do
+	for fun in $(set | grep -E "^_{0,3}($LSF_CMD_PREFIX|$LSF_LIB_CMD_PREFIX).* \(\)" | awk '{gsub(" \\(\\)",""); print}'); do
 		
 		unset $fun
 		[ $VERBOSE -eq 1 ] && echo "unset $fun"
 	done
 	
-	for var in $(set | grep -E "^LIB_*" | awk '{gsub("=.*",""); print}'); do
+	for var in $(set | grep -E "^($LSF_VAR_PREFIX|$LSF_LIB_VAR_PREFIX)*" | awk '{gsub("=.*",""); print}'); do
 		
 		unset $var
 		[ $VERBOSE -eq 1 ] && echo "unset $var"

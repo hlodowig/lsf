@@ -38,14 +38,14 @@ OPTIONS
 	    Importa gli script contenuti nella cartella specificata dal path,
 	    senza eseguire operazioni di naming.
 	    Se l'optione 'include' non è specificata, importa solo gli script abilitati,
-	    altrimenti importa tutti gli script con estensione '.$LIB_EXT'.
+	    altrimenti importa tutti gli script con estensione '.$LSF_LIB_EXT'.
 	    (see: LIBRARY NAMING section of lib_find)
 	
 	-a, --archive
 	    Importa gli script contenuti nella cartella specificata dal path,
 	    senza eseguire operazioni di naming.
 	    Se l'optione 'include' non è specificata, importa solo gli script abilitati,
-	    altrimenti importa tutti gli script con estensione '.$LIB_EXT'.
+	    altrimenti importa tutti gli script con estensione '.$LSF_LIB_EXT'.
 	    (see: LIBRARY NAMING section of lib_find)
 	
 	-r, --recursive
@@ -271,7 +271,7 @@ lib_import()
 	fi
 	
 	# verifica se la pathname expansion di bash è fallita
-	echo "$LIB" | grep -q -E -e "[*][.]($LIB_EXT|$ARC_EXT)$" && return 3
+	echo "$LIB" | grep -q -E -e "[*][.]($LSF_LIB_EXT|$LSF_ARC_EXT)$" && return 3
 	
 	LIB_FILE=$(lib_find $LIB_PATH_OPT $FIND_OPT $LIB)
 	
@@ -337,9 +337,9 @@ lib_import()
 					if [ -n "$SUB_LIB" ]; then
 						local type_opt=
 						
-						if   echo "$SUB_LIB" | grep -q ".$LIB_EXT$"; then
+						if   echo "$SUB_LIB" | grep -q ".$LSF_LIB_EXT$"; then
 							type_opt="--file"
-						elif echo "$SUB_LIB" | grep -q ".$ARC_EXT$"; then
+						elif echo "$SUB_LIB" | grep -q ".$LSF_ARC_EXT$"; then
 							type_opt="--archive"
 						else
 							type_opt="--dir"
@@ -368,7 +368,7 @@ lib_import()
 		if [ $(ls -A1 "$DIR" | wc -l) -gt 0 ]; then
 			
 			# importa tutti i file di libreria
-			for library in $DIR/*.$LIB_EXT; do
+			for library in $DIR/*.$LSF_LIB_EXT; do
 				if [ $INCLUDE -eq 1 -o -x $library ]; then
 					$FUNCNAME $LIB_PATH_OPT $OPTIONS --file $library
 				fi
@@ -390,7 +390,7 @@ lib_import()
 				done
 				
 				# importa tutti gli archivi
-				for library in $DIR/*.$ARC_EXT; do
+				for library in $DIR/*.$LSF_ARC_EXT; do
 					if [ $INCLUDE -eq 1 -o -x $library ]; then
 						$FUNCNAME $LIB_PATH_OPT $OPTIONS --archive $library
 					fi
