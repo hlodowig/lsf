@@ -88,8 +88,14 @@ queue_remove()
 	
 	local QUEUE_NAME=$1
 	
+	queue_is_empty $QUEUE_NAME && return 1
+	
+	local value="$( array_get $QUEUE_NAME 0)"
+	
 	array_remove $QUEUE_NAME 0
 	array_compact $QUEUE_NAME
+	
+	[ -n "$value" ] && echo "$value"
 }
 
 alias queue_poll=queue_remove

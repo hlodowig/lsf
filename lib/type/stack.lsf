@@ -89,9 +89,14 @@ stack_pop()
 	[ $# -gt 0 ] || return 1
 	
 	local STACK_NAME=$1
-	local i=$(stack_size $STACK_NAME)
 	
-	array_remove $STACK_NAME $((i-1))
+	stack_is_empty $STACK_NAME && return 1
+
+	local value=$( array_get $STACK_NAME -1 )
+	
+	array_remove $STACK_NAME -1
+	
+	[ -n "$value" ] && echo "$value"
 }
 
 alias stack_remove=stack_pop
@@ -101,9 +106,8 @@ stack_peek()
 	[ $# -gt 0 ] || return 1
 	
 	local STACK_NAME=$1
-	local i=$(stack_size $STACK_NAME)
 	
-	array_get $STACK_NAME $((i-1))
+	array_get $STACK_NAME -1
 }
 
 # Restituisce la dimensione di un array.
