@@ -515,6 +515,7 @@
       <keyword>list_apply</keyword>
       <keyword>path</keyword>
       <keyword>test</keyword>
+      <keyword>check</keyword>
     </context>
 
     <context id="lsf-lib-code" style-ref="lsf-command-code">

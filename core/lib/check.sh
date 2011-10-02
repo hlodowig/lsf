@@ -1,12 +1,12 @@
 # Verifica se ci sono collisioni nello spazio dei nomi dei path di libreria
 
-__lib_detect_collision()
+__lib_check_usage()
 {
 	local CMD="$1"
 	
 	(cat << END
 NAME
-	${CMD:=lib_test} - Verifica se ci sono delle collisioni nello spazio dei nomi.
+	${CMD:=lib_check} - Verifica se ci sono delle collisioni nello spazio dei nomi.
 	
 SYNOPSIS
 	$CMD [OPTIONS] [<libname> ...]
@@ -37,7 +37,7 @@ END
 
 
 
-lib_detect_collision()
+lib_check()
 {
 	local ARGS=$(getopt -o hfF -l help,print-files,no-print-files -- "$@")
 	eval set -- $ARGS

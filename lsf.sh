@@ -74,9 +74,9 @@ else
 		lsf_load_module "version" &&
 		lsf_load_module "shell"   &&
 		lsf_shell "$@"
+	else
+		lsf_main "$@"
 	fi
-	
-	lsf_main "$@"
 fi
 
 ################################################################################

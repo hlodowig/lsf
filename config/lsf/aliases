@@ -8,6 +8,14 @@ alias path=lib_path
 alias import=lib_import
 alias include=lib_include
 alias update=lib_update
+alias archive=lib_archive
+alias apply=lib_apply
+alias depend=lib_depend
+alias enable=lib_enable
+alias disable=lib_disable
+alias list=lib_list
+alias name=lib_name
+alias check=lib_check
 
 lsf_log "LSF: Definizione di alias di utilità completata"
 

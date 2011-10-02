@@ -276,7 +276,7 @@ lib_import()
 	LIB_FILE=$(lib_find $LIB_PATH_OPT $FIND_OPT $LIB)
 	
 	if [ -z "$LIB_FILE" ]; then
-		[ $QUIET -eq 1 ] || lsf_log "Library '$LIB' not found!"	
+		[ $QUIET -eq 1 ] || lsf_log "LIB: library '$LIB' not found!"	
 		return 1
 	fi
 	
@@ -287,7 +287,7 @@ lib_import()
 	fi
 	
 	if [ $INCLUDE -eq 0 -a ! -x "$LIB_FILE" ]; then
-		[ $QUIET -eq 1 ] || lsf_log "Library '$LIB' disable!"
+		[ $QUIET -eq 1 ] || lsf_log "LIB: library '$LIB' disable!"
 		return 2
 	fi
 	
@@ -311,7 +311,7 @@ lib_import()
 					
 					__lib_list_files_add "$LIB_FILE"
 					
-					[ $QUIET -eq 1 ] || lsf_log "Import library module:\t $LIB"
+					[ $QUIET -eq 1 ] || lsf_log "LIB: import library:\t $LIB"
 				
 				else # importa un'archivio
 					
@@ -345,9 +345,12 @@ lib_import()
 							type_opt="--dir"
 						fi
 						
+						[ $QUIET -eq 1 ] || lsf_log "LIB: import archive:\t $LIB_FILE ($SUB_LIB)"
+						
 						# importa un file dell'archivio
 						$FUNCNAME $LIB_PATH_OPT $OPTIONS $type_opt  "${tmp_dir}/${SUB_LIB}"
 					else
+						[ $QUIET -eq 1 ] || lsf_log "LIB: import archive:\t $LIB_FILE"
 						# importa tutto l'archivio
 						$FUNCNAME --recursive $LIB_PATH_OPT $OPTIONS --dir  "$tmp_dir"
 					fi
@@ -363,7 +366,7 @@ lib_import()
 		
 		local DIR="$LIB_FILE"
 		
-		[ $QUIET -eq 1 ] || lsf_log "Import library directory:\t $LIB_FILE"
+		[ $QUIET -eq 1 ] || lsf_log "LIB: import dir:\t $LIB_FILE"
 		
 		if [ $(ls -A1 "$DIR" | wc -l) -gt 0 ]; then
 			
@@ -385,7 +388,7 @@ lib_import()
 					if [ $INCLUDE -eq 1 -o  -x "$libdir" ]; then
 						$FUNCNAME $LIB_PATH_OPT $OPTIONS --dir $libdir
 					else
-						[ $QUIET -eq 1 ] || lsf_log "Library directory '$libdir' disable!"
+						[ $QUIET -eq 1 ] || lsf_log "LIB: directory '$libdir' disable!"
 					fi
 				done
 				
