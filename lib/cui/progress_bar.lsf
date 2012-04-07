@@ -385,7 +385,7 @@ END
 	
 	__progress_bar_build() {
 	
-		if string_contains_regexp "$FORMAT" "%D"; then
+		if string_contains "$FORMAT" "%D"; then
 			FORMAT="$(string_sub "$FORMAT" '%D' "$DEFAULT_FORMAT")"	
 		fi
 
@@ -407,7 +407,7 @@ END
 
 		FORMAT="$(string_sub "$FORMAT" %U "$UNIT")"
 	
-		if string_contains_regexp "$FORMAT" "${FNUM_PATTERN}m"; then
+		if string_contains "$FORMAT" "${FNUM_PATTERN}m"; then
 		
 			FP=$(string_get_regexp "$FORMAT" "${FNUM_PATTERN}m")
 			VF="$(string_get_regexp "$FP" "${NUM_PATTERN}")"
@@ -423,7 +423,7 @@ END
 			FORMAT="$(string_sub "$FORMAT" "${FNUM_PATTERN}m" "$V")"
 		fi
 	
-		if string_contains_regexp "$FORMAT" "${FNUM_PATTERN}M"; then
+		if string_contains "$FORMAT" "${FNUM_PATTERN}M"; then
 		
 			FP=$(string_get_regexp "$FORMAT" "${FNUM_PATTERN}M")
 			VF="$(string_get_regexp "$FP" "${NUM_PATTERN}")"
@@ -439,7 +439,7 @@ END
 			FORMAT="$(string_sub "$FORMAT" "${FNUM_PATTERN}M" "$V")"
 		fi
 
-		if string_contains_regexp "$FORMAT" "${FNUM_PATTERN}V"; then
+		if string_contains "$FORMAT" "${FNUM_PATTERN}V"; then
 		
 			FP=$(string_get_regexp "$FORMAT" "${FNUM_PATTERN}V")
 			VF="$(string_get_regexp "$FP" "${NUM_PATTERN}")"
@@ -471,11 +471,11 @@ END
 		local NVAL=$(math_sub $VAL $MIN)
 
 		
-		if string_contains_regexp "$FORMAT" "%F"; then
+		if string_contains "$FORMAT" "%F"; then
 			FORMAT="$(string_sub "$FORMAT" '%F' "$MAX_FILL")"	
 		fi
 	
-		if string_contains_regexp "$FORMAT" "%(P|\{P\}B)"
+		if string_contains "$FORMAT" "%(P|\{P\}B)"
 		then
 			PVAL=$(math_mul $NVAL 100)
 			PVAL=$(math_div $PVAL $NMAX)
@@ -484,12 +484,12 @@ END
 			PVAL="$(printf "%5.1f%%" $PVAL)"
 			PVAL="$(echo "$PVAL" | tr , .)"
 
-			if string_contains_regexp "$FORMAT" "%P"; then
+			if string_contains "$FORMAT" "%P"; then
 				FORMAT="$(string_sub "$FORMAT" '%P' "$PVAL")"
 			fi
 		fi
 
-		if string_contains_regexp "$FORMAT" "%(\{P\})?B"; then
+		if string_contains "$FORMAT" "%(\{P\})?B"; then
 
 			local BVAL=$(math_mul $NVAL $LEN)
 			BVAL=$(math_div $BVAL $NMAX)
@@ -497,7 +497,7 @@ END
 				
 			local BAR=$(eval $(echo "progress_bar_builder $PRINT_OPT -l $LEN -v $BVAL") )
 
-			if string_contains_regexp "$FORMAT" "%\{P\}B"; then
+			if string_contains "$FORMAT" "%\{P\}B"; then
 					
 				local BB=$(string_remove "$FORMAT" "%({P})?B.*$")
 				local BA=$(string_remove "$FORMAT" "^.*%({P})?B")			
@@ -566,5 +566,23 @@ END
 	unset __progress_bar_main
 	
 	return $EXIT_CODE
+}
+
+
+#
+# progress_task <command> args ...
+#
+progress_task() { 
+
+	local CMD=$1
+	shift
+	
+	for i in $(seq 1 $#); do 
+		eval "($CMD \$${i}) > /dev/null 2>&1"
+		progress_bar -m0 -M$# -v $i
+		term_move_up
+	done
+	
+	echo
 }
 
