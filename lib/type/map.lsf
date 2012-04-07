@@ -1,8 +1,8 @@
 ################################################################################
-# Set Library                                                                  #
+# Map Library                                                                  #
 ################################################################################
 #
-# Libreria contenente definizioni e funzioni per la manipolazione di insiemi.
+# Libreria contenente definizioni e funzioni per la manipolazione di mappe.
 #
 # Copyright (C) 2010 - Luigi Capraro (luigi.capraro@gmail.com)
 #
@@ -25,7 +25,7 @@ map_create()
 	return 0
 }
 
-# Distrugge un set.
+# Distrugge una mappa.
 #
 # ES.
 # > MAP_NAME=()
@@ -43,12 +43,26 @@ alias map_destroy=array_destroy
 #
 alias map_def=array_def
 
+
 # Restituisce il valore della mappa associato alla chiave passata come parametro.
 alias map_get=array_get
 
+
 # Inserisce nella mappa la coppia chiave-valore. Se esiste, viene sovrascritto
 # il precendente valore.
-alias map_put=array_set
+map_put()
+{
+	[ $# -gt 2 ] || return 1
+	
+	local VAR_NAME=$1
+	local i=$2
+	local new_val="$3"
+		
+	eval "$VAR_NAME[$i]=\"$new_val\""
+	
+	return 0
+}
+
 
 # Restituisce le chiavi di una mappa.
 map_keyset()
@@ -59,7 +73,7 @@ map_keyset()
 	
 }
 
-# Restituisce i valori di un set con quoting.
+# Restituisce i valori di una mappa con quoting.
 #
 # ES.
 # > MAP_NAME=( 'item 1' 'item 2' 'item 3' )

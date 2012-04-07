@@ -41,7 +41,7 @@ alias set_set_all=array_set_all
 #
 alias set_def=array_def
 
-# Restituisce i valori di un set con quoting.
+# Restituisce i valori di un insieme con quoting.
 #
 # ES.
 # > SET_NAME=( 'item 1' 'item 2' 'item 3' )
@@ -49,6 +49,65 @@ alias set_def=array_def
 #   'item 1' 'item 2' 'item 3'
 #
 alias set_values=array_values
+
+
+# Restituisce la dimensione di un insieme.
+#
+# ES.
+# > SET_NAME=( item1 item2 item3 )
+# > set_size SET_NAME
+#   3
+#
+alias set_size=array_size
+
+
+# Rimuove tutti i valore di un insieme.
+#
+# ES.
+# > SET_NAME=( item1 item2 item3 )
+# > set_clear SET_NAME
+# > set_get SET_NAME
+#   (empty string)
+#
+alias set_clear=array_clear
+
+
+# Restituisce un exit code pari a 0 se l'insieme è vuoto, altrimenti 1.
+#
+# ES.
+# > SET_NAME=( )
+# > set_is_empty SET_NAME
+# > echo $?
+#   0
+#
+# > SET_NAME=( item1 )
+# > set_is_empty SET_NAME
+# > echo $?
+#   1
+#
+alias set_is_empty=array_is_empty
+
+
+# Restituisce 0 se l'insieme contiene l'elemento specificato, altrimenti 1.
+#
+# > SET_NAME=( item1 item2 item3 )
+# > set_contains SET_NAME item3
+# > echo $?
+#   0
+#
+# > set_contains SET_NAME item5
+# > echo $?
+#   1
+#
+alias set_contains=array_contains
+
+
+# Trasforma un insieme in una mappa.
+alias set_to_map=array_to_map
+
+
+# Trasforma il contenuto di un insieme in una stringa.
+alias set_to_string=array_to_string
 
 
 # Aggiunge il valore, se non presente nell'insieme.
@@ -98,63 +157,11 @@ set_remove()
 }
 
 
-# Restituisce la dimensione di un array.
-#
-# ES.
-# > ARRAY_NAME=( item1 item2 item3 )
-# > array_length ARRAY_NAME
-#   3
-#
-alias set_size=array_size
-
-
-# Rimuove tutti i valore di un insieme.
-#
-# ES.
-# > SET_NAME=( item1 item2 item3 )
-# > set_clear SET_NAME
-# > set_get SET_NAME
-#   (empty string)
-#
-alias set_clear=array_clear
-
-# Restituisce un exit code pari a 0 se l'insieme è vuoto, altrimenti 1.
-#
-# ES.
-# > SET_NAME=( )
-# > set_is_empty SET_NAME
-# > echo $?
-#   0
-#
-# > SET_NAME=( item1 )
-# > set_is_empty SET_NAME
-# > echo $?
-#   1
-#
-alias set_is_empty=array_is_empty
-
-# Restituisce 0 se l'insieme contiene l'elemento specificato, altrimenti 1.
-#
-# > SET_NAME=( item1 item2 item3 )
-# > set_contains SET_NAME item3
-# > echo $?
-#   0
-#
-# > set_contains SET_NAME item5
-# > echo $?
-#   1
-#
-alias set_contains=array_contains
-
+# Trasforma un insieme in un array.
 set_to_array()
 {
 	[ $# -gt 1 ] || return 1
 	
 	return 0
 }
-
-# Trasforma un insieme in una mappa.
-alias set_to_map=array_to_map
-
-alias set_to_string=array_to_string
 

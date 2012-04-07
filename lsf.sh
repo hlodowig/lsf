@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with Import Utilities; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin St, Fifth Floor, 
+# Foundation, Inc., 51 Franklin St, Fifth Floor,
 # Boston, MA  02110-1301  USA
 #
 
@@ -44,8 +44,6 @@ LSF_MODULES=( common log version lib-core keywords export exit help shell main )
 
 lsf_init()
 {
-	# Attiva l'espansione degli alias
-	shopt -s expand_aliases
 	
 	local module=""
 	local modfile=""
@@ -65,6 +63,9 @@ lsf_init()
 
 #debug
 #echo "lsf execute by $0"
+
+# Attiva l'espansione degli alias
+shopt -s expand_aliases
 
 if echo "$0" | grep -q -E -e "^(/bin/)?(ba)?sh$"; then
 	
