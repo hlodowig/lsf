@@ -231,24 +231,24 @@ END
 		fi
 	done
 	
-		
+	
 	FILTER_PATTERN="$(echo $FILTER_PATTERN | tr '%' '*')"
 	ARGS_PATTERN="$(echo "$ARGS_PATTERN" | tr "\n" " " | awk 'BEGIN {RS=" "} { print "\"" $0 "\"" }' | tr '@' '\$')"
-
+	
 	#debug
 	#echo "DIR=$DIR"
 	#echo "FILTER_PATTERN=$FILTER_PATTERN"
 	#echo "ARGS_PATTERN=$ARGS_PATTERN"
-
+	
 	
 	for DIR in "$@"; do
-	
+		
 		FILES=`(cd $DIR; ls -Q $FILTER_PATTERN 2> /dev/null)`
 		test -z "$FILES" && continue
-
+		
 		#debug
 		#echo "FILES=$FILES"
-				
+		
 		COMMAND="( cd $DIR; for $VAR in ${FILES}; do $CMD $ARGS_PATTERN; done)"
 			
 		if [ $DUMP_MODE -eq 1 ]; then
@@ -263,8 +263,7 @@ END
 	unset $VAR
 	unset __sys_exec_cmd_forall_usage
 	
-	return $?	
-
+	return $?
 }
 
 # Alias 

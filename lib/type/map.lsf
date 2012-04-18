@@ -45,8 +45,19 @@ alias map_def=array_def
 
 
 # Restituisce il valore della mappa associato alla chiave passata come parametro.
-alias map_get=array_get
-
+map_get()
+{
+	[ $# -gt 1 ] || return 1
+	
+	local VAR_NAME="$1"
+	local i="$2"
+	
+	map_is_empty $VAR_NAME && return 1
+	
+	eval "echo \${${VAR_NAME}[$i]}"
+	
+	return 0
+}
 
 # Inserisce nella mappa la coppia chiave-valore. Se esiste, viene sovrascritto
 # il precendente valore.
@@ -93,9 +104,14 @@ map_entry_set()
 {
 	[ $# -gt 0 ] || return 1
 	
-	for key in $(map_keyset $1); do
-		echo "$key='$(map_get $1 "$key")'"
-	done
+	map_def $1 | awk '
+	{ 
+		sub("^.*=\( *\[\"", ""); 
+		sub("\" *\)$", ""); 
+		gsub("\"\]=\"", "="); 
+		gsub("\" \[\"","\n"); 
+		print $0
+	}'
 }
 
 
