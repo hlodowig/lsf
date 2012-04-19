@@ -52,7 +52,7 @@ map_get()
 	local VAR_NAME="$1"
 	local i="$2"
 	
-	map_is_empty $VAR_NAME && return 1
+	array_is_empty $VAR_NAME && return 1
 	
 	eval "echo \${${VAR_NAME}[$i]}"
 	
@@ -104,7 +104,7 @@ map_entry_set()
 {
 	[ $# -gt 0 ] || return 1
 	
-	map_def $1 | awk '
+	array_def $1 | awk '
 	{ 
 		sub("^.*=\( *\[\"", ""); 
 		sub("\" *\)$", ""); 
