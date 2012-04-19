@@ -76,6 +76,7 @@ else
 		lsf_load_module "shell"   &&
 		lsf_shell "$@"
 	else
+		lsf_init > /dev/null &&
 		lsf_main "$@"
 	fi
 fi
