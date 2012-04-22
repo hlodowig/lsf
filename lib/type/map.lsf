@@ -76,13 +76,7 @@ map_put()
 
 
 # Restituisce le chiavi di una mappa.
-map_keyset()
-{
-	[ $# -gt 0 ] || return 2
-	
-	 array_keyset $1 | awk '{printf "\"%s\"\n", $0}' | tr \" \'
-	
-}
+alias map_keyset=array_keyset
 
 # Restituisce i valori di una mappa con quoting.
 #

@@ -69,13 +69,26 @@ array_def()
 #   4
 #   7
 #
+# > ARRAY_NAME=( [0]='item 1' [4]='item 2' [7]='item 3' )
+# > array_keyset ARRAY_NAME INDEXES
+# > for INDEX in "${INDEXES[@]}"; do echo $INDEX; done
+#   0
+#   4
+#   7
+#
 array_keyset()
 {
 	[ $# -gt 0 ] || return 2
 	
-	array_def $1 | grep -o -E -e "\[[^]]+\]" | 
-	awk '{gsub("[[]\"?|\"?[]]",""); print}'
+	local ARRAY_VAR="$1"
+	local KEY_SET_VAR="$2"
 	
+	if [ -z "$KEY_SET_VAR" ]; then
+		array_def $ARRAY_VAR | grep -o -E -e "\[[^]]+\]" | 
+		awk '{gsub("[[]|[]]",""); print}'
+	else
+		eval "$KEY_SET_VAR=( `array_keyset $ARRAY_VAR` )"
+	fi
 }
 
 # Restituisce i valori di un array con quoting.
