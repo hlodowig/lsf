@@ -32,7 +32,6 @@ DESCRIPTION
 	
 	
 GENERIC OPTIONS
-	
 	-v, --verbose
 	    Stampa informazioni dettagliate.
 	
@@ -56,7 +55,7 @@ COMMAND OPTIONS
 	    Imposta il valore della variabile d'ambiente LIB_PATH.
 	
 	-f, --find
-	    Verifica se un path appartiena alla lista della variabile d'ambiente LIB_PATH.
+	    Verifica se un path appartiene alla lista della variabile d'ambiente LIB_PATH.
 	
 	-a, --add
 	    Aggiunge un path o una lista di path alla variabile d'ambiente LIB_PATH.
@@ -71,7 +70,7 @@ COMMAND OPTIONS
 	    Stampa la lista di path della variabile d'ambiente LIB_PATH.
 	
 	-h, --help
-	    Stampa questa messaggio e esce.
+	    Stampa questa messaggio ed esce.
 	
 END
 	) | less

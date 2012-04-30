@@ -183,7 +183,7 @@ map_to_array()
 	unset $MAP_NAME
 	
 	declare -g -a $MAP_NAME
-
+	
 	eval "$MAP_NAME=( $values )"
 	
 	return 0
@@ -201,7 +201,7 @@ map_to_set()
 	unset $MAP_NAME
 	
 	declare -g -a $MAP_NAME
-
+	
 	eval "$MAP_NAME=( $(echo $values| sort | uniq ))"
 	
 	return 0

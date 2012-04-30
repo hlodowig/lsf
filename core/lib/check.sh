@@ -54,7 +54,7 @@ lib_check()
 		case "$1" in
 		-f|--print-files)    PRINT_FILES=1                       ; shift   ;;
 		-F|--no-print-files) PRINT_FILES=0                       ; shift   ;;
-		-h|--help) __lib_detect_collision $FUNCNAME              ; return 0;;
+		-h|--help)           __lib_check_usage $FUNCNAME         ; return 0;;
 		--) shift;;
 		*) break;;
 		esac
