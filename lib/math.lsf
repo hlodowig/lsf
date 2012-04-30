@@ -37,7 +37,7 @@ math_sum()
 math_sub()
 {
 	[ $# -ge 2 ] || return 1
-
+	
 	local sub=$1
 	shift
 	
@@ -58,7 +58,7 @@ math_sub()
 math_mul()
 {
 	[ $# -ge 2 ] || return 1
-
+	
 	local prod=$1
 	shift 
 	
@@ -79,7 +79,7 @@ math_mul()
 math_div()
 {
 	[ $# -ge 2 ] || return 1
-
+	
 	local quot=$1
 	shift
 	
@@ -100,7 +100,7 @@ math_div()
 math_div_int()
 {
 	[ $# -ge 2 ] || return 1
-
+	
 	local quot=$1
 	shift
 	

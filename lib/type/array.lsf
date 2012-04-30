@@ -104,7 +104,7 @@ array_values()
 	
 	local VAR_NAME=$1
 
-	eval "for val in \"\${${VAR_NAME}[@]}\"; do echo \'\$val\'; done"
+	eval "for val in \"\${${VAR_NAME}[@]}\"; do echo \\\"\$val\\\"; done"
 }
 
 # Restituisce il valore di un array nella posizione specificata.

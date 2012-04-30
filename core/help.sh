@@ -13,7 +13,7 @@ NAME
 SYNOPSIS
 	$CMD <command> [<options>]
 	
-	$CMD [-|--verbose]
+	$CMD [-v|--verbose]
 	
 	$CMD -h|--help|-?|help
 	

@@ -28,9 +28,10 @@ map_create()
 # Distrugge una mappa.
 #
 # ES.
-# > MAP_NAME=()
+# > map_create  MAP_NAME
 # > map_destroy MAP_NAME
 #
+# @see array_destroy
 alias map_destroy=array_destroy
 
 
@@ -41,10 +42,18 @@ alias map_destroy=array_destroy
 # > map_def MAP_NAME
 #   MAP_NAME=( [0]='item 0' [4]='item 4' [7]='item 7' )
 #
+# @see array_def
 alias map_def=array_def
 
 
 # Restituisce il valore della mappa associato alla chiave passata come parametro.
+#
+# ES.
+# > map_create MAP_NAME
+# > map_put MAP_NAME 'key 1' 'value 1'
+# > map_get MAP_NAME 'key 1'
+#   'value 1'
+#
 map_get()
 {
 	[ $# -gt 1 ] || return 1
@@ -61,6 +70,15 @@ map_get()
 
 # Inserisce nella mappa la coppia chiave-valore. Se esiste, viene sovrascritto
 # il precendente valore.
+#
+# ES.
+# > map_create MAP_NAME
+# > map_put MAP_NAME 'key' 'value'
+# > map_get MAP_NAME 'key'
+#   'value'
+# > map_put MAP_NAME 'key' 'new value'
+#   'new value'
+#
 map_put()
 {
 	[ $# -gt 2 ] || return 1
@@ -76,23 +94,39 @@ map_put()
 
 
 # Restituisce le chiavi di una mappa.
+#
+# ES.
+# > map_create MAP_NAME
+# > map_put MAP_NAME 'key 1' 'value 1'
+# > map_put MAP_NAME 'key 2' 'value 2'
+# > map_keyset MAP_NAME
+#   "key 1"
+#   "key 2"
+#
+# @see array_keyset
 alias map_keyset=array_keyset
 
 # Restituisce i valori di una mappa con quoting.
 #
 # ES.
-# > MAP_NAME=( 'item 1' 'item 2' 'item 3' )
+# > map_create MAP_NAME
+# > map_put MAP_NAME 'key 1' 'value 1'
+# > map_put MAP_NAME 'key 2' 'value 2'
 # > map_values MAP_NAME
-#   'item 1' 'item 2' 'item 3'
+#   "value 1"
+#   "value 2"
 #
+# @see array_values
 alias map_values=array_values
 
-# Restituisce i valori di un set.
+# Restituisce l'insieme delle chiavi.
 #
 # ES.
-# > MAP_NAME=( item1 item2 item3 )
-# > map_get MAP_NAME
-#   item1 item2 item3
+# > map_put MAP_NAME 'key 1' 'value 1'
+# > map_put MAP_NAME 'key 2' 'value 2'
+# > map_entry_set MAP_NAME
+#   key 1=value 1
+#   key 2=value 2
 #
 map_entry_set()
 {
@@ -100,66 +134,102 @@ map_entry_set()
 	
 	array_def $1 | awk '
 	{ 
-		sub("^.*=\( *\[\"", ""); 
-		sub("\" *\)$", ""); 
-		gsub("\"\]=\"", "="); 
-		gsub("\" \[\"","\n"); 
+		sub("^.*=[(] *[[]\"", ""); 
+		sub("\" *[)]$", ""); 
+		gsub("\"[]]=\"", "="); 
+		gsub("\" [[]\"","\n"); 
 		print $0
 	}'
 }
 
 
+# Restituisce la dimensione di una mappa.
+#
+# ES.
+# > map_create MAP_NAME
+# > map_put MAP_NAME 'key 1' 'value 1'
+# > map_size MAP_NAME
+#   1
+# > map_remove MAP_NAME 'key 1'
+# > map_size MAP_NAME
+#   0
+# @see array_remove
 alias map_remove=array_remove
 
 
-# Restituisce la dimensione di un array.
+# Restituisce la dimensione di una mappa.
 #
 # ES.
-# > ARRAY_NAME=( item1 item2 item3 )
-# > array_length ARRAY_NAME
-#   3
-#
+# > map_create MAP_NAME
+# > map_put MAP_NAME 'key 1' 'value 1'
+# > map_put MAP_NAME 'key 2' 'value 2'
+# > map_size MAP_NAME
+#   2
+# @see array_size
 alias map_size=array_size
 
 
 # Rimuove tutti i valore di un mappa.
 #
 # ES.
-# > MAP_NAME=( item1 item2 item3 )
+# > map_create MAP_NAME
+# > map_put MAP_NAME 'key 1' 'value 1'
+# > map_put MAP_NAME 'key 2' 'value 2'
+# > map_size MAP_NAME
+#   2
 # > map_clear MAP_NAME
+# > map_size MAP_NAME
+#   0
 # > map_get MAP_NAME
 #   (empty string)
 #
+# @see array_clear
 alias map_clear=array_clear
 
-# Restituisce un exit code pari a 0 se l'mappa è vuoto, altrimenti 1.
+# Restituisce un exit code pari a 0 se la mappa è vuota, altrimenti 1.
 #
 # ES.
-# > MAP_NAME=( )
+# > map_create MAP_NAME
 # > map_is_empty MAP_NAME
 # > echo $?
 #   0
 #
-# > MAP_NAME=( item1 )
+# > map_create MAP_NAME
+# > map_put MAP_NAME 'key 1' 'value 1'
 # > map_is_empty MAP_NAME
 # > echo $?
 #   1
 #
+# @see array_is_empty
 alias map_is_empty=array_is_empty
 
-# Restituisce 0 se l'mappa contiene l'elemento specificato, altrimenti 1.
+# Restituisce 0 se la mappa contiene l'elemento specificato, altrimenti 1.
 #
-# > MAP_NAME=( item1 item2 item3 )
-# > map_contains MAP_NAME item3
+# > map_create MAP_NAME
+# > map_put MAP_NAME 'key3' 'value3'
+# > map_contains_value MAP_NAME 'value3'
 # > echo $?
 #   0
 #
-# > map_contains MAP_NAME item5
+# > map_contains_value MAP_NAME 'value5'
 # > echo $?
 #   1
 #
+# @see array_contains
 alias map_contains_value=array_contains
 
+# Restituisce 0 se la mappa contiene la chiave specificato, altrimenti 1.
+#
+# > map_create MAP_NAME
+# > map_put MAP_NAME 'key 1' 'value 1'
+# > map_contains_key MAP_NAME 'key 1'
+# > echo $?
+#   0
+#
+# > map_contains_key MAP_NAME 'key 2'
+# > echo $?
+#   1
+#
 map_contains_key()
 {
 	[ $# -gt 1 ] || return 1
@@ -207,6 +277,9 @@ map_to_set()
 	return 0
 }
 
+# Trasforma una mappa in una stringa.
+#
+# @see array_to_string
 alias map_to_string=array_to_string
 
 
