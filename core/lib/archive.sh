@@ -114,12 +114,12 @@ COMMAND OPTIONS
 	
 	--clear-temp
 	    Senza parametri, cancella tutte le cartelle temporanee in /tmp/lst-*
-	    Se viene passato l'indentificativo di un archivio, cancella solamente
+	    Se viene passato l'identificativo di un archivio, cancella solamente
 	    la cartella temporanea associata a quest'ultimo, se esiste.
 	
 	--clear-track
 	    Senza parametri, svuota la mappa per il tracking degli archivi estratti.
-	    Se viene passato l'indentificativo di un archivio, cancella solamente
+	    Se viene passato l'identificativo di un archivio, cancella solamente
 	    l'entri della mappa associata a quest'ultimo, se esiste.
 	
 	--clear

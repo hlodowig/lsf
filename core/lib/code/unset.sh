@@ -50,7 +50,7 @@ lib_unset()
 	else
 		libs="$@"
 	fi
-
+	
 	for libfile in $libs; do
 		__lib_unset $libfile
 	done

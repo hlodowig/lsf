@@ -20,7 +20,8 @@
 
 # Lista dei moduli core.
 LIB_MODULES=( path name archive find apply test enable disable import include
-              update list_apply list depend check code/unset )
+              update list_apply list depend check
+              code/def_find code/def_get code/def_list code/unset )
 
 # Lista dei file di libreria importati.
 LIB_FILE_LIST="${LIB_FILE_LIST:-""}"

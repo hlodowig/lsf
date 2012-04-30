@@ -12,11 +12,11 @@ lib_def_get()
 	
 	while true ; do
 		case "$1" in
-		-l|--libname) 	LIB_FILE=$(lib_find        $2) ; shift 2;;
-		-f|--libfile)   LIB_FILE=$(lib_find --file $2) ; shift 2;;
-		-A|--alias-name)    TYPE="-A"                  ; shift ;;
-		-F|--function-name) TYPE="-F"                  ; shift ;;
-		-V|--variable-name) TYPE="-V"                  ; shift ;;
+		-l|--libname)       LIB_FILE=$(lib_find        $2) ; shift 2;;
+		-f|--libfile)       LIB_FILE=$(lib_find --file $2) ; shift 2;;
+		-A|--alias-name)    TYPE="-A"                      ; shift  ;;
+		-F|--function-name) TYPE="-F"                      ; shift  ;;
+		-V|--variable-name) TYPE="-V"                      ; shift  ;;
 		-h|--help) echo "$FUNCNAME [-A|-V|-F] <name> [-l|--libname] <libname>"
 		           echo "$FUNCNAME [-A|-V|-F] <name> [-f|--libfile] <libfile>"
 		           return 0;;
@@ -26,14 +26,14 @@ lib_def_get()
 	done
 	
 	DEF_NAME="$1"
-
+	
 	if [ -z "$LIB_FILE" ]; then
 		LIB_FILE=$(lib_def_find --filename $TYPE $DEF_NAME)
 		
 		if [ -z "$TYPE" ]; then
 			TYPE="$(echo "$LIB_FILE" | awk '{print $1}')"
 			LIB_FILE="$(echo "$LIB_FILE" | awk '{print $2}')"
-
+			
 			case "$TYPE" in
 			\[ALS\]) TYPE="-A";;
 			\[FUN\]) TYPE="-F";;
@@ -41,11 +41,11 @@ lib_def_get()
 			esac
 		fi
 	fi
-		
+	
 	[ -n "$LIB_FILE" ] || return 2
 	[ -n "$TYPE"     ] || return 3
-
-		
+	
+	
 	__get_alias_def()
 	{
 		local ALIAS_NAME="$1"
@@ -83,7 +83,7 @@ lib_def_get()
 	{
 		local FUN_NAME="$1"
 		local LIB_FILE="$2"
-
+		
 		echo "F=$FUN_NAME, LIB=$LIB_NAME, LINE=$LINE"
 		
 		local LINE=$(eval "cat $LIB_FILE  | awk '/^$FUN_NAME\(\)/ { print FNR}'");
@@ -109,7 +109,7 @@ lib_def_get()
 	-F) __get_function_def $DEF_NAME $LIB_FILE;;
 	-V) __get_variable_def $DEF_NAME $LIB_FILE;;
 	esac
-
+	
 	
 	unset __get_alias_def
 	unset __get_variable_def
@@ -131,7 +131,7 @@ lib_def_get_description()
 	local alias_name=""
 	local variable_name=""
 	local function_name=""
-
+	
 	while true ; do
 		case "$1" in
 		-f|--file)          FIND_OPT="$1"      ; shift  ;;
@@ -180,7 +180,7 @@ lib_def_get_description()
 		[ -n "$ITEM_REGEX" ] || return 3
 		
 		local LINE=$(eval "cat $LIB_FILE  | awk 'BEGIN { first=0 }; first==0 && /^ *$ITEM_REGEX/ { print FNR; first=1}'");
-
+		
 		[ -n "$LINE" ] || return 1
 		
 		local VARS=$(cat $LIB_FILE  | awk -v LINE=$LINE '

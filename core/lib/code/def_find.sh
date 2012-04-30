@@ -88,7 +88,7 @@ lib_def_find()
 		
 		return 1
 	}
-
+	
 	local libs=
 	
 	if [ $# -eq 0 ]; then
@@ -111,7 +111,7 @@ lib_def_find()
 	done
 	
 	unset __find_def
-
+	
 	return $exit_code
 }
 
