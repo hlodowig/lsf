@@ -1,0 +1,4 @@
+
+HOST_MSG="Nome computer: %1"
+USER_MSG="Nome   utente: %1"
+

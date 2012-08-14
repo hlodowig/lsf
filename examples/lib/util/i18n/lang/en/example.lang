@@ -1,0 +1,4 @@
+
+HOST_MSG="Hostname: %1"
+USER_MSG="Username: %1"
+
