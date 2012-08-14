@@ -66,6 +66,8 @@ fs_get_absolute_path()
 	fi
 	
 	echo $FILEPATH
+	
+	#readlink -m $*
 }
 
 # Converte un path assoluto in un path relativo, se necessario.

@@ -1,0 +1,284 @@
+################################################################################
+# I18N Library                                                                 #
+################################################################################
+#
+# Libreria contenente definizioni e funzioni per il supporto all'internazionalizzazione.
+#
+# Copyright (C) 2012 - Luigi Capraro (luigi.capraro@gmail.com)
+#
+
+lib_include fs
+lib_include type:set
+lib_include type:map
+
+
+I18N_MSG_EXT=lang
+I18N_TXT_EXT=ltxt
+
+i18n_get_lang_path()
+{
+	map_get I18N_PATH "$1"
+}
+
+i18n_get_lang()
+{
+	map_get I18N_LANG "$1"
+}
+
+
+i18n_set_language()
+{
+	if [ $# -lt 2 ]; then
+		return 1
+	fi
+	
+	local app_id="$1"
+	local app_lang="$2"
+	
+	local app_lang_path="$(i18n_get_lang_path "$app_id" )"
+	
+	test -n "$app_lang_path" || return 2
+	
+	local exit_code=1
+	
+	if [ -f "${app_lang_path}/${app_lang}.$I18N_MSG_EXT" ]; then
+		#echo "LANG: load ${app_lang_path}/${app_lang}.$I18N_MSG_EXT"
+		source "${app_lang_path}/${app_lang}.$I18N_MSG_EXT"
+		exit_code=0
+	fi
+	
+	if [ -d "${app_lang_path}/${app_lang}" ]; then
+		
+		for file in $(eval ls "${app_lang_path}/${app_lang}/*.$I18N_MSG_EXT" 2> /dev/null); do
+			#echo "LANG: load $file"
+			source "$file"
+		done
+		
+		exit_code=0
+	fi
+	
+	if [ $exit_code -eq 0 ]; then
+		if ! map_def I18N_LANG > /dev/null; then
+			map_create I18N_LANG
+		fi
+		
+		map_put I18N_LANG "$app_id" "${app_lang}"
+	fi
+	
+	return $exit_code
+}
+
+
+i18n_init()
+{
+	if [ $# -lt 2 ]; then
+		
+		return 1
+	fi
+	
+	local app_id="$1"
+	local app_lang_path="$(fs_get_absolute_path $2)"
+	local app_lang_default="${3:-default}"
+	
+	if [ ! -d "$app_lang_path" ]; then
+		return 2
+	fi
+	
+	if ! map_def I18N_PATH > /dev/null; then
+		map_create I18N_PATH
+	fi
+	
+	map_put I18N_PATH "$app_id" "$app_lang_path"
+	
+	i18n_set_language "$app_id" "${app_lang_default:-default}"
+}
+
+
+i18n_set_default_language()
+{
+	if [ $# -lt 2 ]; then
+		return 1
+	fi
+	
+	local app_id="$1"
+	local app_lang="$2"
+	
+	local app_lang_path="$(i18n_get_lang_path "$app_id" )"
+	
+	test -n "$app_lang_path" || return 2
+	
+	local exit_code=1
+	
+	(cd "${app_lang_path}"
+	
+	if [ -f "${app_lang}.$I18N_MSG_EXT" ]; then
+		if [ -L "default.$I18N_MSG_EXT" ]; then
+			rm -f "default.$I18N_MSG_EXT"
+		fi
+		
+		ln -s "${app_lang}.$I18N_MSG_EXT" "default.$I18N_MSG_EXT"
+		exit_code=0
+	fi
+	
+	for file in $(eval ls "*.${app_lang}.$I18N_TXT_EXT" 2> /dev/null); do
+		local dfile="$(echo $file | awk -vL=.${app_lang}. '{gsub(L,".default."); print}')"
+		if [ -L "$dfile" ]; then
+			rm -f "$dfile"
+		fi
+		
+		ln -s "$file" "$dfile"
+	done
+	
+	if [ -d "${app_lang}" ]; then
+		if [ -L "default" ]; then
+			rm -f "default"
+		fi
+		
+		ln -s "${app_lang}" "${app_lang_path}/default"
+		exit_code=0
+	fi
+	)
+	
+	return $exit_code
+}
+
+__i18n_get()
+{
+	local template="eval 'echo \"\$$1\"'"
+	shift
+	#echo "STEP 0: [$template]"
+	local message=$(eval "$template")
+	#echo "STEP 1: [$message]"
+	message=$(echo "$message" | sed s/\\\\/\\\\\\\\/g | sed s/\'/\\\\\'/g)
+	#echo "STEP 2: [$message]"
+	
+	template="eval 'echo \"${message//%/$}\"'"
+	message=$(eval "$template" | tr % $)
+	#echo "STEP 3: [$message]"
+	
+	eval "echo \"$message\""
+}
+
+
+i18n_get_message()
+{
+	echo -en "$(__i18n_get "$@")"
+}
+
+i18n_get_text()
+{
+	if [ $# -lt 2 ]; then
+		return 1
+	fi
+	
+	local app_id="$1"
+	local txt_id="$2"
+	
+	shift 2
+	
+	local app_lang="$(i18n_get_lang "$app_id" )"
+	local app_lang_path="$(i18n_get_lang_path "$app_id" )"
+	
+	test -n "$app_lang"      || return 2
+	test -n "$app_lang_path" || return 3
+	
+	local exit_code=1
+	
+	__i18n_parse_text()
+	{
+		local text="$(cat "$1" )"
+		shift
+		local i=0
+		
+		while [ $# -gt 0 ]; do
+			let i=i+1
+			text=$(echo "$text" | awk -vS="%${i}" -vR="$1" '{gsub(S,R); print}')
+			shift
+		done
+		echo "$text"
+	}
+	
+	if [ -f "${app_lang_path}/${txt_id}.${app_lang}.$I18N_TXT_EXT" ]; then
+		__i18n_parse_text "${app_lang_path}/${txt_id}.${app_lang}.$I18N_TXT_EXT" "$@"
+		exit_code=0
+	elif [ -f "${app_lang_path}/${app_lang}/${txt_id}.$I18N_TXT_EXT" ]; then
+		__i18n_parse_text "${app_lang_path}/${app_lang}/${txt_id}.$I18N_TXT_EXT" "$@"
+		exit_code=0
+	fi
+	
+	return $exit_code
+}
+
+
+i18n_list_message()
+{
+	if [ $# -lt 2 ]; then
+		return 1
+	fi
+	
+	local app_id="$1"
+	local app_lang="$2"
+	
+	local app_lang_path="$(i18n_get_lang_path "$app_id" )"
+	
+	test -n "$app_lang_path" || return 2
+	
+	local exit_code=1
+	
+	if [ -f "${app_lang_path}/${app_lang}.$I18N_MSG_EXT" ]; then
+		#echo "LANG: file ${app_lang_path}/${app_lang}.$I18N_MSG_EXT"
+		cat "${app_lang_path}/${app_lang}.$I18N_MSG_EXT" | grep -v -E -e "^$|^ *#"
+		exit_code=0
+	fi
+	
+	if [ -d "${app_lang_path}/${app_lang}" ]; then
+		
+		for file in $(eval ls "${app_lang_path}/${app_lang}/*.$I18N_MSG_EXT" 2> /dev/null); do
+			#echo "LANG: file $file"
+			cat "$file" | grep -v -E -e "^$|^ *#"
+		done
+		
+		exit_code=0
+	fi
+	
+	return $exit_code
+}
+
+i18n_list_message_id()
+{
+	i18n_get_message_list "$@" | awk '{ gsub("=.*$",""); print}'
+}
+
+
+i18n_print()
+{
+	__i18n_create_cmd()
+	{
+		echo $@ | awk '{ gsub("%", "__i18n_get "); gsub("[(] *", " \""); gsub(" *[)]", "\""); gsub(" *, *", "\" \""); print}'
+	}
+	
+	local string="$@"
+	subs=""
+	
+	eval `echo "$string" | grep -o -E -e "%[a-zA-Z][^\( ]+([(][^\)]*[)])?" | awk '{ print "set_add ___R \"" $0 "\";" }'`
+	
+	for match in "${___R[@]}"; do
+		subs="$(__i18n_create_cmd $match)"
+		
+		subs=$(eval $subs | sed s/\\\\/\\\\\\\\/g)
+		
+		match="$(echo $match | sed s/\(/\[\(\]/g | sed s/\)/\[\)\]/g )"
+		
+		string="$(echo $string | gawk -vS="$match" -vR="$subs" '{gsub(S,R); print}')"
+	done;
+	
+	set_destroy ___R
+	
+	echo -en "$string"
+}
+
+i18n_println()
+{
+	i18n_print "$@"; echo
+}
+
