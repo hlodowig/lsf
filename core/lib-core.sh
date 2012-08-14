@@ -104,7 +104,7 @@ __lib_list_files_get_mod_time()
 {
 	local lib="$(__lib_get_absolute_path "$1")"
 	
-	echo -e "$LIB_FILE_LIST" | grep -E -e "$lib" | awk '{gsub("[^0-9]+",""); print}'
+	echo -e "$LIB_FILE_LIST" | grep -E -e "$lib" | awk '{gsub("/.*",""); print}'
 }
 
 for module in ${LIB_MODULES[@]}; do

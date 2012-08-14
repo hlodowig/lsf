@@ -276,7 +276,7 @@ lib_import()
 	LIB_FILE=$(lib_find $LIB_PATH_OPT $FIND_OPT $LIB)
 	
 	if [ -z "$LIB_FILE" ]; then
-		[ $QUIET -eq 1 ] || lsf_log "LIB: library '$LIB' not found!"	
+		[ $QUIET -eq 1 ] || lsf_log "LIB: library '$LIB' not found!"
 		return 1
 	fi
 	

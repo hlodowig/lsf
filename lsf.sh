@@ -44,7 +44,6 @@ LSF_MODULES=( common log version lib-core keywords export exit help shell main )
 
 lsf_init()
 {
-	
 	local module=""
 	local modfile=""
 	
